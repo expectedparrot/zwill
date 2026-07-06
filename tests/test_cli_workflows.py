@@ -551,7 +551,12 @@ def test_report_build_creates_incremental_bundle(tmp_path: Path, monkeypatch) ->
     pages = {row["page_id"]: row for row in manifest["pages"]}
     assert (report_dir / "index.html").exists()
     assert (report_dir / "report" / "index.html").exists()
+    assert (report_dir / "CHECKLIST.md").exists()
+    assert (report_dir / "report" / "CHECKLIST.md").exists()
     assert (report_dir / "facts" / "survey-profile.json").exists()
+    assert stage_manifest["checklist_path"] == str(report_dir / "CHECKLIST.md")
+    assert "zwill report build --survey demo" in " ".join(stage_manifest["canonical_commands"])
+    assert {page["page_id"] for page in stage_manifest["pages"]} >= {"survey-profile", "one-shot-marginals", "twin-validation"}
     assert stage_manifest["stages"]["facts"]["status"] == "ready"
     assert stage_manifest["stages"]["analysis"]["status"] == "blocked"
     assert (report_dir / "survey-profile.html").exists()
@@ -635,6 +640,10 @@ def test_report_build_creates_incremental_bundle(tmp_path: Path, monkeypatch) ->
     assert 'href="executive-summary.html"' not in index_html
     assert 'href="audit/twin-run-fixture-twin.html"' in index_html
     assert index_html.count('class="step ready"') + index_html.count('class="step not_ready"') == 3
+    checklist = (report_dir / "CHECKLIST.md").read_text()
+    assert ".zwill` remains the system of record" in checklist
+    assert "Twin Validation (primary): ready" in checklist
+    assert "Twin Run Audit (supporting): ready" in checklist
     twin_data = json.loads((report_dir / "data" / "twin-validation.json").read_text())
     assert twin_data["raw_prediction_rows_included"] is False
     assert "rows" not in twin_data

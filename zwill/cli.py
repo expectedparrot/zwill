@@ -1241,6 +1241,48 @@ def report_stage_status(*, ready: bool, label: str, files: list[str], missing: l
     }
 
 
+def render_report_bundle_checklist(stage_manifest: dict[str, Any]) -> str:
+    survey = str(stage_manifest.get("survey") or "")
+    lines = [
+        f"# {survey} Report Bundle Checklist" if survey else "# Report Bundle Checklist",
+        "",
+        "This file is a read-only workflow view. `.zwill` remains the system of record for survey state, approvals, imports, generated report metadata, and result manifests.",
+        "",
+        "## Stages",
+        "",
+    ]
+    for stage_id, stage in (stage_manifest.get("stages") or {}).items():
+        status = str(stage.get("status") or "")
+        label = str(stage.get("label") or stage_id)
+        lines.append(f"- [{'x' if status == 'ready' else ' '}] {label} (`{stage_id}`): {status}")
+        missing = stage.get("missing") or []
+        if missing:
+            lines.append(f"  - Missing: {', '.join(str(item) for item in missing)}")
+        next_step = stage.get("next_step")
+        if next_step:
+            lines.append(f"  - Next: `{next_step}`")
+    pages = stage_manifest.get("pages") or []
+    if pages:
+        lines.extend(["", "## Pages", ""])
+        for page in pages:
+            role = "primary" if page.get("primary", True) else "supporting"
+            status = str(page.get("status") or "")
+            title = str(page.get("title") or page.get("page_id") or "")
+            path = page.get("path")
+            lines.append(f"- [{'x' if status == 'ready' else ' '}] {title} ({role}): {status}")
+            if path:
+                lines.append(f"  - Path: `{path}`")
+            if page.get("next_step"):
+                lines.append(f"  - Next: `{page['next_step']}`")
+    commands = stage_manifest.get("canonical_commands") or []
+    if commands:
+        lines.extend(["", "## Canonical Commands", ""])
+        for command in commands:
+            lines.append(f"- `{command}`")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def page_is_ready(manifest: dict[str, Any], page_id: str) -> bool:
     return any(page.get("page_id") == page_id and page.get("status") == "ready" for page in manifest.get("pages", []))
 
@@ -1392,6 +1434,28 @@ def write_report_stage_artifacts(output_dir: Path, manifest: dict[str, Any]) -> 
             next_step="Ready." if generated_analysis_ready else first_generated_next,
         ),
     }
+    page_views = [
+        {
+            "page_id": page.get("page_id"),
+            "title": page.get("title"),
+            "stage": page.get("stage"),
+            "status": page.get("status"),
+            "primary": page.get("primary", True),
+            "path": page.get("path"),
+            "data_path": page.get("data_path"),
+            "next_step": page.get("next_step"),
+        }
+        for page in manifest.get("pages", [])
+    ]
+    canonical_commands = []
+    if survey:
+        canonical_commands.extend(
+            [
+                f"zwill report list --survey {survey}",
+                f"zwill report build --survey {survey} --path {output_dir}",
+                f"zwill report render --survey {survey} --path {output_dir} --final",
+            ]
+        )
     stage_manifest = {
         "survey": manifest.get("survey"),
         "generated_at": manifest.get("generated_at"),
@@ -1399,9 +1463,18 @@ def write_report_stage_artifacts(output_dir: Path, manifest: dict[str, Any]) -> 
         "facts_dir": str(facts_dir),
         "analysis_dir": str(analysis_dir),
         "report_dir": str(rendered_dir),
+        "report_catalog_path": str(data_dir / "report-catalog.json"),
+        "report_manifest_path": str(output_dir / "report-manifest.json"),
+        "checklist_path": str(output_dir / "CHECKLIST.md"),
         "stages": stages,
+        "pages": page_views,
+        "canonical_commands": canonical_commands,
         "required_generated_interpretations": required_generated,
     }
+    checklist_markdown = render_report_bundle_checklist(stage_manifest)
+    (output_dir / "CHECKLIST.md").write_text(checklist_markdown)
+    (rendered_dir / "CHECKLIST.md").parent.mkdir(parents=True, exist_ok=True)
+    (rendered_dir / "CHECKLIST.md").write_text(checklist_markdown)
     write_bundle_json(output_dir / "stage-manifest.json", stage_manifest)
     write_bundle_json(facts_dir / "facts-manifest.json", stage_manifest)
     write_bundle_json(analysis_dir / "analysis-manifest.json", stage_manifest)
