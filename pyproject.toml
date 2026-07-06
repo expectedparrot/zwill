@@ -1,0 +1,28 @@
+[project]
+name = "zwill"
+version = "0.1.0"
+description = "Python CLI for building survey datasets."
+requires-python = ">=3.10"
+dependencies = [
+    "python-dotenv>=1.0",
+    "PyYAML>=6.0",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+zwill = "zwill.cli:main"
+
+[tool.setuptools.package-data]
+zwill = [
+    "skills/*/SKILL.md",
+    "skills/*/agents/openai.yaml",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

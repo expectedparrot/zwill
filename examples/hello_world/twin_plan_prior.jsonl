@@ -1,0 +1,1 @@
+{"material_id":"likes_blue_one_shot_prior","kind":"model_prior","question":"likes_blue","title":"One-shot model prior for likes_blue","body_markdown":"A separate one-shot model estimate for this toy population is: Yes 0.60, No 0.40. Treat this as a weak prior, not as respondent-specific evidence."}

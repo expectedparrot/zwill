@@ -1,0 +1,12 @@
+{
+  "survey": {
+    "name": "hiring_study",
+    "status": "draft",
+    "raw_files": 2,
+    "questions": 5,
+    "respondents": 6,
+    "answers": 30,
+    "open_quarantine_issues": 0,
+    "committed": false
+  }
+}

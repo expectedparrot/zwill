@@ -1,0 +1,6 @@
+{"respondent_id":"r001","weight":1.25,"metadata":{"sample_source":"panel_a","age_band":"25-34"},"source":{"raw_id":"panel_export","note":"Weight from final_weight column."}}
+{"respondent_id":"r002","weight":0.85,"metadata":{"sample_source":"panel_b","age_band":"35-44"},"source":{"raw_id":"panel_export","note":"Weight from final_weight column."}}
+{"respondent_id":"r003","weight":1.10,"metadata":{"sample_source":"panel_a","age_band":"45-54"},"source":{"raw_id":"panel_export","note":"Weight from final_weight column."}}
+{"respondent_id":"r004","weight":0.95,"metadata":{"sample_source":"panel_c","age_band":"25-34"},"source":{"raw_id":"panel_export","note":"Weight from final_weight column."}}
+{"respondent_id":"r005","weight":1.40,"metadata":{"sample_source":"panel_b","age_band":"55-64"},"source":{"raw_id":"panel_export","note":"Weight from final_weight column."}}
+{"respondent_id":"r006","weight":0.75,"metadata":{"sample_source":"panel_c","age_band":"18-24"},"source":{"raw_id":"panel_export","note":"Weight from final_weight column."}}

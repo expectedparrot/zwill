@@ -1,0 +1,7 @@
+interface:
+  display_name: "Digital Twin Study Runner"
+  short_description: "Plan and run zwill survey twin studies."
+  default_prompt: "Use $digital-twin-study-runner to design and run a zwill digital twin study for this survey."
+policy:
+  allow_implicit_invocation: true
+

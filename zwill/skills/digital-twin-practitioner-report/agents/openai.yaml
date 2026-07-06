@@ -1,0 +1,7 @@
+interface:
+  display_name: "Digital Twin Practitioner Report"
+  short_description: "Write practical survey twin reports."
+  default_prompt: "Use $digital-twin-practitioner-report to write a practitioner-focused report from these zwill twin study artifacts."
+policy:
+  allow_implicit_invocation: true
+

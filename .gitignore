@@ -1,0 +1,10 @@
+.zwill/
+.env
+.venv/
+.pytest_cache/
+.DS_Store
+trash/
+__pycache__/
+*.py[cod]
+*.egg-info/
+examples/*/workdir/
