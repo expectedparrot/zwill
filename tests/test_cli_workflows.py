@@ -549,14 +549,22 @@ def test_executive_summary_prompt_asks_for_plain_language_use_examples() -> None
         }
     )
 
-    assert "written for non-technical decision makers" in prompt
-    assert "Do not lead with statistical test names or metric acronyms" in prompt
-    assert "## Reasonable Uses" in prompt
-    assert "## Uses To Avoid" in prompt
+    assert "decision makers get a short, shareable executive version first" in prompt
+    assert "Can we use digital twins here?" in prompt
+    assert "Avoid leading with terms such as" in prompt
+    assert "## What Digital Twins Are" in prompt
+    assert "## Bottom-Line Findings" in prompt
+    assert "## What The Twins Are Useful For Now" in prompt
+    assert "## What The Twins Should Not Be Used For" in prompt
+    assert "## Model Comparison" in prompt
     assert "## Twin-Specific Capabilities" in prompt
-    assert "## What This Validation Does Not Yet Test" in prompt
-    assert "full substitute for twins" in prompt
-    assert "specific examples, not generic categories" in prompt
+    assert "## Next Steps" in prompt
+    assert "## Risks And Required Checks Before Scaling" in prompt
+    assert "## Appendix A: Detailed Metrics" in prompt
+    assert "Copy/Paste Prompt Or Command" in prompt
+    assert "not a full replacement for respondent-level twins" in prompt
+    assert "reusable categories with brief examples from this survey" in prompt
+    assert "State each major recommendation once" in prompt
 
 
 def test_report_build_creates_incremental_bundle(tmp_path: Path, monkeypatch) -> None:

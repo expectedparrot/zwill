@@ -312,39 +312,140 @@ def build_executive_summary_report_context(
 def build_executive_summary_report_prompt(report_context: dict[str, Any]) -> str:
     return f"""You are writing the executive interpretation for a survey digital twin validation report.
 
-Use the recorded Expected Parrot diagnostics below. Do not invent data. The report body must be evidence-aware, but the executive summary must be written for non-technical decision makers. Avoid leading with terms such as "permutation test," "marginals," "NLL," "Brier," or "calibration." Use those terms only in the evidence section, and translate them into plain business meaning when they are necessary. Do not make claims contradicted by the diagnostics or baselines.
+Use the recorded diagnostics below. Do not invent data. Write for three audiences by separating the report clearly:
+- decision makers get a short, shareable executive version first;
+- researchers/product users get practical allowed/not-allowed uses and next steps;
+- technical auditors get metrics, baselines, and failure cases in appendices.
+
+The report must be decision-first. Avoid leading with terms such as "permutation test," "marginals," "NLL," "Brier," or "calibration." Use technical terms only when they are needed, and translate them into plain business meaning. Do not make claims contradicted by the diagnostics or baselines.
 
 Write Markdown only. Do not include a top-level title. Use these sections:
 
 ## Executive Summary
-Give the decision-facing bottom line in plain language. State what the twins are useful for now, what they are not ready for, and the most important caveat. Do not lead with statistical test names or metric acronyms. If respondent-specific matching was not demonstrated, say that in ordinary language, for example: "The twins captured broad response patterns, but did not reliably identify which specific respondent would choose which answer."
+Write a short shareable version, suitable for pasting into an email or slide. It must answer these questions directly in the first 8-12 sentences:
+- Can we use digital twins here?
+- For what uses?
+- For what not?
+- Which model should we use?
+- What validation should come next?
 
-## Reasonable Uses
-Give concrete examples of reasonable uses supported by the evidence. Examples might include using twins to explore likely reactions to draft survey questions, compare broad message directions, prioritize themes for additional research, or generate hypotheses for follow-up. Tailor the examples to the survey context and the observed validation strength.
+Use this decision framing unless contradicted by the supplied diagnostics: digital twins are useful for exploratory and directional research, especially with the best-calibrated model; they are not yet reliable enough for exact estimates, precise subgroup claims, high-stakes decisions, or individual-level targeting.
 
-## Uses To Avoid
-Give concrete examples of uses that are not supported by the evidence. Examples might include targeting individual respondents, replacing a real survey for exact population estimates, making high-stakes allocation decisions, or claiming precise subgroup effects when the validation did not establish that level of accuracy. Tailor the examples to the survey context and failure modes.
+Include a compact callout in prose:
+**Bottom line:** proceed with a limited exploratory pilot if the diagnostics support it; do not treat the twins as a substitute for a fielded survey or as reliable predictions for specific people.
 
-## What The Validation Shows
-Interpret the main evidence in accessible language: sample size, number of held-out questions, whether twins beat random guessing, whether they added respondent-specific information, whether they preserved option ordering or directional ranking, and where errors were concentrated. Use technical labels such as permutation test, marginal baseline, pairwise ordering, Spearman/rank diagnostics, NLL, Brier, and calibration only when needed, and immediately explain what they mean for the decision.
+## What Digital Twins Are
+Define digital twins in plain English. Explain that a digital twin is a model-conditioned representation of a respondent built from available context, then asked to predict held-out answers. Clarify that "digital twin," "persona," and "respondent-level simulation" refer to the same broad idea in this report. Define the tested twin condition with a stable label such as "Respondent-context twins"; do not use ambiguous labels like "baseline context model" without explaining them.
 
-## Baselines And What Personas Add
-Compare twins to uniform and to any available no-persona / one-shot marginal baseline, but do not frame the one-shot marginal baseline as a full substitute for twins. It is a cheap aggregate-distribution benchmark only. Explain separately whether the validation found respondent-specific signal and whether the twin-specific diagnostics support joint structure, subgroup slicing, or conditional consistency.
+Also define the comparison groups once:
+- Uniform random: a minimum sanity check.
+- Empirical marginal / oracle: a diagnostic benchmark that uses the true held-out answer distribution and is not available for genuinely new questions.
+- No-persona / one-shot baseline: a practical aggregate benchmark where the model predicts broad response distributions without respondent-level twins.
+
+## What We Tested
+Briefly describe the validation design:
+- source survey topic and available population size;
+- validation respondent count;
+- number of held-out questions;
+- models tested;
+- method: hide selected answers, ask twins to predict them, compare predictions to actual responses.
+
+Do not put dense metric tables here.
+
+## How To Interpret This Validation
+Separate three goals:
+1. Individual prediction: can the twin predict what a specific respondent answered?
+2. Aggregate distribution prediction: can the system estimate broad response patterns?
+3. Directional ranking: can the system identify which answer choices, themes, or question areas are likely higher or lower?
+
+Explain that individual prediction is the hardest bar; aggregate and ranking performance may be enough for exploratory research; the right baseline depends on the use case.
+
+## Bottom-Line Findings
+Use one concise table with columns: Finding, Result, Interpretation. Include only the highest-signal metrics:
+- exact-answer prediction;
+- probability assigned to actual answer;
+- respondent-specific signal versus broad answer popularity;
+- directional ranking / pairwise ordering;
+- model reliability;
+- Gemini or other model risk if applicable.
+
+Translate each metric into a practical judgment. Do not list every available metric in the main body.
+
+## What The Twins Are Useful For Now
+Use a table with columns: Use, Why It Is Reasonable, Guardrail. Keep it crisp. Recommended uses should include:
+- draft survey testing;
+- question and answer-choice refinement;
+- theme prioritization;
+- message or concept comparison;
+- hypothesis generation;
+- early directional ranking.
+
+Avoid long survey-specific bullet lists. Use this survey's topics only as brief examples.
+
+## What The Twins Should Not Be Used For
+Use a table with columns: Do Not Use For, Why Not, Safer Alternative. Group the warnings:
+- no individual-level decisions or targeting;
+- no final population estimates;
+- no precise subgroup claims without subgroup validation;
+- no high-stakes decisions;
+- no uncalibrated or overconfident model use.
+
+State plainly: the validation supports exploratory use; it does not support treating a digital twin as a reliable substitute for a specific person's answer.
+
+## Model Comparison
+Use a two-row table comparing the tested models. Explain which model should be used now and which should be excluded, recalibrated, or retested. Discuss calibration, overconfident misses, and practical reliability. If GPT-5.5 is best supported by the diagnostics, say that clearly.
+
+## Where Performance Was Stronger And Weaker
+Use a concise synthesis table with columns: Question Area, Signal, Recommended Treatment. Do not dump every per-question distribution. Mention specific areas only when supported by the context. Use treatments such as "directionally useful," "use with caveats," "validate with humans," and "do not use for subgroup precision."
+
+## What Personas Add Beyond Simpler Baselines
+This is a core section. Explain:
+- Random guessing is only a sanity check.
+- The empirical marginal baseline is an oracle diagnostic.
+- The no-persona baseline is the practical comparison for broad aggregate estimates.
+- Personas are valuable only if they add respondent-specific lift or support workflows that marginals cannot, such as slicing, crosstabs, persistent respondent state, or simulated follow-up.
+
+Use this synthesis unless contradicted by the diagnostics: the strongest evidence for personas is not beating random; it is modest respondent-specific lift beyond broad answer popularity plus useful directional ordering.
 
 ## Twin-Specific Capabilities
-Discuss crosstab/joint-structure recovery, subgroup marginal accuracy, and conditional consistency when those diagnostics are available. Explain why these capabilities matter: segmentation, driver analysis, arbitrary slicing after validation, persistent individual state, and simulated interventions. If any of these capabilities are not tested or are weakly tested, say so plainly.
+Use a compact table with columns: Capability, Why It Matters, Evidence In This Run, Current Status. Discuss crosstab/joint-structure recovery, subgroup marginal accuracy, and conditional consistency when diagnostics are available. Explain why these capabilities matter: segmentation, driver analysis, arbitrary slicing after validation, persistent individual state, and simulated interventions. If any capability is untested, sparse, or weak, say so plainly.
 
-## What This Validation Does Not Yet Test
-Name the untested or only partially tested claims. Include counterfactual or intervention response, longitudinal or panel reuse, simulated interviews, and any joint/subgroup/conditional diagnostics that are missing or too sparse. Add a trust-matrix-style note that joint distributions / crosstabs are a distinct capability from aggregate marginals.
+## Next Steps
+This must be the clearest operational section. Use a table with columns: Step, Purpose, Copy/Paste Prompt Or Command, Success Criterion.
 
-## Where To Trust It
-Separate uses: exact estimates, ranking/prioritization, exploratory simulation, and respondent-level targeting. Be explicit about which are supported and which are not.
+Include concrete prompts or commands the user can run next. If exact commands are known from the context, include them. Otherwise provide command templates with placeholders. Include at least:
+- expanded held-out validation with more questions/folds;
+- uncertainty intervals or bootstrap intervals;
+- direct no-persona baseline comparison for intended aggregate use;
+- leakage and allowed-correlate audit;
+- calibration check or model exclusion/recalibration for overconfident models;
+- subgroup/crosstab validation review.
 
-## Risks And Checks Before Scaling
-Discuss small held-out-question count, confidence intervals or uncertainty, context-policy/leakage risks, and whether strong correlates were available in prompts. If strong correlates were available but the permutation result is null, identify that as a prompt/model conditioning issue to investigate.
+Prompts should be phrased so a researcher can paste them into a planning document or ask an analyst/model to run them. Example style:
+`Prompt: Review the held-out validation plan and identify all variables that could leak the target answer or act as downstream consequences of the target. Return a leakage table with allowed, excluded, and ambiguous fields.`
+
+## Risks And Required Checks Before Scaling
+Use a checklist table with columns: Check, Why It Matters, Required Evidence. Cover the held-out-question count, uncertainty intervals, repeated folds, no-persona baseline comparison, prompt leakage, permitted correlates, subgroup coverage, malformed responses, and calibration controls. Keep this separate from the operating recommendation.
 
 ## Recommendation
-Give a concise operating recommendation and next validation step.
+Give exactly one concise operating recommendation, not multiple scattered recommendations. It should be 1-2 paragraphs. It must state:
+- proceed / do not proceed / proceed only as a limited pilot;
+- the preferred model;
+- approved use cases;
+- prohibited use cases;
+- the next validation gate before broader use.
+
+## Appendix A: Detailed Metrics
+Move detailed metrics here: accuracy, p(actual), NLL, Brier, ECE/calibration, L1, JS, pairwise ordering, rank correlation, confidence gap, and lift versus baselines. Define each metric briefly.
+
+## Appendix B: Question-Level Results
+Summarize question-level results in a table. Do not include full raw distributions unless the context already provides a compact version. Use columns: Question Area, Stronger/Weaker Signal, Model Notes, Recommended Treatment.
+
+## Appendix C: Failure Cases And Overconfident Misses
+Use capped examples only. Explain that these are diagnostic failures, not anecdotes to overgeneralize from. Include model attribution.
+
+## Appendix D: Supporting Artifacts
+List the available artifacts and what each is for: lift histograms, permutation JSON/CSV, rank-order diagnostics, pairwise ordering CSV, twin run audit, twin comparison page, crosstab/subgroup/conditional diagnostics when present.
 
 Critical interpretation rules:
 - A within-question permutation p-value near 0.5 means the twins are not showing respondent-specific matching beyond aggregate/marginal structure.
@@ -353,7 +454,10 @@ Critical interpretation rules:
 - Do not call the empirical marginal baseline deployable for genuinely new questions; it is an oracle diagnostic because it uses observed held-out answers.
 - The deployable one-shot model marginal is an aggregate baseline, not a full replacement for respondent-level twins.
 - Joint distributions, subgroup slices, conditional consistency, counterfactuals, and reusable individual state are twin-specific claims. Discuss them separately from aggregate marginal prediction.
-- The Reasonable Uses and Uses To Avoid sections must contain specific examples, not generic categories.
+- The useful/not-useful sections must use reusable categories with brief examples from this survey only when they clarify the category.
+- State each major recommendation once. Do not create separate competing recommendation sections.
+- Prefer callouts and tables over undifferentiated bullet lists.
+- Put metric detail in appendices unless it directly changes the decision.
 - Do not use the internal tool name in the report prose.
 
 Recorded report context:
@@ -408,4 +512,3 @@ def build_edsl_executive_summary_report_job_dict(
         "generation": generation,
     }
     return job_dict, context, prompt
-
