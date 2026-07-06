@@ -112,6 +112,7 @@ from .twin import (
 ROOT = Path(".zwill")
 SCHEMA_VERSION = 1
 DEFAULT_PROJECT_ID = "default"
+DEFAULT_REPORT_PERMUTATIONS = 1000
 PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 SKILL_NAMES = ["digital-twin-study-runner", "digital-twin-practitioner-report"]
 
@@ -1192,6 +1193,28 @@ def copy_bundle_file(source: Path, destination: Path) -> str | None:
     return str(destination)
 
 
+def copy_generated_report_provenance(generation: dict[str, Any] | None, output_dir: Path, *, prefix: str) -> list[Path]:
+    if not generation or generation.get("mode") != "imported_results":
+        return []
+    report_id = str(generation.get("report_id") or "").strip()
+    if not report_id:
+        return []
+    paths = default_practitioner_report_paths(report_id)
+    destination_dir = output_dir / "analysis" / "generated-reports" / f"{prefix}-{report_id}"
+    copied: list[Path] = []
+    for name, source in [
+        ("job.edsl.json", paths["job"]),
+        ("prompt.md", paths["prompt"]),
+        ("context.json", paths["context"]),
+        ("import.json", paths["import"]),
+        ("report.md", paths["markdown"]),
+    ]:
+        copied_path = copy_bundle_file(source, destination_dir / name)
+        if copied_path:
+            copied.append(Path(copied_path))
+    return copied
+
+
 def report_stage_status(*, ready: bool, label: str, files: list[str], missing: list[str] | None = None, next_step: str = "") -> dict[str, Any]:
     return {
         "status": "ready" if ready else "blocked",
@@ -1607,6 +1630,13 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
         generated_files = [probability_html_path, probability_data_path, coverage_html_path, coverage_data_path]
         if generated_one_shot:
             generated_files.append(probability_markdown_path)
+            generated_files.extend(
+                copy_generated_report_provenance(
+                    generated_one_shot.get("generation"),
+                    output_dir,
+                    prefix="one-shot",
+                )
+            )
         add_page(
             report_bundle_page(
                 page_id="one-shot-marginals",
@@ -1672,13 +1702,20 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
             survey=survey,
             path=executive_path,
             markdown_path=executive_markdown_path,
-            simulations=getattr(args, "permutations", 20000),
+            simulations=getattr(args, "permutations", DEFAULT_REPORT_PERMUTATIONS),
             seed=getattr(args, "seed", 20260701),
             generated_markdown=generated_executive.get("markdown") if generated_executive else None,
             generation=generated_executive.get("generation") if generated_executive else None,
         )
         executive_generated = [Path(path) for path in executive_result.get("artifacts", {}).values()]
         executive_generated.extend([executive_path, executive_markdown_path])
+        executive_generated.extend(
+            copy_generated_report_provenance(
+                generated_executive.get("generation") if generated_executive else None,
+                output_dir,
+                prefix="twin-executive",
+            )
+        )
         diagnostics_html_path = output_dir / "validation-diagnostics.html"
         diagnostics_data_path = data_dir / "validation-diagnostics.json"
         diagnostics_payload = {"survey": survey, "artifacts": executive_result.get("artifacts", {})}
@@ -11407,7 +11444,15 @@ def build_parser() -> argparse.ArgumentParser:
         parser.add_argument("--example-limit", type=int, default=6, help="Maximum prompt examples to include in the audit page.")
         parser.add_argument("--probability-job-id", help="One-shot probability job id to include.")
         parser.add_argument("--probability-model", help="One-shot probability model or model label to include.")
-        parser.add_argument("--permutations", type=int, default=20000, help="Permutation simulations for executive-summary chance tests.")
+        parser.add_argument(
+            "--permutations",
+            type=int,
+            default=DEFAULT_REPORT_PERMUTATIONS,
+            help=(
+                "Permutation simulations for executive-summary chance tests. "
+                f"Defaults to {DEFAULT_REPORT_PERMUTATIONS}; pass a larger value for slower, higher-resolution diagnostics."
+            ),
+        )
         parser.add_argument("--seed", type=int, default=20260701, help="Random seed for simulation diagnostics.")
 
     p = report.add_parser("list", help="List available reports for a survey and show readiness/suggested commands.")

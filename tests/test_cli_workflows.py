@@ -625,7 +625,7 @@ def test_report_build_creates_incremental_bundle(tmp_path: Path, monkeypatch) ->
     assert "frontier-model one-shot marginal analysis Markdown" in stage_manifest["stages"]["generated_analysis"]["missing"]
     assert "frontier-model executive twin validation Markdown" in stage_manifest["stages"]["generated_analysis"]["missing"]
     assert len(stage_manifest["required_generated_interpretations"]) == 2
-    assert main(["report", "render", "--survey", "demo", "--path", str(report_dir), "--job-id", "fixture-twin", "--final", "--permutations", "100"]) != 0
+    assert main(["report", "render", "--survey", "demo", "--path", str(report_dir), "--job-id", "fixture-twin", "--final"]) != 0
     index_html = (report_dir / "index.html").read_text()
     assert "report-bundle-data" in index_html
     assert "Facts → Analysis → Report" not in index_html
@@ -3948,6 +3948,13 @@ def test_twin_results_executive_summary_export_import_render(tmp_path: Path, mon
     stage_manifest = json.loads((bundle_dir / "stage-manifest.json").read_text())
     assert stage_manifest["stages"]["generated_analysis"]["status"] == "ready"
     assert stage_manifest["stages"]["final_report"]["status"] == "ready"
+    provenance_dir = bundle_dir / "analysis" / "generated-reports" / "twin-executive-exec-report-demo"
+    assert (provenance_dir / "job.edsl.json").exists()
+    assert (provenance_dir / "prompt.md").exists()
+    assert (provenance_dir / "context.json").exists()
+    assert (provenance_dir / "import.json").exists()
+    assert (provenance_dir / "report.md").exists()
+    assert (bundle_dir / "report" / "analysis" / "generated-reports" / "twin-executive-exec-report-demo" / "context.json").exists()
     bundle_html = (bundle_dir / "twin-validation.html").read_text()
     assert "The permutation test is null" in bundle_html
     assert "Supporting Diagnostics" in bundle_html
