@@ -540,6 +540,22 @@ def test_report_catalog_lists_readiness_and_commands(tmp_path: Path, monkeypatch
     assert (tmp_path / "executive_individual_predictive_power_permutation.json").exists()
 
 
+def test_executive_summary_prompt_asks_for_plain_language_use_examples() -> None:
+    prompt = cli.build_executive_summary_report_prompt(
+        {
+            "survey": "demo",
+            "executive_diagnostics": {"individual_signal": {"p_value_mean_p_actual": 0.52}},
+            "twin_validation": {"row_count": 10, "summary": {}},
+        }
+    )
+
+    assert "written for non-technical decision makers" in prompt
+    assert "Do not lead with statistical test names or metric acronyms" in prompt
+    assert "## Reasonable Uses" in prompt
+    assert "## Uses To Avoid" in prompt
+    assert "specific examples, not generic categories" in prompt
+
+
 def test_report_build_creates_incremental_bundle(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()

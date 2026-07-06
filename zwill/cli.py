@@ -9585,15 +9585,21 @@ def build_executive_summary_report_context(
 def build_executive_summary_report_prompt(report_context: dict[str, Any]) -> str:
     return f"""You are writing the executive interpretation for a survey digital twin validation report.
 
-Use the recorded Expected Parrot diagnostics below. Do not invent data. The report body must be evidence-aware and must not make claims contradicted by the permutation test or baselines.
+Use the recorded Expected Parrot diagnostics below. Do not invent data. The report body must be evidence-aware, but the executive summary must be written for non-technical decision makers. Avoid leading with terms such as "permutation test," "marginals," "NLL," "Brier," or "calibration." Use those terms only in the evidence section, and translate them into plain business meaning when they are necessary. Do not make claims contradicted by the diagnostics or baselines.
 
 Write Markdown only. Do not include a top-level title. Use these sections:
 
 ## Executive Summary
-Give the decision-facing bottom line. State whether the evidence supports individual-level digital twins, aggregate opinion simulation, directional ranking, exploratory use, or no use. If permutation tests are null, say plainly that respondent-specific matching was not demonstrated.
+Give the decision-facing bottom line in plain language. State what the twins are useful for now, what they are not ready for, and the most important caveat. Do not lead with statistical test names or metric acronyms. If respondent-specific matching was not demonstrated, say that in ordinary language, for example: "The twins captured broad response patterns, but did not reliably identify which specific respondent would choose which answer."
+
+## Reasonable Uses
+Give concrete examples of reasonable uses supported by the evidence. Examples might include using twins to explore likely reactions to draft survey questions, compare broad message directions, prioritize themes for additional research, or generate hypotheses for follow-up. Tailor the examples to the survey context and the observed validation strength.
+
+## Uses To Avoid
+Give concrete examples of uses that are not supported by the evidence. Examples might include targeting individual respondents, replacing a real survey for exact population estimates, making high-stakes allocation decisions, or claiming precise subgroup effects when the validation did not establish that level of accuracy. Tailor the examples to the survey context and failure modes.
 
 ## What The Validation Shows
-Interpret the main numbers: lift versus uniform, permutation test, pairwise ordering, Spearman/rank diagnostics, sample size, and number of held-out questions. Explain what each number means for a non-technical executive.
+Interpret the main evidence in accessible language: sample size, number of held-out questions, whether twins beat random guessing, whether they added respondent-specific information, whether they preserved option ordering or directional ranking, and where errors were concentrated. Use technical labels such as permutation test, marginal baseline, pairwise ordering, Spearman/rank diagnostics, NLL, Brier, and calibration only when needed, and immediately explain what they mean for the decision.
 
 ## Baselines And What Personas Add
 Compare twins to uniform and to any available no-persona / one-shot marginal baseline. If the no-persona baseline is missing, say that this is a missing deployable baseline and recommend running it before claiming persona machinery adds value.
@@ -9613,6 +9619,7 @@ Critical interpretation rules:
 - Pairwise option-ordering accuracy and Spearman can support directional ranking, but label them preliminary when based on few held-out questions or few option pairs.
 - Do not call the empirical marginal baseline deployable for genuinely new questions; it is an oracle diagnostic because it uses observed held-out answers.
 - The deployable baseline is the no-persona / one-shot model marginal. If it is absent, make that absence prominent.
+- The Reasonable Uses and Uses To Avoid sections must contain specific examples, not generic categories.
 - Do not use the internal tool name in the report prose.
 
 Recorded report context:
