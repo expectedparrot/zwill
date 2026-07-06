@@ -17,6 +17,9 @@ test = [
 [project.scripts]
 zwill = "zwill.cli:main"
 
+[tool.setuptools.packages.find]
+include = ["zwill*"]
+
 [tool.setuptools.package-data]
 zwill = [
     "skills/*/SKILL.md",

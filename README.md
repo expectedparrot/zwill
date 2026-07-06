@@ -36,39 +36,104 @@ Use `ZWILL_PROJECT=<project_id>` to temporarily select a project for one command
 
 ## Hello World
 
+The smallest useful `zwill` project is one survey, one multiple-choice question, and five respondents. Run it in a scratch directory so you can see the state files `zwill` creates without mixing them into the repo:
+
 ```bash
-examples/hello_world/show_table.sh
+export ZWILL_REPO="$(pwd)"
+export ZWILL_HELLO_DIR="$(mktemp -d)"
+cd "$ZWILL_HELLO_DIR"
+zwill init
 ```
 
-The script runs a sequence of `zwill` commands and finishes with:
+`zwill init` creates a local `.zwill/` directory. That directory is the project database: raw provenance, survey definitions, respondent records, answers, commits, exported jobs, and reports all live under the active project.
+
+Create a survey and attach the original questionnaire as raw provenance:
+
+```bash
+zwill survey create --name hello_world
+zwill raw add \
+  --survey hello_world \
+  --id questionnaire \
+  --path "$ZWILL_REPO/examples/hello_world/raw/questionnaire.md" \
+  --kind questionnaire \
+  --title "Hello World Questionnaire"
+```
+
+Add the actual survey item. The answer options are human-readable labels; these are the canonical labels that answers must use too.
+
+```bash
+zwill question add \
+  --survey hello_world \
+  --question-name favorite_color \
+  --question-type multiple_choice \
+  --question-text "Which color do you like best?" \
+  --question-option red \
+  --question-option blue \
+  --question-option green \
+  --role survey_item \
+  --source-raw questionnaire \
+  --source-note "Single hello-world test question."
+```
+
+Register five respondents. Weights and metadata travel with the respondent records and are used by reports and validation workflows.
+
+```bash
+zwill respondent add --survey hello_world --respondent-id r001 --weight 1.0 --metadata "sample_source=demo"
+zwill respondent add --survey hello_world --respondent-id r002 --weight 1.0 --metadata "sample_source=demo"
+zwill respondent add --survey hello_world --respondent-id r003 --weight 1.0 --metadata "sample_source=demo"
+zwill respondent add --survey hello_world --respondent-id r004 --weight 1.0 --metadata "sample_source=demo"
+zwill respondent add --survey hello_world --respondent-id r005 --weight 1.0 --metadata "sample_source=demo"
+```
+
+Now add answers. Each answer is validated against both the respondent id and the question's declared options.
+
+```bash
+zwill answer add --survey hello_world --respondent-id r001 --question favorite_color --answer red
+zwill answer add --survey hello_world --respondent-id r002 --question favorite_color --answer blue
+zwill answer add --survey hello_world --respondent-id r003 --question favorite_color --answer green
+zwill answer add --survey hello_world --respondent-id r004 --question favorite_color --answer blue
+zwill answer add --survey hello_world --respondent-id r005 --question favorite_color --answer red
+```
+
+Inspect the respondent-by-question table:
 
 ```bash
 zwill table --survey hello_world
 ```
 
-For a tiny real EDSL check of agent material:
+You should see one row per respondent and one column for `favorite_color`. With the five answers above, the empirical marginal distribution is `red = 2/5`, `blue = 2/5`, and `green = 1/5`.
+
+Check validation state before committing the imported truth:
 
 ```bash
-examples/hello_world/agent_material_twin.sh
+zwill status
+zwill commit --survey hello_world
+zwill status
 ```
 
-It builds one agent twice, without and with a profile note saying the respondent's favorite color is blue, then runs both exported jobs.
+`zwill commit` snapshots the validated survey state and stores truth marginals for later probability and digital-twin comparisons. After this point, exported model jobs can be scored against the committed empirical baseline.
 
-For a tiny AgentList construction and new-question run:
+Build the report bundle:
 
 ```bash
-examples/hello_world/agent_list_study.sh
+zwill report build --survey hello_world --path hello_world_report/
 ```
 
-It exports an EDSL AgentList, inspects the selected traits/instructions, exports an EDSL job that asks the constructed agent a new question, and runs it.
+Open `hello_world_report/index.html` and `hello_world_report/survey-profile.html` to inspect question text, options, respondent counts, missingness, and marginals.
 
-For a tiny digital-twin plan lifecycle:
+The same sequence is available as a script when you only want a quick smoke test:
 
 ```bash
-examples/hello_world/twin_plan_lifecycle.sh
+"$ZWILL_REPO/examples/hello_world/show_table.sh"
 ```
 
-It creates a two-question survey, registers reusable twin approaches, exports an experiment plan into EDSL jobs, and shows plan status. Set `ZWILL_EXAMPLE_SYNTHETIC_RESULTS=1` to generate no-API Results, import them, and build the comparison bundle; set `ZWILL_EXAMPLE_RUN=1` to run real EDSL jobs.
+The next examples build on this same survey-state model:
+
+- `examples/hello_world/agent_material_twin.sh` builds one agent twice, without and with a profile note saying the respondent's favorite color is blue, then runs both exported jobs.
+- `examples/hello_world/agent_list_study.sh` exports an EDSL AgentList, inspects selected traits and instructions, exports an EDSL job that asks the constructed agent a new question, and runs it.
+- `examples/hello_world/twin_plan_lifecycle.sh` creates a two-question survey, registers reusable twin approaches, exports an experiment plan into EDSL jobs, and shows plan status. Set `ZWILL_EXAMPLE_SYNTHETIC_RESULTS=1` to generate no-API Results, import them, and build the comparison bundle; set `ZWILL_EXAMPLE_RUN=1` to run real EDSL jobs.
+
+For more detail on every file and script in the fixture, see `examples/hello_world/README.md`.
 
 ## PEW Demo
 
