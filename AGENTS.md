@@ -32,12 +32,35 @@ A user may arrive with a survey workbook, survey exports, CRM data, transaction 
 ### Agent Operating Rules
 
 - Do not start with twin generation. Start by proving that the observed data are correctly imported, labeled, committed, and inspectable.
+- Default to pushing the validation through to usable outputs. After the required human review/approval gates are satisfied, do not stop at survey import, job export, or raw model results. Continue through one-shot baselines, approved twin runs, imports, scoring, audit reports, comparison bundles, dashboards, generated executive/practitioner reports, and a concise readout.
 - Do not claim that a digital twin is useful because it produced plausible prose or plausible probabilities. Score against held-out observed answers.
 - Do not use held-out answers, empirical marginals for the held-out target, downstream variables, or summaries that reveal the target in the twin prompt unless the user explicitly approves an oracle/leakage experiment.
 - Do not run costly EDSL jobs without first showing the user the plan, prediction count, model list, and likely cost/time implications.
+- Run EDSL model jobs only through remote Expected Parrot inference. Before any `zwill edsl-run`, verify the run environment is configured for the remote EP profile/key, and do not fall back to local inference or direct local provider calls. If remote execution cannot be verified or fails because credentials/profile are missing, stop and report the blocker with the exact resume command instead of trying a local run.
 - Prefer a small approved debug sample before a full run. Debug samples must still use the same held-out policy and leakage exclusions as the intended validation.
+- For Gemini or other providers prone to verbose/truncated JSON, set a generous output-token cap before running probability or twin-probability jobs. Prefer at least `maxOutputTokens=8192` for Gemini twin validation jobs unless a smaller cap is explicitly justified, and keep probability prompts/output formats terse enough that `probabilities` cannot be lost behind long notes.
+- After exporting a plan, compare the approved prediction estimate with the exported manifest's actual scenario count and model count before running. If complete-case filtering, missing actuals, stratification, provider limits, or any other export-time behavior materially changes the sample size or prediction count, stop and update/re-approve the plan instead of running the stale export.
 - Keep artifacts reproducible: save import manifests, approved plans, exported jobs, raw Results objects, imported reports, bundle manifests, generated-report prompts, and rendered HTML outputs.
 - Use `--allow-unapproved` only when the user explicitly asks for an ad hoc/debug/leakage run. Mention that results from that path are not an approved validation.
+
+### Push-Through Completion Standard
+
+For digital twin work, "done" means a decision-ready validation bundle exists, not merely that jobs were exported or run. Unless the user explicitly asks to stop earlier, push through this sequence:
+
+1. import and validate source data;
+2. build the survey/profile report and get user confirmation;
+3. run one-shot predictions for every eligible question when approved;
+4. import one-shot results, rebuild reports, and generate the one-shot analysis report;
+5. draft, get approval for, and export the twin validation plan;
+6. run/import approved twin jobs for all eligible held-out targets or the approved staged subset;
+7. audit at least one run;
+8. score against uniform and empirical-marginal baselines;
+9. compare construction approaches when more than one exists;
+10. build the report bundle, comparison bundle, plots, microdata audit, and dashboard;
+11. run/import/render generated executive or practitioner interpretation;
+12. give the user a final readout with links/paths, metrics, failure modes, and an operating recommendation.
+
+If cost, missing credentials, provider failures, malformed responses, or user approval blocks a step, stop at the blocking gate, record what is complete, and give the exact next command(s) needed to resume.
 
 ### End-to-End Twin Validation Playbook
 
@@ -106,6 +129,7 @@ Use this playbook when the user asks whether data can support digital twins or a
 
    ```bash
    zwill edsl-export --survey <survey> --target probability-job --path one_shot_probability_job.edsl.json
+   # Remote Expected Parrot inference only; verify the EP profile/key first.
    zwill edsl-run --job one_shot_probability_job.edsl.json --path one_shot_probability_results.json.gz
    zwill prob-results import --survey <survey> --path one_shot_probability_results.json.gz
    zwill prob-results report --survey <survey> --job-id <probability_job_id> --format html --path one_shot_probability_report.html
@@ -178,7 +202,7 @@ Use this playbook when the user asks whether data can support digital twins or a
 
    `export-plan` should normally write one EDSL job per approach/arm. Each job should contain all approved held-out questions as concatenated scenarios, not separate per-question jobs. Check the export manifest's `scenario_count` before running; it should approximately equal the eligible respondent count times the held-out question count for that arm, adjusted for complete-case filtering, missing actual answers, or stratified sampling.
 
-   Run each exported approach job. If the package is handed to another runner, use its `RUN.md`. The local pattern is:
+   Run each exported approach job through remote Expected Parrot inference only. If the package is handed to another runner, use its `RUN.md`. The local command wrapper pattern is:
 
    ```bash
    zwill edsl-run --job <plan_id>_jobs/<job>.edsl.json --path <plan_id>_results/<job>.results.json.gz
@@ -266,7 +290,7 @@ Use this playbook when the user asks whether data can support digital twins or a
 Pick sample sizes from the evaluation purpose, not from convenience alone. Always compute and show the prediction count before running: `respondents x held-out questions x approaches x models`.
 
 - **Prompt/export smoke test:** 2-5 respondents, 1 held-out question, 1 approach, 1 model. Use this only to verify exports, prompt rendering, EDSL execution, import parsing, and audit reports.
-- **Debug validation run:** 20-50 respondents. Use this to find leakage, malformed responses, bad context selection, missing actual answers, and obvious model-parameter problems. Keep the same held-out policy and leakage exclusions intended for the final run.
+- **Debug validation run:** 20-50 exported, scored respondents per held-out question after complete-case and missing-actual filtering. Use this to find leakage, malformed responses, bad context selection, missing actual answers, and obvious model-parameter problems. Keep the same held-out policy and leakage exclusions intended for the final run. If the approved sample was larger but export filtering leaves fewer than the approved/debug target, treat the run as a systems test and revise the plan or sampling policy before drawing validation conclusions.
 - **Pilot comparison:** 100-200 respondents when cost allows. Use `--stratify-actual` for categorical held-out questions so rare options appear in the sample. Treat pilot metrics as directional, not final.
 - **Minimum credible scored run:** prefer at least 200 respondents or all eligible respondents if the eligible pool is smaller. For per-question conclusions, aim for at least 30 observed actual answers in the smallest important option or subgroup; otherwise flag that question or subgroup as underpowered.
 - **Final validation:** prefer full-sample scoring across all eligible respondents when API cost and time allow. If sampling is necessary, predeclare the sample size, seed, stratification policy, and why the sampled population is adequate for the user's intended decision.
