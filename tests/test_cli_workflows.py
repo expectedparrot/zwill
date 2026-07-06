@@ -553,6 +553,9 @@ def test_executive_summary_prompt_asks_for_plain_language_use_examples() -> None
     assert "Do not lead with statistical test names or metric acronyms" in prompt
     assert "## Reasonable Uses" in prompt
     assert "## Uses To Avoid" in prompt
+    assert "## Twin-Specific Capabilities" in prompt
+    assert "## What This Validation Does Not Yet Test" in prompt
+    assert "full substitute for twins" in prompt
     assert "specific examples, not generic categories" in prompt
 
 
@@ -639,7 +642,13 @@ def test_report_build_creates_incremental_bundle(tmp_path: Path, monkeypatch) ->
     assert (report_dir / "audit" / "twin-run-fixture-twin.html").exists()
     assert (report_dir / "data" / "one-shot-marginals.json").exists()
     assert (report_dir / "data" / "one-shot-coverage.json").exists()
+    assert (report_dir / "data" / "joint-structure.json").exists()
+    assert (report_dir / "data" / "subgroup-marginals.json").exists()
+    assert (report_dir / "data" / "conditional-consistency.json").exists()
     assert (report_dir / "analysis" / "twin-validation.json").exists()
+    assert (report_dir / "analysis" / "joint-structure.json").exists()
+    assert (report_dir / "analysis" / "subgroup-marginals.json").exists()
+    assert (report_dir / "analysis" / "conditional-consistency.json").exists()
     assert (report_dir / "analysis" / "executive-summary.md").exists()
     assert (report_dir / "report" / "twin-validation.html").exists()
     assert stage_manifest["stages"]["analysis"]["status"] == "ready"
@@ -660,6 +669,7 @@ def test_report_build_creates_incremental_bundle(tmp_path: Path, monkeypatch) ->
     assert ".zwill` remains the system of record" in checklist
     assert "Twin Validation (primary): ready" in checklist
     assert "Twin Run Audit (supporting): ready" in checklist
+    assert "Joint Structure And Slicing Diagnostics" in (report_dir / "twin-validation.html").read_text()
     twin_data = json.loads((report_dir / "data" / "twin-validation.json").read_text())
     assert twin_data["raw_prediction_rows_included"] is False
     assert "rows" not in twin_data

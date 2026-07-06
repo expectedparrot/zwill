@@ -8,7 +8,6 @@ import gzip
 import hashlib
 import importlib.resources as resources
 import json
-import math
 import os
 import random
 import re
@@ -73,6 +72,11 @@ from .twin_results import (
     write_csv_rows,
     zip_csv,
 )
+from .twin_diagnostics import (
+    build_twin_conditional_consistency_diagnostics,
+    build_twin_joint_structure_diagnostics,
+    build_twin_subgroup_marginal_diagnostics,
+)
 from .reporting import (
     EP_REPORT_CSS,
     build_probability_report,
@@ -88,6 +92,8 @@ from .reporting import (
     render_twin_report_html,
     render_twin_run_report_html,
     render_twin_summary_report_html,
+    render_twin_supporting_artifacts_section,
+    render_twin_value_diagnostics_section,
 )
 from .result_imports import (
     extract_probability_prediction_rows,
@@ -1310,6 +1316,9 @@ def write_report_stage_artifacts(output_dir: Path, manifest: dict[str, Any]) -> 
         "one-shot-analysis.md",
         "one-shot-coverage.json",
         "twin-validation.json",
+        "joint-structure.json",
+        "subgroup-marginals.json",
+        "conditional-consistency.json",
         "executive-summary.md",
         "validation-diagnostics.json",
         "twin-comparison.json",
@@ -1657,44 +1666,6 @@ def render_report_bundle_index(payload: dict[str, Any]) -> str:
 """
 
 
-def render_twin_supporting_artifacts_section(pages: list[dict[str, Any]], output_dir: Path) -> str:
-    import html
-
-    items = []
-    for page in pages:
-        if page.get("primary", True):
-            continue
-        title = html.escape(str(page.get("title") or page.get("page_id") or ""), quote=True)
-        description = html.escape(str(page.get("description") or ""), quote=True)
-        path = page.get("path")
-        href = html.escape(bundle_rel_link(path, output_dir), quote=True) if path else ""
-        if path:
-            action = f'<a class="button secondary" href="{href}">Open</a>'
-        else:
-            status = html.escape(str(page.get("status", "not_ready")).replace("_", " ").title(), quote=True)
-            action = f'<span class="badge">{status}</span>'
-        items.append(
-            "<li>"
-            f"<div><strong>{title}</strong><span>{description}</span></div>"
-            f"{action}"
-            "</li>"
-        )
-    if not items:
-        return ""
-    return f"""
-    <section class="summary-card">
-      <h2>Supporting Artifacts</h2>
-      <p class="subtle">Audit and comparison pages are generated for inspection, but this page is the main twin validation report.</p>
-      <ul class="supporting-artifacts">{''.join(items)}</ul>
-    </section>
-    <style>
-      .supporting-artifacts {{ list-style:none; padding:0; margin:0; display:grid; gap:10px; }}
-      .supporting-artifacts li {{ border:1px solid var(--line); border-radius:8px; padding:12px; display:flex; justify-content:space-between; gap:14px; align-items:center; background:#fff; }}
-      .supporting-artifacts span {{ display:block; color:var(--muted); }}
-    </style>
-"""
-
-
 def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
     survey = args.survey
     sdir = require_survey(survey)
@@ -1884,6 +1855,12 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
             )
         )
         write_bundle_json(diagnostics_data_path, diagnostics_payload)
+        joint_structure_path = data_dir / "joint-structure.json"
+        subgroup_marginals_path = data_dir / "subgroup-marginals.json"
+        conditional_consistency_path = data_dir / "conditional-consistency.json"
+        write_bundle_json(joint_structure_path, twin_payload.get("diagnostics", {}).get("joint_structure", {}))
+        write_bundle_json(subgroup_marginals_path, twin_payload.get("diagnostics", {}).get("subgroup_marginals", {}))
+        write_bundle_json(conditional_consistency_path, twin_payload.get("diagnostics", {}).get("conditional_consistency", {}))
         twin_html = render_twin_summary_report_html(
             survey,
             twin_payload["rows"],
@@ -1900,6 +1877,10 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
                 output_dir=output_dir,
             ),
         )
+        twin_html = insert_before_main_close(
+            twin_html,
+            render_twin_value_diagnostics_section(twin_payload.get("diagnostics", {})),
+        )
         twin_html_path.write_text(twin_html)
         write_bundle_json(twin_data_path, compact_twin_report_payload(twin_payload))
         twin_generated_files = [
@@ -1907,6 +1888,9 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
             twin_data_path,
             diagnostics_html_path,
             diagnostics_data_path,
+            joint_structure_path,
+            subgroup_marginals_path,
+            conditional_consistency_path,
             *executive_generated,
         ]
         add_page(
@@ -5715,6 +5699,9 @@ def build_twin_report(rows: list[dict[str, Any]]) -> dict[str, Any]:
             diagnostics["empirical_wins"].append(item)
     diagnostics["model_wins"].sort(key=lambda item: item["nll_vs_empirical"], reverse=True)
     diagnostics["empirical_wins"].sort(key=lambda item: item["nll_vs_empirical"])
+    diagnostics["joint_structure"] = build_twin_joint_structure_diagnostics(rows)
+    diagnostics["subgroup_marginals"] = build_twin_subgroup_marginal_diagnostics(rows)
+    diagnostics["conditional_consistency"] = build_twin_conditional_consistency_diagnostics(rows)
     return {"rows": rows, "summary": summary, "summary_by_question": by_question, "diagnostics": diagnostics}
 
 
@@ -9560,11 +9547,17 @@ def build_executive_summary_report_context(
             "failure_examples": compact_failures,
             "row_count": len(rows),
         },
+        "twin_specific_diagnostics": {
+            "joint_structure": diagnostics.get("joint_structure", {}),
+            "subgroup_marginals": diagnostics.get("subgroup_marginals", {}),
+            "conditional_consistency": diagnostics.get("conditional_consistency", {}),
+            "note": "These diagnostics test capabilities that one-shot aggregate marginals cannot provide: crosstab recovery, subgroup slicing, and conditional coherence across respondent-level answers.",
+        },
         "one_shot_no_persona_baseline": {
             "available": bool(one_shot_rows),
             "summary": one_shot_payload.get("summary", {}),
             "heldout_question_rows": one_shot_rows,
-            "note": "This is the deployable no-persona / one-shot marginal baseline when probability jobs have been imported. If unavailable, the report should say it is missing and recommend running it.",
+            "note": "This is the deployable no-persona / one-shot marginal baseline for aggregate distributions. It is not a substitute for testing twin-specific claims such as joint structure, subgroup slicing, counterfactual consistency, or reusable individual state.",
         },
         "run_manifests": compact_run_manifests,
         "context_policy_warning": (
@@ -9602,7 +9595,13 @@ Give concrete examples of uses that are not supported by the evidence. Examples 
 Interpret the main evidence in accessible language: sample size, number of held-out questions, whether twins beat random guessing, whether they added respondent-specific information, whether they preserved option ordering or directional ranking, and where errors were concentrated. Use technical labels such as permutation test, marginal baseline, pairwise ordering, Spearman/rank diagnostics, NLL, Brier, and calibration only when needed, and immediately explain what they mean for the decision.
 
 ## Baselines And What Personas Add
-Compare twins to uniform and to any available no-persona / one-shot marginal baseline. If the no-persona baseline is missing, say that this is a missing deployable baseline and recommend running it before claiming persona machinery adds value.
+Compare twins to uniform and to any available no-persona / one-shot marginal baseline, but do not frame the one-shot marginal baseline as a full substitute for twins. It is a cheap aggregate-distribution benchmark only. Explain separately whether the validation found respondent-specific signal and whether the twin-specific diagnostics support joint structure, subgroup slicing, or conditional consistency.
+
+## Twin-Specific Capabilities
+Discuss crosstab/joint-structure recovery, subgroup marginal accuracy, and conditional consistency when those diagnostics are available. Explain why these capabilities matter: segmentation, driver analysis, arbitrary slicing after validation, persistent individual state, and simulated interventions. If any of these capabilities are not tested or are weakly tested, say so plainly.
+
+## What This Validation Does Not Yet Test
+Name the untested or only partially tested claims. Include counterfactual or intervention response, longitudinal or panel reuse, simulated interviews, and any joint/subgroup/conditional diagnostics that are missing or too sparse. Add a trust-matrix-style note that joint distributions / crosstabs are a distinct capability from aggregate marginals.
 
 ## Where To Trust It
 Separate uses: exact estimates, ranking/prioritization, exploratory simulation, and respondent-level targeting. Be explicit about which are supported and which are not.
@@ -9618,7 +9617,8 @@ Critical interpretation rules:
 - Good lift over uniform with a null permutation test supports aggregate opinion structure, not individual predictive power.
 - Pairwise option-ordering accuracy and Spearman can support directional ranking, but label them preliminary when based on few held-out questions or few option pairs.
 - Do not call the empirical marginal baseline deployable for genuinely new questions; it is an oracle diagnostic because it uses observed held-out answers.
-- The deployable baseline is the no-persona / one-shot model marginal. If it is absent, make that absence prominent.
+- The deployable one-shot model marginal is an aggregate baseline, not a full replacement for respondent-level twins.
+- Joint distributions, subgroup slices, conditional consistency, counterfactuals, and reusable individual state are twin-specific claims. Discuss them separately from aggregate marginal prediction.
 - The Reasonable Uses and Uses To Avoid sections must contain specific examples, not generic categories.
 - Do not use the internal tool name in the report prose.
 

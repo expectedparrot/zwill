@@ -25,6 +25,11 @@ from zwill.twin_results import (
     top_prediction,
     twin_prediction_export_rows,
 )
+from zwill.twin_diagnostics import (
+    build_twin_conditional_consistency_diagnostics,
+    build_twin_joint_structure_diagnostics,
+    build_twin_subgroup_marginal_diagnostics,
+)
 
 
 def test_question_spec_normalization_accepts_aliases_and_provenance() -> None:
@@ -370,3 +375,52 @@ def test_twin_report_keeps_multiple_jobs_as_separate_twin_sets() -> None:
     assert "job: job1" in html
     assert "model: openai:gpt-5.5" in html
     assert "source: kitchen_sink_known_options_results.json.gz" in html
+
+
+def test_twin_specific_diagnostics_score_joint_subgroup_and_conditional_structure() -> None:
+    rows = []
+    respondent_specs = [
+        ("r1", "yes", "high", "remote"),
+        ("r2", "yes", "high", "remote"),
+        ("r3", "no", "low", "office"),
+        ("r4", "no", "low", "office"),
+    ]
+    for respondent_id, q1_actual, q2_actual, segment in respondent_specs:
+        q1_probs = {"yes": 0.8, "no": 0.2} if segment == "remote" else {"yes": 0.2, "no": 0.8}
+        q2_probs = {"high": 0.75, "low": 0.25} if segment == "remote" else {"high": 0.25, "low": 0.75}
+        rows.extend(
+            [
+                {
+                    "respondent_id": respondent_id,
+                    "heldout_question": "q1",
+                    "heldout_question_text": "Approve?",
+                    "actual_answer": q1_actual,
+                    "model_label": "openai:gpt-5.5",
+                    "probabilities": q1_probs,
+                    "observed_answers": [{"question_name": "segment", "question_text": "Segment", "answer": segment}],
+                },
+                {
+                    "respondent_id": respondent_id,
+                    "heldout_question": "q2",
+                    "heldout_question_text": "Confidence?",
+                    "actual_answer": q2_actual,
+                    "model_label": "openai:gpt-5.5",
+                    "probabilities": q2_probs,
+                    "observed_answers": [{"question_name": "segment", "question_text": "Segment", "answer": segment}],
+                },
+            ]
+        )
+
+    joint = build_twin_joint_structure_diagnostics(rows, min_pair_rows=1)
+    subgroup = build_twin_subgroup_marginal_diagnostics(rows, min_cell_rows=1)
+    conditional = build_twin_conditional_consistency_diagnostics(rows, min_cell_rows=1)
+
+    assert joint["pair_count"] == 1
+    assert joint["rows"][0]["left_question"] == "q1"
+    assert joint["rows"][0]["right_question"] == "q2"
+    assert joint["rows"][0]["respondents"] == 4
+    assert joint["rows"][0]["joint_l1"] >= 0
+    assert subgroup["cell_count"] >= 2
+    assert {row["segment_value"] for row in subgroup["rows"]} == {"office", "remote"}
+    assert conditional["cell_count"] >= 2
+    assert {row["condition_question"] for row in conditional["rows"]} == {"q1", "q2"}

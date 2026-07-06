@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import html
 import json
+import os
 import re
 from collections import defaultdict
+from pathlib import Path
 from typing import Any
 
 from .probability import probability_metrics, true_probabilities_for
@@ -257,6 +259,139 @@ def copy_markdown_control() -> str:
   });
 }());
 </script>
+"""
+
+
+def bundle_rel_link(path: str | Path, base: Path) -> str:
+    return os.path.relpath(Path(path).resolve(), start=base.resolve()).replace(os.sep, "/")
+
+
+def render_twin_supporting_artifacts_section(pages: list[dict[str, Any]], output_dir: Path) -> str:
+    items = []
+    for page in pages:
+        if page.get("primary", True):
+            continue
+        title = html.escape(str(page.get("title") or page.get("page_id") or ""), quote=True)
+        description = html.escape(str(page.get("description") or ""), quote=True)
+        path = page.get("path")
+        href = html.escape(bundle_rel_link(path, output_dir), quote=True) if path else ""
+        if path:
+            action = f'<a class="button secondary" href="{href}">Open</a>'
+        else:
+            status = html.escape(str(page.get("status", "not_ready")).replace("_", " ").title(), quote=True)
+            action = f'<span class="badge">{status}</span>'
+        items.append(
+            "<li>"
+            f"<div><strong>{title}</strong><span>{description}</span></div>"
+            f"{action}"
+            "</li>"
+        )
+    if not items:
+        return ""
+    return f"""
+    <section class="summary-card">
+      <h2>Supporting Artifacts</h2>
+      <p class="subtle">Audit and comparison pages are generated for inspection, but this page is the main twin validation report.</p>
+      <ul class="supporting-artifacts">{''.join(items)}</ul>
+    </section>
+    <style>
+      .supporting-artifacts {{ list-style:none; padding:0; margin:0; display:grid; gap:10px; }}
+      .supporting-artifacts li {{ border:1px solid var(--line); border-radius:8px; padding:12px; display:flex; justify-content:space-between; gap:14px; align-items:center; background:#fff; }}
+      .supporting-artifacts span {{ display:block; color:var(--muted); }}
+    </style>
+"""
+
+
+def render_twin_value_diagnostics_section(diagnostics: dict[str, Any]) -> str:
+    def esc(value: Any) -> str:
+        return html.escape(str(value), quote=True)
+
+    joint = diagnostics.get("joint_structure") or {}
+    subgroup = diagnostics.get("subgroup_marginals") or {}
+    conditional = diagnostics.get("conditional_consistency") or {}
+
+    def metric(value: Any, precision: int = 3) -> str:
+        return "" if value is None else f"{float(value):.{precision}f}"
+
+    joint_rows = []
+    for row in (joint.get("rows") or [])[:20]:
+        joint_rows.append(
+            "<tr>"
+            f"<td>{esc(row.get('left_question'))}<br><span>{esc(row.get('left_question_text', ''))}</span></td>"
+            f"<td>{esc(row.get('right_question'))}<br><span>{esc(row.get('right_question_text', ''))}</span></td>"
+            f"<td>{esc(row.get('model_label'))}</td>"
+            f"<td class=\"numeric\">{esc(row.get('respondents'))}</td>"
+            f"<td class=\"numeric\">{metric(row.get('joint_l1'))}</td>"
+            f"<td class=\"numeric\">{metric(row.get('empirical_cramers_v'))}</td>"
+            f"<td class=\"numeric\">{metric(row.get('twin_cramers_v'))}</td>"
+            f"<td>{esc(row.get('warning', ''))}</td>"
+            "</tr>"
+        )
+    subgroup_rows = []
+    for row in (subgroup.get("rows") or [])[:20]:
+        subgroup_rows.append(
+            "<tr>"
+            f"<td>{esc(row.get('heldout_question'))}<br><span>{esc(row.get('heldout_question_text', ''))}</span></td>"
+            f"<td>{esc(row.get('segment_question'))} = {esc(row.get('segment_value'))}</td>"
+            f"<td>{esc(row.get('model_label'))}</td>"
+            f"<td class=\"numeric\">{esc(row.get('rows'))}</td>"
+            f"<td class=\"numeric\">{metric(row.get('l1'))}</td>"
+            f"<td class=\"numeric\">{metric(row.get('js_divergence'))}</td>"
+            f"<td>{esc(row.get('warning', ''))}</td>"
+            "</tr>"
+        )
+    conditional_rows = []
+    for row in (conditional.get("rows") or [])[:20]:
+        conditional_rows.append(
+            "<tr>"
+            f"<td>{esc(row.get('condition_question'))} = {esc(row.get('condition_value'))}</td>"
+            f"<td>{esc(row.get('target_question'))}<br><span>{esc(row.get('target_question_text', ''))}</span></td>"
+            f"<td>{esc(row.get('model_label'))}</td>"
+            f"<td class=\"numeric\">{esc(row.get('rows'))}</td>"
+            f"<td class=\"numeric\">{metric(row.get('l1'))}</td>"
+            f"<td class=\"numeric\">{metric(row.get('js_divergence'))}</td>"
+            f"<td>{esc(row.get('warning', ''))}</td>"
+            "</tr>"
+        )
+    return f"""
+    <section class="summary-card twin-value-diagnostics">
+      <h2>Joint Structure And Slicing Diagnostics</h2>
+      <p class="subtle">These deterministic diagnostics test twin-specific claims that one-shot aggregate marginals cannot answer: crosstabs, subgroup slices, and conditional consistency. Lower L1 and JS values mean the twin-implied distribution is closer to the empirical distribution.</p>
+      <div class="diagnostic-summary-grid">
+        <div><b>{esc(joint.get('pair_count', 0))}</b><span>joint question pairs scored</span></div>
+        <div><b>{esc(subgroup.get('cell_count', 0))}</b><span>subgroup cells scored</span></div>
+        <div><b>{esc(conditional.get('cell_count', 0))}</b><span>conditional cells scored</span></div>
+      </div>
+      <h3>Best Recovered Crosstabs</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Question A</th><th>Question B</th><th>Twin set</th><th>Rows</th><th>Joint L1</th><th>Empirical V</th><th>Twin V</th><th>Warning</th></tr></thead>
+          <tbody>{''.join(joint_rows) or '<tr><td colspan="8">No joint-structure diagnostics met the cell-size threshold.</td></tr>'}</tbody>
+        </table>
+      </div>
+      <h3>Largest Subgroup Marginal Gaps</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Held-out</th><th>Segment</th><th>Twin set</th><th>Rows</th><th>L1</th><th>JS</th><th>Warning</th></tr></thead>
+          <tbody>{''.join(subgroup_rows) or '<tr><td colspan="7">No subgroup diagnostics met the cell-size threshold.</td></tr>'}</tbody>
+        </table>
+      </div>
+      <h3>Largest Conditional Consistency Gaps</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Condition</th><th>Target</th><th>Twin set</th><th>Rows</th><th>L1</th><th>JS</th><th>Warning</th></tr></thead>
+          <tbody>{''.join(conditional_rows) or '<tr><td colspan="7">No conditional diagnostics met the cell-size threshold.</td></tr>'}</tbody>
+        </table>
+      </div>
+    </section>
+    <style>
+      .twin-value-diagnostics h3 {{ margin-top:18px; }}
+      .twin-value-diagnostics td span {{ color:var(--muted); font-size:12px; }}
+      .diagnostic-summary-grid {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; margin:12px 0 16px; }}
+      .diagnostic-summary-grid div {{ border:1px solid var(--line); border-radius:8px; padding:10px; background:#fbfcfd; }}
+      .diagnostic-summary-grid b {{ display:block; font-size:20px; }}
+      .diagnostic-summary-grid span {{ color:var(--muted); font-size:12px; }}
+    </style>
 """
 
 
@@ -1569,11 +1704,10 @@ def render_twin_summary_report_html(
             f"{signed_cell(baseline.get('nll_vs_empirical'))}"
             "</tr>"
         )
-    model_rows.append(
-        "<tr class=\"baseline-row\">"
-        "<td><b>No-persona one-shot</b><span>Deployable aggregate baseline; not yet scored in this twin validation table</span></td>"
-        "<td></td><td></td><td></td><td></td><td></td><td></td><td></td><td><b>Missing baseline</b></td>"
-        "</tr>"
+    missing_one_shot_note = (
+        "<p class=\"subtle\">No-persona one-shot aggregate baselines are reported separately when imported. "
+        "They are not repeated as empty rows in each twin table because they benchmark aggregate distributions, "
+        "not the twin-specific joint, subgroup, or respondent-level diagnostics.</p>"
     )
 
     marginal_comparison_by_key = {
@@ -1597,8 +1731,10 @@ def render_twin_summary_report_html(
             return "Overconfident"
         if l1 is not None and l1 >= 0.45:
             return "Marginal mismatch"
-        if nll_vs_empirical is not None and nll_vs_empirical >= 0.02:
+        if nll_vs_empirical is not None and nll_vs_empirical >= 0.10:
             return "Strong individual signal"
+        if nll_vs_empirical is not None and nll_vs_empirical >= 0.02:
+            return "Individual signal"
         if nll_vs_uniform is not None and nll_vs_uniform >= 0.02:
             return "Beats uniform"
         return "Close to baseline"
@@ -1722,14 +1858,6 @@ def render_twin_summary_report_html(
                 "<td></td>"
                 "<td></td>"
                 "<td><b>Uniform baseline</b></td>"
-                "</tr>"
-            )
-            table_rows.append(
-                "<tr class=\"baseline-row\">"
-                "<td><b>No-persona one-shot</b><span>Deployable aggregate baseline; not yet scored for this question</span></td>"
-                f"<td class=\"numeric\">{first_values.get('rows', 0)}</td>"
-                "<td></td><td></td><td></td><td></td><td></td><td></td>"
-                "<td><b>Missing baseline</b></td>"
                 "</tr>"
             )
         question_blocks.append(
@@ -1880,6 +2008,7 @@ def render_twin_summary_report_html(
     <section class="panel">
       <h2>Model Performance</h2>
       <p><a href="#metric-definitions">Definitions</a></p>
+      {missing_one_shot_note}
       <div class="table-wrap">
         <table>
           <thead><tr><th>Twin set</th><th>Rows</th><th>Accuracy</th><th>p(actual)</th><th>NLL</th><th>Brier</th><th>ECE</th><th>NLL improvement vs uniform</th><th>NLL improvement vs empirical oracle</th></tr></thead>
