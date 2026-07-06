@@ -414,6 +414,8 @@ Write a short shareable version, suitable for pasting into an email or slide. Do
 
 Use this decision framing unless contradicted by the supplied diagnostics: digital twins are useful for exploratory and directional research, especially with the best-calibrated model; they are not yet reliable enough for exact estimates, precise subgroup claims, high-stakes decisions, or individual-level targeting.
 
+Do not make the default recommendation sound like "only a limited exploratory pilot" unless the diagnostics are weak. If the organization needs to make a decision now, frame twins as decision-support evidence with an explicit weight and guardrails: useful for direction, option ranking, objection discovery, and deciding where to investigate or act first; not sufficient as the sole basis for irreversible, high-stakes, or person-specific decisions. Distinguish "usable now with guardrails" from "validated as a replacement for fielded research."
+
 Include a compact callout in prose:
 **Bottom line:** proceed with a limited exploratory pilot if the diagnostics support it; do not treat the twins as a substitute for a fielded survey or as reliable predictions for specific people.
 
@@ -549,18 +551,153 @@ Recorded report context:
 """
 
 
+EXECUTIVE_REPORT_SECTIONS = [
+    {
+        "question_name": "executive_decision_markdown",
+        "title": "Executive Decision Guidance",
+        "context_keys": [
+            "survey",
+            "survey_summary",
+            "filters",
+            "heldout_questions",
+            "executive_diagnostics",
+            "twin_validation",
+            "twin_specific_diagnostics",
+            "one_shot_no_persona_baseline",
+            "context_policy_warning",
+            "ranking_sample_warning",
+        ],
+        "sections": [
+            "Executive Summary",
+            "What Digital Twins Are",
+            "Decision Guidance",
+            "What The Twins Are Useful For Now",
+            "What The Twins Should Not Be Used For",
+        ],
+        "instructions": (
+            "Write the decision-facing front matter. Do not open with 'Yes,'. Do not default to 'only a limited exploratory pilot' "
+            "unless the evidence is weak. If a decision must be made now, explain how to use twins as one source of decision-support "
+            "evidence with guardrails and how much weight to give them. Keep the tone constructive, commercially useful, and evidence-aware."
+        ),
+    },
+    {
+        "question_name": "validation_evidence_markdown",
+        "title": "Validation Evidence",
+        "context_keys": [
+            "survey",
+            "survey_summary",
+            "source_filters",
+            "heldout_questions",
+            "executive_diagnostics",
+            "twin_validation",
+            "twin_specific_diagnostics",
+            "one_shot_no_persona_baseline",
+            "run_manifests",
+        ],
+        "sections": [
+            "What We Tested",
+            "How To Interpret This Validation",
+            "Bottom-Line Findings",
+            "Model Comparison",
+            "Where Performance Was Stronger And Weaker",
+            "What Personas Add Beyond Simpler Baselines",
+            "Twin-Specific Capabilities",
+        ],
+        "instructions": (
+            "Write the evidence section. Use tables for findings and model comparison. Translate metrics into practical meaning. "
+            "Avoid repeating the operating recommendation from the executive section."
+        ),
+    },
+    {
+        "question_name": "next_steps_appendix_markdown",
+        "title": "Next Steps And Appendices",
+        "context_keys": [
+            "survey",
+            "executive_diagnostics",
+            "twin_validation",
+            "twin_specific_diagnostics",
+            "one_shot_no_persona_baseline",
+            "context_policy_warning",
+            "ranking_sample_warning",
+        ],
+        "sections": [
+            "Next Steps",
+            "Risks And Required Checks Before Scaling",
+            "Appendix A: Detailed Metrics",
+            "Appendix B: Question-Level Results",
+            "Appendix C: Failure Cases And Overconfident Misses",
+            "Appendix D: Supporting Artifacts",
+        ],
+        "instructions": (
+            "Write the operational next steps and appendices. Include copy/paste prompts or commands where useful. "
+            "Do not create another Recommendation section; the recommendation belongs in the executive decision guidance."
+        ),
+    },
+]
+
+
+def executive_report_section_context(report_context: dict[str, Any], context_keys: list[str]) -> dict[str, Any]:
+    return {key: report_context.get(key) for key in context_keys if key in report_context}
+
+
+def build_executive_summary_report_section_prompt(
+    report_context: dict[str, Any],
+    section: dict[str, Any],
+) -> str:
+    section_context = executive_report_section_context(report_context, section["context_keys"])
+    sections = "\n".join(f"- ## {name}" for name in section["sections"])
+    return f"""You are writing one section group for a survey digital twin validation report.
+
+Write Markdown only. Do not include a top-level title. Write only these sections, in this order:
+{sections}
+
+Section group: {section["title"]}
+
+Instructions:
+{section["instructions"]}
+
+Global interpretation rules:
+- Do not invent data or claims not supported by the supplied context.
+- Avoid leading with technical terms; translate metrics into practical meaning.
+- Uniform random is a sanity check, not the standard for product value.
+- The empirical marginal baseline is an oracle diagnostic, not deployable for genuinely new questions.
+- The no-persona one-shot baseline is the practical aggregate benchmark.
+- Respondent-context twins are most valuable when respondent-level state, slicing, crosstabs, simulated follow-up, or respondent-specific lift matter.
+- Do not present twins as reliable predictions for specific people unless the supplied diagnostics clearly support that claim.
+
+Recorded context for this section:
+
+{json.dumps(section_context, indent=2)}
+"""
+
+
+def build_executive_summary_report_section_prompts(report_context: dict[str, Any]) -> list[dict[str, str]]:
+    return [
+        {
+            "question_name": section["question_name"],
+            "title": section["title"],
+            "prompt": build_executive_summary_report_section_prompt(report_context, section),
+        }
+        for section in EXECUTIVE_REPORT_SECTIONS
+    ]
+
+
 def build_edsl_executive_summary_report_job_dict(
     args: argparse.Namespace,
     report_context: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any], str]:
-    prompt = build_executive_summary_report_prompt(report_context)
+    section_prompts = build_executive_summary_report_section_prompts(report_context)
+    prompt = "\n\n---\n\n".join(f"# {section['title']}\n\n{section['prompt']}" for section in section_prompts)
     Jobs, Model, ModelList, QuestionFreeText, Scenario, ScenarioList, Survey = load_edsl_job_classes()
-    question_name = "executive_summary_markdown"
-    question = QuestionFreeText(question_name=question_name, question_text=prompt)
+    question_names = [section["question_name"] for section in section_prompts]
+    questions = [
+        QuestionFreeText(question_name=section["question_name"], question_text=section["prompt"])
+        for section in section_prompts
+    ]
     model_params = parse_model_params(args)
     model_specs = parse_model_specs(args)
     job = Jobs(
-        survey=Survey(questions=[question]),
+        survey=Survey(questions=questions),
         scenarios=ScenarioList([Scenario({})]),
         models=ModelList(
             [
@@ -578,7 +715,8 @@ def build_edsl_executive_summary_report_job_dict(
     job_dict["zwill"] = {
         **job_dict.get("zwill", {}),
         "practitioner_report_id": report_id,
-        "practitioner_report_question_name": question_name,
+        "practitioner_report_question_name": question_names[0],
+        "practitioner_report_question_names": question_names,
         "report_kind": "executive_twin_validation",
     }
     generation = {
@@ -593,5 +731,9 @@ def build_edsl_executive_summary_report_job_dict(
         "benchmark_payload": report_context.get("executive_diagnostics", {}),
         "executive_report_context": report_context,
         "generation": generation,
+        "section_questions": [
+            {"question_name": section["question_name"], "title": section["title"]}
+            for section in section_prompts
+        ],
     }
     return job_dict, context, prompt

@@ -2024,6 +2024,11 @@ def build_executive_summary_report_prompt(*args, **kwargs):
 
     return impl(*args, **kwargs)
 
+def build_executive_summary_report_section_prompts(*args, **kwargs):
+    from .twin_validation_commands import build_executive_summary_report_section_prompts as impl
+
+    return impl(*args, **kwargs)
+
 def build_edsl_executive_summary_report_job_dict(*args, **kwargs):
     from .twin_validation_commands import build_edsl_executive_summary_report_job_dict as impl
 
