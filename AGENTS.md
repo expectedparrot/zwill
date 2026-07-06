@@ -29,6 +29,287 @@ When adding or modifying ingestion scripts, treat ingestion as a validation boun
 
 A user may arrive with a survey workbook, survey exports, CRM data, transaction logs, product usage records, or other respondent/customer-level data and ask whether it can be used to build digital twins. Treat this as a validation study, not just a file conversion.
 
+### Agent Operating Rules
+
+- Do not start with twin generation. Start by proving that the observed data are correctly imported, labeled, committed, and inspectable.
+- Do not claim that a digital twin is useful because it produced plausible prose or plausible probabilities. Score against held-out observed answers.
+- Do not use held-out answers, empirical marginals for the held-out target, downstream variables, or summaries that reveal the target in the twin prompt unless the user explicitly approves an oracle/leakage experiment.
+- Do not run costly EDSL jobs without first showing the user the plan, prediction count, model list, and likely cost/time implications.
+- Prefer a small approved debug sample before a full run. Debug samples must still use the same held-out policy and leakage exclusions as the intended validation.
+- Keep artifacts reproducible: save import manifests, approved plans, exported jobs, raw Results objects, imported reports, bundle manifests, generated-report prompts, and rendered HTML outputs.
+- Use `--allow-unapproved` only when the user explicitly asks for an ad hoc/debug/leakage run. Mention that results from that path are not an approved validation.
+
+### End-to-End Twin Validation Playbook
+
+Use this playbook when the user asks whether data can support digital twins or asks to build and assess twins.
+
+1. **Create an isolated workdir and project.**
+
+   ```bash
+   mkdir -p workdirs/<study_id>
+   cd workdirs/<study_id>
+   zwill init
+   zwill project create <study_id> --use
+   ```
+
+2. **Convert source files into normalized JSONL without mutating `.zwill` first.**
+
+   The conversion phase should write:
+
+   ```text
+   imports/<survey>/questions.jsonl
+   imports/<survey>/respondents.jsonl
+   imports/<survey>/answers.jsonl
+   imports/<survey>/manifest.json
+   imports/<survey>/issues.jsonl
+   ```
+
+   The manifest must include source paths, codebooks used, row counts, question/respondent/answer counts, issue counts, and full issue-log paths. If the source contains coded values, expand them through codebooks before writing `question_options` or `answer` values.
+
+3. **Import, preserve provenance, and commit truth.**
+
+   ```bash
+   zwill survey create --name <survey>
+   zwill raw add --survey <survey> --id source_data --path <raw_data_path> --kind source_data --title "Original source data"
+   zwill raw add --survey <survey> --id codebook --path <codebook_path> --kind codebook --title "Source codebook"
+   zwill question import --survey <survey> --path imports/<survey>/questions.jsonl
+   zwill respondent import --survey <survey> --path imports/<survey>/respondents.jsonl
+   zwill answer import --survey <survey> --path imports/<survey>/answers.jsonl
+   zwill quarantine list --survey <survey>
+   zwill commit --survey <survey>
+   zwill status
+   ```
+
+   Stop if there are open quarantine issues, unknown labels, missing respondent mappings, or unexpanded coded values. Fix the conversion rather than patching the final `.zwill` state by hand.
+
+4. **Build the survey/profile report and ask for human review.**
+
+   ```bash
+   zwill report build --survey <survey> --path <survey>_report/
+   zwill report list --survey <survey>
+   ```
+
+   Review `index.html`, `survey-profile.html`, `stage-manifest.json`, and files under `facts/`. Ask the user to confirm that question text, option labels, respondent population, missingness, skip handling, free-text treatment, and obvious distributions look right before running model jobs.
+
+5. **Optionally establish one-shot aggregate baselines.**
+
+   Use this when the user wants a baseline for whether frontier models understand the aggregate survey distribution without respondent context. Default to exporting one-shot predictions for every eligible closed-ended survey question unless the user limits scope or cost requires a staged run. Eligible questions generally have committed empirical marginals, explicit answer options, enough observed responses to score, and no unresolved import/quarantine issues.
+
+   Before export, produce an eligibility inventory:
+
+   ```bash
+   zwill report build --survey <survey> --path <survey>_report/
+   zwill report list --survey <survey>
+   ```
+
+   Inspect `survey-profile.html`, `facts/`, and `stage-manifest.json`. Record which questions are included, excluded, and why. Exclude open text, malformed option sets, questions with too few observed answers for meaningful scoring, and items whose labels or missingness are not yet validated.
+
+   ```bash
+   zwill edsl-export --survey <survey> --target probability-job --path one_shot_probability_job.edsl.json
+   zwill edsl-run --job one_shot_probability_job.edsl.json --path one_shot_probability_results.json.gz
+   zwill prob-results import --survey <survey> --path one_shot_probability_results.json.gz
+   zwill prob-results report --survey <survey> --job-id <probability_job_id> --format html --path one_shot_probability_report.html
+   zwill report build --survey <survey> --path <survey>_report/
+   ```
+
+   For interpretation, export a generated one-shot analysis rather than writing deterministic prose:
+
+   ```bash
+   zwill prob-results analysis-export --survey <survey> --job-id <probability_job_id> --path <survey>_report/one-shot-marginals.html
+   zwill edsl-run --job .zwill/projects/<project>/practitioner_reports/<report_id>/job.edsl.json --path .zwill/projects/<project>/practitioner_reports/<report_id>/results.json.gz
+   zwill prob-results analysis-import --report-id <report_id> --path .zwill/projects/<project>/practitioner_reports/<report_id>/results.json.gz
+   zwill prob-results analysis-render --report-id <report_id> --path <survey>_report/one-shot-marginals.html
+   ```
+
+   Treat this as aggregate marginal validation only. It does not show respondent-level twin quality.
+
+6. **Draft a validation plan before any twin export/run.**
+
+   Default to considering every eligible observed closed-ended question as a held-out twin target, not just a hand-picked subset. "Eligible" means the question has observed answers, validated human-readable options, enough complete respondent context to build twins, and no unresolved leakage/missingness issue that would make scoring misleading. If running every eligible question is too expensive, create a staged plan: smoke/debug subset first, pilot subset second, then final full eligible question set when approved.
+
+   Prefer combined EDSL jobs, not one job per held-out question. `zwill edsl-export --target twin-probability-job` and `zwill twin-experiment export-plan` can take multiple held-out questions and build one scenario grid per approach: roughly `respondents x held-out questions`, with the requested models attached as the job's `ModelList`. Split by question only for explicit debugging, provider/runtime limits, retry isolation, or staged cost control.
+
+   The plan must specify:
+
+   - held-out observed questions or outcomes;
+   - all eligible questions considered and any excluded questions with reasons;
+   - respondent sample and whether the final run is full-sample or sampled;
+   - construction approaches and the intended difference between them;
+   - context fields available at prediction time;
+   - leakage exclusions such as `<heldout_question>:<context_question>`;
+   - models and model parameters;
+   - seed and complete-case/stratification policy;
+   - prediction count: `respondents x held-out questions x approaches x models`;
+   - expected cost/time risk;
+   - outputs to produce and decision criteria.
+
+   Prefer `twin-experiment` for planned validation:
+
+   ```bash
+   zwill twin-approach scaffold --survey <survey> --approach-id baseline_context --name "Prior answers only" --context-question-count 5 --path baseline_context.approach.json
+   zwill twin-approach add --survey <survey> --path baseline_context.approach.json
+   zwill twin-approach list --survey <survey>
+
+   zwill twin-experiment init-plan \
+     --survey <survey> \
+     --plan-id <plan_id> \
+     --heldout-questions <q1,q2,...> \
+     --approach-id baseline_context \
+     --sample-respondents <n> \
+     --seed <seed> \
+     --path <plan_id>.json
+   ```
+
+   Ask the user to approve or edit the plan. Only after explicit approval:
+
+   ```bash
+   zwill twin-experiment approve \
+     --path <plan_id>.json \
+     --approved-by <reviewer> \
+     --note "Approved held-out targets, context policy, leakage exclusions, sample size, models, and seed."
+   ```
+
+7. **Export, run, and import twin jobs from the approved plan.**
+
+   ```bash
+   zwill twin-experiment export-plan --path <plan_id>.json --output-dir <plan_id>_jobs
+   zwill twin-experiment package --manifest <plan_id>_jobs/manifest.json --output-dir <plan_id>_run_package
+   ```
+
+   `export-plan` should normally write one EDSL job per approach/arm. Each job should contain all approved held-out questions as concatenated scenarios, not separate per-question jobs. Check the export manifest's `scenario_count` before running; it should approximately equal the eligible respondent count times the held-out question count for that arm, adjusted for complete-case filtering, missing actual answers, or stratified sampling.
+
+   Run each exported approach job. If the package is handed to another runner, use its `RUN.md`. The local pattern is:
+
+   ```bash
+   zwill edsl-run --job <plan_id>_jobs/<job>.edsl.json --path <plan_id>_results/<job>.results.json.gz
+   zwill twin-experiment import-plan-results --manifest <plan_id>_jobs/manifest.json --results-dir <plan_id>_results
+   ```
+
+   `import-plan-results` imports every Results object that matches the exported plan manifest and records the planned experiment metadata. Use `zwill twin-results import --survey <survey> --path <results.json.gz>` only for one-off jobs that are not being imported through a plan manifest.
+
+   For a one-command debug run, use `zwill twin-study run --approved-plan <plan_id>.json ...`. Prefer the separated export/run/import flow when auditing prompts, provider failures, malformed rows, or construction metadata.
+
+8. **Audit at least one imported job before scoring claims.**
+
+   ```bash
+   zwill twin-study list --survey <survey>
+   zwill twin-study show --survey <survey> --job-id <job_id> --include-summary
+   zwill twin-results run-report --survey <survey> --job-id <job_id> --format html --path <job_id>_run_audit.html
+   ```
+
+   Inspect construction metadata, held-out questions, prompt template, rendered user prompts, scenario inputs, twin identity, raw model responses, malformed rows, and import issues. Confirm held-out answers and leakage variables are absent from prompts.
+
+9. **Score the twin run against baselines.**
+
+   ```bash
+   zwill twin-results report --survey <survey> --job-id <job_id> --view summary
+   zwill twin-results report --survey <survey> --job-id <job_id> --format html --path <job_id>_twin_validation.html
+   zwill report build --survey <survey> --path <survey>_report/ --job-id <job_id> --audit-job-id <job_id>
+   ```
+
+   Inspect accuracy, p(actual), NLL, NLL p95, Brier, ECE/calibration, marginal L1/JS, overconfident misses, malformed-row rate, per-question failures, and lift versus uniform and empirical-marginal baselines. The empirical marginal baseline is an oracle-style benchmark available only because the target was observed.
+
+10. **Compare construction approaches.**
+
+    ```bash
+    zwill twin-results compare-report --survey <survey> --jobs <job_id_1>,<job_id_2> --format html --path twin_job_comparison.html
+    zwill twin-experiment compare --survey <survey> --metric nll
+    zwill twin-experiment select --survey <survey> --metric nll --model <model>
+    zwill twin-experiment plots --survey <survey> --jobs <job_id_1>,<job_id_2> --path <plan_id>_plots
+    zwill twin-experiment microdata --survey <survey> --jobs <job_id_1>,<job_id_2> --path <plan_id>_microdata.html
+    ```
+
+    Prefer comparisons with clear construction differences, such as survey-only context versus survey plus transaction summaries. Avoid declaring a winner from many opaque prompt tweaks without a predeclared plan.
+
+11. **Build a decision-facing report only after diagnostics exist.**
+
+    ```bash
+    zwill twin-experiment bundle \
+      --survey <survey> \
+      --plan-id <plan_id> \
+      --metric nll \
+      --model <model> \
+      --output-dir <plan_id>_bundle \
+      --report-export
+
+    zwill twin-experiment dashboard \
+      --survey <survey> \
+      --plan-id <plan_id> \
+      --metric nll \
+      --model <model> \
+      --bundle-manifest <plan_id>_bundle/manifest.json \
+      --path <plan_id>_dashboard.html
+    ```
+
+    For a single imported job, use the generated executive-summary flow:
+
+    ```bash
+    zwill twin-results executive-summary-export --survey <survey> --job-id <job_id> --path <survey>_executive_summary.html
+    zwill edsl-run --job .zwill/projects/<project>/practitioner_reports/<report_id>/job.edsl.json --path .zwill/projects/<project>/practitioner_reports/<report_id>/results.json.gz
+    zwill twin-results executive-summary-import --report-id <report_id> --path .zwill/projects/<project>/practitioner_reports/<report_id>/results.json.gz
+    zwill twin-results executive-summary-render --report-id <report_id> --path <survey>_executive_summary.html
+    zwill report render --survey <survey> --path <survey>_report/ --job-id <job_id> --final
+    ```
+
+    The generated report must discuss data used, held-out design, construction approaches, baselines, performance by target family, calibration, wins/failures, leakage risks, subgroup or population coverage limits, and a practical recommendation: use now, use only for exploratory work, or collect better validation data first.
+
+### What Good Twin Evidence Looks Like
+
+- **Basic viability:** high import coverage, zero open quarantine issues, low malformed prediction rate, and audited prompts that exclude held-out answers and leakage fields.
+- **Aggregate signal:** twin-implied marginals beat uniform and are competitive with one-shot aggregate baselines for most held-out questions.
+- **Individual signal:** p(actual), NLL, Brier, and calibration improve over the empirical marginal baseline, not just over uniform. Within-question permutation diagnostics should support respondent-level predictive power.
+- **Robustness:** conclusions hold across held-out question families, reasonable seeds/samples, and at least one clear construction comparison.
+- **Operational caution:** if performance only matches empirical marginals or permutation tests are null, say the evidence supports aggregate opinion structure, not individual predictive power.
+
+### Twin Evaluation Sample Sizes
+
+Pick sample sizes from the evaluation purpose, not from convenience alone. Always compute and show the prediction count before running: `respondents x held-out questions x approaches x models`.
+
+- **Prompt/export smoke test:** 2-5 respondents, 1 held-out question, 1 approach, 1 model. Use this only to verify exports, prompt rendering, EDSL execution, import parsing, and audit reports.
+- **Debug validation run:** 20-50 respondents. Use this to find leakage, malformed responses, bad context selection, missing actual answers, and obvious model-parameter problems. Keep the same held-out policy and leakage exclusions intended for the final run.
+- **Pilot comparison:** 100-200 respondents when cost allows. Use `--stratify-actual` for categorical held-out questions so rare options appear in the sample. Treat pilot metrics as directional, not final.
+- **Minimum credible scored run:** prefer at least 200 respondents or all eligible respondents if the eligible pool is smaller. For per-question conclusions, aim for at least 30 observed actual answers in the smallest important option or subgroup; otherwise flag that question or subgroup as underpowered.
+- **Final validation:** prefer full-sample scoring across all eligible respondents when API cost and time allow. If sampling is necessary, predeclare the sample size, seed, stratification policy, and why the sampled population is adequate for the user's intended decision.
+- **Multiple approaches/models:** reduce held-out questions or start with a pilot rather than silently shrinking respondent count below a useful validation size. A 25-respondent run across many arms is usually a systems test, not evidence.
+
+Example staged plan:
+
+```bash
+# Smoke test: prompt/render/import only.
+zwill twin-experiment init-plan \
+  --survey <survey> \
+  --plan-id <plan_id>_smoke \
+  --heldout-questions <q1> \
+  --approach-id baseline_context \
+  --sample-respondents 5 \
+  --seed 101 \
+  --path <plan_id>_smoke.json
+
+# Pilot: enough rows to compare obvious approach differences.
+zwill twin-experiment init-plan \
+  --survey <survey> \
+  --plan-id <plan_id>_pilot \
+  --heldout-questions <q1,q2,q3> \
+  --approach-id baseline_context \
+  --approach-id richer_context \
+  --sample-respondents 150 \
+  --seed 20260706 \
+  --path <plan_id>_pilot.json
+```
+
+For final plans, omit `--sample-respondents` when full-sample scoring is feasible. If using `--sample-respondents`, include `--seed` and usually `--stratify-actual` for multiple-choice held-out targets.
+
+### Common Failure Modes to Call Out
+
+- Coded options were imported as raw numeric/source codes rather than human-readable labels.
+- Respondents were implicitly created from answer rows because respondent metadata failed to import.
+- Held-out answers or target-specific follow-ups leaked into context.
+- The model learned the population marginal but not the respondent-level answer pattern.
+- A small sample was stratified or filtered in a way that no longer represents the deployment population.
+- Provider responses were malformed or silently dropped, changing the effective sample.
+- The empirical marginal baseline was described as a deployable baseline even though it is only available for already-observed targets.
+- A generated executive report was circulated without `zwill report render --final` or without imported generated analysis.
+
 ### Typical Survey Microdata Workflow
 
 When starting from survey respondent-level microdata, follow this default sequence unless the user gives a different plan.

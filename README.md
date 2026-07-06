@@ -47,7 +47,7 @@ zwill init
 
 `zwill init` creates a local `.zwill/` directory. That directory is the project database: raw provenance, survey definitions, respondent records, answers, commits, exported jobs, and reports all live under the active project.
 
-Create a survey and attach the original questionnaire as raw provenance:
+Create a survey and archive the original questionnaire as raw provenance:
 
 ```bash
 zwill survey create --name hello_world
@@ -59,7 +59,9 @@ zwill raw add \
   --title "Hello World Questionnaire"
 ```
 
-Add the actual survey item. The answer options are human-readable labels; these are the canonical labels that answers must use too.
+`raw add` does not parse `questionnaire.md` or define a Markdown survey format. It only copies the source artifact into `.zwill/` and records its hash, kind, title, and source path so the structured survey can be audited later. Real imports should preserve their original files the same way, whether the source was CSV, XLSX, JSON, Qualtrics, SPSS/Stata, a PDF codebook, or a Markdown note.
+
+Now add the actual structured survey item. This is the step that defines the question text, type, and options in `zwill`. The answer options are human-readable labels; these are the canonical labels that answers must use too.
 
 ```bash
 zwill question add \
@@ -75,7 +77,9 @@ zwill question add \
   --source-note "Single hello-world test question."
 ```
 
-Register five respondents. Weights and metadata travel with the respondent records and are used by reports and validation workflows.
+Respondents can be added one at a time. This makes the data model explicit: each respondent has an id, an optional weight, and optional metadata.
+
+Choose either the row-by-row commands or the JSONL import command below. Do not run both in the same scratch project.
 
 ```bash
 zwill respondent add --survey hello_world --respondent-id r001 --weight 1.0 --metadata "sample_source=demo"
@@ -85,7 +89,17 @@ zwill respondent add --survey hello_world --respondent-id r004 --weight 1.0 --me
 zwill respondent add --survey hello_world --respondent-id r005 --weight 1.0 --metadata "sample_source=demo"
 ```
 
-Now add answers. Each answer is validated against both the respondent id and the question's declared options.
+For normal use, put those records in JSONL and import the file instead. The command below loads the same five respondents from `examples/hello_world/respondents.jsonl`; each line in that file corresponds to one `respondent add` command above.
+
+```bash
+zwill respondent import \
+  --survey hello_world \
+  --path "$ZWILL_REPO/examples/hello_world/respondents.jsonl"
+```
+
+Answers work the same way. You can add them one at a time, and each answer is validated against both the respondent id and the question's declared options.
+
+Choose either the row-by-row commands or the JSONL import command below. Do not run both in the same scratch project.
 
 ```bash
 zwill answer add --survey hello_world --respondent-id r001 --question favorite_color --answer red
@@ -93,6 +107,14 @@ zwill answer add --survey hello_world --respondent-id r002 --question favorite_c
 zwill answer add --survey hello_world --respondent-id r003 --question favorite_color --answer green
 zwill answer add --survey hello_world --respondent-id r004 --question favorite_color --answer blue
 zwill answer add --survey hello_world --respondent-id r005 --question favorite_color --answer red
+```
+
+Or load the same answer records from JSONL:
+
+```bash
+zwill answer import \
+  --survey hello_world \
+  --path "$ZWILL_REPO/examples/hello_world/answers.jsonl"
 ```
 
 Inspect the respondent-by-question table:
