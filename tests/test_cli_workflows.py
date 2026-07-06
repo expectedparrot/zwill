@@ -551,6 +551,8 @@ def test_executive_summary_prompt_asks_for_plain_language_use_examples() -> None
 
     assert "decision makers get a short, shareable executive version first" in prompt
     assert "Can we use digital twins here?" in prompt
+    assert "Do not open with \"Yes,\"" in prompt
+    assert "Start with a report-style sentence" in prompt
     assert "Avoid leading with terms such as" in prompt
     assert "## What Digital Twins Are" in prompt
     assert "## Bottom-Line Findings" in prompt

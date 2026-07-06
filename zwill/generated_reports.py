@@ -322,7 +322,7 @@ The report must be decision-first. Avoid leading with terms such as "permutation
 Write Markdown only. Do not include a top-level title. Use these sections:
 
 ## Executive Summary
-Write a short shareable version, suitable for pasting into an email or slide. It must answer these questions directly in the first 8-12 sentences:
+Write a short shareable version, suitable for pasting into an email or slide. Do not open with "Yes," or frame the first sentence as if answering a directly asked question. Start with a report-style sentence that names what the validation evaluated and gives the operating recommendation, for example: "This validation evaluated whether respondent-context digital twins can support exploratory research for this survey." It must cover these questions in the first 8-12 sentences:
 - Can we use digital twins here?
 - For what uses?
 - For what not?
