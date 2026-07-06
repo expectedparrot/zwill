@@ -1064,10 +1064,12 @@ def render_twin_report_html(
             row.get("model_label") or row.get("model") or "",
         ),
     )
+    detail_row_limit = 250
+    detail_rows_omitted = max(0, len(rows_sorted) - detail_row_limit)
     question_options = "".join(f"<option value=\"{escape_html(question)}\">{escape_html(question)}</option>" for question in heldout_questions)
     model_options = "".join(f"<option value=\"{escape_html(model)}\">{escape_html(model)}</option>" for model in model_names)
     table_rows = []
-    for row in rows_sorted:
+    for row in rows_sorted[:detail_row_limit]:
         predicted = row.get("probabilities", {})
         top_option = max(predicted.items(), key=lambda item: item[1])[0] if predicted else None
         probability_cells = "".join(
@@ -1105,7 +1107,18 @@ def render_twin_report_html(
             "</tr>"
         )
 
-    report_data = escape_html(json.dumps({"rows": rows, "summary": summary, "diagnostics": diagnostics}, separators=(",", ":")))
+    report_data = escape_html(
+        json.dumps(
+            {
+                "row_count": len(rows),
+                "detail_row_limit": detail_row_limit,
+                "raw_prediction_rows_included": False,
+                "summary": summary,
+                "diagnostics": diagnostics,
+            },
+            separators=(",", ":"),
+        )
+    )
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -1322,6 +1335,7 @@ def render_twin_report_html(
     <section class="table-card">
       <section class="controls">
         <strong>Respondents</strong>
+        <span class="subtle">Showing {len(table_rows)} detail rows{f'; {detail_rows_omitted} omitted' if detail_rows_omitted else ''}. Use audit or microdata exports for full row-level inspection.</span>
         <label>Held-out <select id="heldout-filter"><option value="">All</option>{question_options}</select></label>
         <label>Model <select id="model-filter"><option value="">All</option>{model_options}</select></label>
         <label><input type="checkbox" id="wrong-only"> Wrong only</label>

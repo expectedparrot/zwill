@@ -415,4 +415,7 @@ def test_twin_html_report_contains_embedded_data() -> None:
     marker = '<script type="application/json" id="twin-report-data">'
     assert marker in html
     encoded = html.split(marker, 1)[1].split("</script>", 1)[0]
-    assert json.loads(unescape(encoded))["rows"][0]["respondent_id"] == "r1"
+    embedded = json.loads(unescape(encoded))
+    assert embedded["row_count"] == 1
+    assert embedded["raw_prediction_rows_included"] is False
+    assert "rows" not in embedded

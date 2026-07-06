@@ -952,6 +952,7 @@ def report_catalog_entry(
     command: str,
     path: str,
     notes: str = "",
+    primary: bool = True,
 ) -> dict[str, Any]:
     return {
         "report_id": report_id,
@@ -965,6 +966,8 @@ def report_catalog_entry(
         "suggested_path": path,
         "path_exists": Path(path).exists(),
         "notes": notes,
+        "primary": primary,
+        "role": "primary" if primary else "supporting",
     }
 
 
@@ -1050,6 +1053,7 @@ def build_report_catalog(survey: str) -> dict[str, Any]:
             available=f"{len(twin_job_ids)} twin job ids, {len(twin_runs)} run/import records",
             command=f"{bundle_command} --audit-job-id {latest_twin_job}",
             path=f"{base}_report/audit/twin-run-{latest_twin_job}.html",
+            primary=False,
         ),
         report_catalog_entry(
             report_id="twin-validation",
@@ -1073,6 +1077,7 @@ def build_report_catalog(survey: str) -> dict[str, Any]:
             available=f"{len(twin_job_ids)} twin job ids",
             command=f"{bundle_command} --jobs {compare_jobs}",
             path=f"{base}_report/twin-comparison.html",
+            primary=False,
         ),
         report_catalog_entry(
             report_id="twin-experiment-microdata",
@@ -1085,6 +1090,7 @@ def build_report_catalog(survey: str) -> dict[str, Any]:
             command=f"zwill twin-experiment microdata --survey {survey} --jobs {experiment_jobs} --path {base}_report/audit/twin-experiment-microdata.html",
             path=f"{base}_report/audit/twin-experiment-microdata.html",
             notes="Record approaches first with `zwill twin-experiment record` if this is not ready.",
+            primary=False,
         ),
         report_catalog_entry(
             report_id="practitioner-narrative",
@@ -1164,6 +1170,7 @@ def report_bundle_page(
     next_step: str = "",
     notes: str = "",
     generated_files: list[Path] | None = None,
+    primary: bool = True,
 ) -> dict[str, Any]:
     return {
         "page_id": page_id,
@@ -1177,12 +1184,21 @@ def report_bundle_page(
         "next_step": next_step,
         "notes": notes,
         "generated_files": [str(p) for p in (generated_files or [])],
+        "primary": primary,
     }
 
 
 def write_bundle_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n")
+
+
+def compact_twin_report_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    compact = dict(payload)
+    rows = compact.pop("rows", [])
+    compact["row_count"] = len(rows) if isinstance(rows, list) else 0
+    compact["raw_prediction_rows_included"] = False
+    return compact
 
 
 def copy_bundle_file(source: Path, destination: Path) -> str | None:
@@ -1430,8 +1446,10 @@ def render_report_bundle_index(payload: dict[str, Any]) -> str:
       </table>
       <p>{f'<a class="button" href="{esc(executive_href)}">Open full executive summary</a>' if executive_href else ''} {f'<a class="button secondary" href="{esc(validation_href)}">Open technical validation</a>' if validation_href else ''}</p>
     </section>"""
+    primary_pages = [page for page in payload.get("pages", []) if page.get("primary", True)]
+    secondary_pages = [page for page in payload.get("pages", []) if not page.get("primary", True)]
     items = []
-    for index, page in enumerate(payload.get("pages", []), 1):
+    for index, page in enumerate(primary_pages, 1):
         status = str(page.get("status", "not_ready"))
         status_label = status.replace("_", " ").title()
         path = page.get("path")
@@ -1465,6 +1483,30 @@ def render_report_bundle_index(payload: dict[str, Any]) -> str:
         </div>
       </li>"""
         )
+    secondary_items = []
+    for page in secondary_pages:
+        status = str(page.get("status", "not_ready"))
+        path = page.get("path")
+        href = bundle_rel_link(path, output_dir) if path else ""
+        secondary_items.append(
+            f"""
+      <li class="{esc(status)}">
+        <div>
+          <b>{esc(page.get("title", page.get("page_id", "")))}</b>
+          <span>{esc(page.get("description", ""))}</span>
+        </div>
+        {f'<a class="button secondary" href="{esc(href)}">Open</a>' if path else f'<span class="status">{esc(status.replace("_", " ").title())}</span>'}
+      </li>"""
+        )
+    secondary_block = ""
+    if secondary_items:
+        secondary_block = f"""
+    <section class="panel secondary-reports">
+      <div class="stage">Supporting Artifacts</div>
+      <h2>Linked From The Main Reports</h2>
+      <p>These are generated for auditability and comparisons, but they are not separate top-level reports.</p>
+      <ul>{''.join(secondary_items)}</ul>
+    </section>"""
     stale_items = [f"<li>{esc(bundle_rel_link(path, output_dir))}</li>" for path in payload.get("stale_files", [])]
     stale_block = ""
     if stale_items:
@@ -1507,6 +1549,9 @@ def render_report_bundle_index(payload: dict[str, Any]) -> str:
     .button {{ display:inline-block; border:1px solid var(--ep-green); color:var(--ep-green); background:#fff; border-radius:6px; padding:6px 10px; text-decoration:none; }}
     .button.secondary {{ border-color:var(--ep-border); color:var(--ep-dark); }}
     .notes {{ color:var(--ep-gray); font-size:13px; }}
+    .secondary-reports ul {{ list-style:none; margin:12px 0 0; display:grid; gap:10px; }}
+    .secondary-reports li {{ border:1px solid var(--ep-border); border-radius:8px; padding:12px; display:flex; justify-content:space-between; gap:14px; align-items:center; }}
+    .secondary-reports span {{ display:block; color:var(--ep-gray); }}
     ul {{ margin:8px 0 0 18px; padding:0; }}
     @media (max-width: 760px) {{ .step-head {{ display:block; }} .status {{ display:inline-block; margin-top:8px; }} }}
   </style>
@@ -1530,11 +1575,50 @@ def render_report_bundle_index(payload: dict[str, Any]) -> str:
     <ol class="workflow">
       {''.join(items)}
     </ol>
+    {secondary_block}
     {stale_block}
   </main>
   <script type="application/json" id="report-bundle-data">{data}</script>
 </body>
 </html>
+"""
+
+
+def render_twin_supporting_artifacts_section(pages: list[dict[str, Any]], output_dir: Path) -> str:
+    import html
+
+    items = []
+    for page in pages:
+        if page.get("primary", True):
+            continue
+        title = html.escape(str(page.get("title") or page.get("page_id") or ""), quote=True)
+        description = html.escape(str(page.get("description") or ""), quote=True)
+        path = page.get("path")
+        href = html.escape(bundle_rel_link(path, output_dir), quote=True) if path else ""
+        if path:
+            action = f'<a class="button secondary" href="{href}">Open</a>'
+        else:
+            status = html.escape(str(page.get("status", "not_ready")).replace("_", " ").title(), quote=True)
+            action = f'<span class="badge">{status}</span>'
+        items.append(
+            "<li>"
+            f"<div><strong>{title}</strong><span>{description}</span></div>"
+            f"{action}"
+            "</li>"
+        )
+    if not items:
+        return ""
+    return f"""
+    <section class="summary-card">
+      <h2>Supporting Artifacts</h2>
+      <p class="subtle">Audit and comparison pages are generated for inspection, but this page is the main twin validation report.</p>
+      <ul class="supporting-artifacts">{''.join(items)}</ul>
+    </section>
+    <style>
+      .supporting-artifacts {{ list-style:none; padding:0; margin:0; display:grid; gap:10px; }}
+      .supporting-artifacts li {{ border:1px solid var(--line); border-radius:8px; padding:12px; display:flex; justify-content:space-between; gap:14px; align-items:center; background:#fff; }}
+      .supporting-artifacts span {{ display:block; color:var(--muted); }}
+    </style>
 """
 
 
@@ -1744,7 +1828,7 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
             ),
         )
         twin_html_path.write_text(twin_html)
-        write_bundle_json(twin_data_path, twin_payload)
+        write_bundle_json(twin_data_path, compact_twin_report_payload(twin_payload))
         twin_generated_files = [
             twin_html_path,
             twin_data_path,
@@ -1792,6 +1876,7 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
                     inputs=f"Imported twin job {audit_job_id}",
                     next_step="Use this to inspect leakage and prompt construction details.",
                     generated_files=[audit_html_path, audit_data_path],
+                    primary=False,
                 )
             )
         except ZwillError as exc:
@@ -1805,6 +1890,7 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
                     inputs=f"Twin run metadata for {audit_job_id}",
                     next_step="Import or rerun the twin job with stored raw Results, then rebuild the report bundle.",
                     notes=exc.message,
+                    primary=False,
                 )
             )
 
@@ -1826,6 +1912,7 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
                     inputs=f"{len(twin_job_ids)} imported twin job ids",
                     next_step="Use this when choosing between construction approaches.",
                     generated_files=[comparison_html_path, comparison_data_path],
+                    primary=False,
                 )
             )
         else:
@@ -1838,8 +1925,12 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
                     description="Side-by-side comparison of two or more twin jobs.",
                     inputs="At least two imported twin jobs",
                     next_step="Import another twin job or record another approach, then rebuild the report bundle.",
+                    primary=False,
                 )
             )
+        supporting_section = render_twin_supporting_artifacts_section(pages, output_dir)
+        if supporting_section and twin_html_path.exists():
+            twin_html_path.write_text(insert_before_main_close(twin_html_path.read_text(), supporting_section))
     else:
         for page_id, title, stage, description in [
             ("twin-validation", "Twin Validation", "validation", "Held-out twin performance, calibration diagnostics, and marginal fit."),
@@ -1855,6 +1946,7 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
                     description=description,
                     inputs="Imported digital twin predictions",
                     next_step=f"Run/import twin results, then rerun `zwill report build --survey {survey} --path {output_dir}`.",
+                    primary=page_id == "twin-validation",
                 )
             )
 
@@ -1863,7 +1955,8 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
     bundle_summary = {
         **catalog["summary"],
         "ready_report_count": sum(1 for page in pages if page.get("status") == "ready"),
-        "top_level_page_count": len(pages),
+        "top_level_page_count": sum(1 for page in pages if page.get("primary", True)),
+        "secondary_page_count": sum(1 for page in pages if not page.get("primary", True)),
     }
     manifest = {
         "survey": survey,
@@ -7466,6 +7559,29 @@ def estimate_plan_prediction_count(plan: dict[str, Any]) -> int | None:
     return int(sample) * heldout_count * arm_count * model_count
 
 
+def edsl_job_prediction_count(job_dict: dict[str, Any]) -> int:
+    zwill_meta = job_dict.get("zwill") if isinstance(job_dict.get("zwill"), dict) else {}
+    scenario_count = zwill_meta.get("scenario_count")
+    if scenario_count is None:
+        scenario_count = len(job_dict.get("scenarios", []) or [])
+    model_count = len(job_dict.get("models", []) or []) or 1
+    return int(scenario_count or 0) * model_count
+
+
+def prediction_count_check(approved_estimate: int | None, exported_count: int | None) -> dict[str, Any]:
+    delta = None if approved_estimate is None or exported_count is None else int(exported_count) - int(approved_estimate)
+    delta_share = None
+    if delta is not None and approved_estimate:
+        delta_share = delta / approved_estimate
+    return {
+        "approved_prediction_count_estimate": approved_estimate,
+        "exported_prediction_count": exported_count,
+        "delta": delta,
+        "delta_share": delta_share,
+        "requires_reapproval": delta not in (None, 0),
+    }
+
+
 def plan_approval_record(plan: dict[str, Any]) -> dict[str, Any]:
     approval = plan.get("approval")
     if isinstance(approval, dict):
@@ -7628,6 +7744,7 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
     output_dir = Path(args.output_dir) if args.output_dir else digital_twin_jobs_dir(sdir) / "plans" / plan_id
     output_dir.mkdir(parents=True, exist_ok=True)
     approval = plan_approval_record(plan)
+    approved_estimate = estimate_plan_prediction_count(plan)
 
     registered = {item["approach_id"]: item for item in read_twin_approaches(sdir)}
     defaults = dict(plan.get("defaults") or {})
@@ -7667,7 +7784,7 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
             "plan_id": plan_id,
             "plan_path": str(plan_path),
             "approval": approval,
-            "prediction_count_estimate": estimate_plan_prediction_count(plan),
+            "prediction_count_estimate": approved_estimate,
         }
         job_id = job_dict.get("zwill", {}).get("digital_twin_job_id") or digital_twin_job_id_from_job(job_dict)
         approach_id = source_approach["approach_id"]
@@ -7704,8 +7821,19 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
                 "job_path": str(job_path),
                 "approach": experiment["approach"],
                 "scenario_count": job_dict.get("zwill", {}).get("scenario_count"),
+                "model_count": len(job_dict.get("models", []) or []) or 1,
+                "prediction_count_exported": edsl_job_prediction_count(job_dict),
             }
         )
+
+    exported_prediction_count = sum(int(row.get("prediction_count_exported") or 0) for row in exported)
+    export_count_check = prediction_count_check(approved_estimate, exported_prediction_count)
+    for row in exported:
+        job_path = Path(str(row["job_path"]))
+        job_dict = read_json(job_path, {})
+        approved_meta = job_dict.setdefault("zwill", {}).setdefault("approved_validation_plan", {})
+        approved_meta["export_count_check"] = export_count_check
+        write_json(job_path, job_dict)
 
     manifest = {
         "kind": "twin_experiment_plan_export",
@@ -7716,7 +7844,9 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
         "primary_metric": plan.get("primary_metric") or defaults.get("primary_metric") or "nll",
         "created_at": utc_now(),
         "approval": approval,
-        "prediction_count_estimate": estimate_plan_prediction_count(plan),
+        "prediction_count_estimate": approved_estimate,
+        "prediction_count_exported": exported_prediction_count,
+        "export_count_check": export_count_check,
         "exports": exported,
         "experiment_count": len(exported),
         "duplicate_job_ids": sorted(
@@ -7732,7 +7862,13 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
         "ok",
         {"manifest_path": str(manifest_path), **manifest},
         next_steps=[
-            f"zwill edsl-run --job {exported[0]['job_path']} --path <results.json.gz>" if exported else "",
+            (
+                f"zwill twin-experiment approve --path {plan_path}"
+                if export_count_check.get("requires_reapproval")
+                else f"zwill edsl-run --job {exported[0]['job_path']} --path <results.json.gz>"
+            )
+            if exported
+            else "",
             f"zwill twin-results import --survey {survey} --path <results.json.gz>",
             f"zwill twin-experiment compare --survey {survey} --metric {manifest['primary_metric']}",
         ],
@@ -11177,6 +11313,16 @@ def cmd_edsl_run(args: argparse.Namespace) -> dict[str, Any]:
     loaded_env = load_local_env(env_path)
     Jobs, RunParameters = load_edsl_runner_classes()
     job = Jobs.from_dict(job_dict)
+    approved_validation_plan = (job_dict.get("zwill") or {}).get("approved_validation_plan")
+    if isinstance(approved_validation_plan, dict):
+        count_check = approved_validation_plan.get("export_count_check")
+        if isinstance(count_check, dict) and count_check.get("requires_reapproval") and not getattr(args, "allow_count_delta", False):
+            raise ZwillError(
+                "approval_required",
+                "Exported validation job prediction count differs from the approved plan.",
+                context=count_check,
+                hint="Review the exported count, re-approve the plan, or pass --allow-count-delta for an explicit debug run.",
+            )
     run_parameters = {}
     if args.n is not None:
         run_parameters["n"] = args.n
@@ -11612,6 +11758,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--print-exceptions", action=argparse.BooleanOptionalAction)
     p.add_argument("--offload-execution", action="store_true", help="Run through EDSL offloaded execution.")
     p.add_argument("--use-api-proxy", action="store_true", help="Use EDSL API proxy.")
+    p.add_argument("--allow-count-delta", action="store_true", help="Run an approved validation job even when export count differs from the approved plan.")
     p.add_argument("--run-param", action="append", help="Additional EDSL RunParameters key=value. Repeatable.")
     p.add_argument("--dry-run", action="store_true", help="Load and validate the job without running API calls.")
     p.set_defaults(func=cmd_edsl_run)

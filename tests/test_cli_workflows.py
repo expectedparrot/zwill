@@ -605,6 +605,8 @@ def test_report_build_creates_incremental_bundle(tmp_path: Path, monkeypatch) ->
     assert pages["one-shot-marginals"]["status"] == "ready"
     assert pages["twin-validation"]["status"] == "ready"
     assert pages["twin-run-audit"]["status"] == "ready"
+    assert pages["twin-run-audit"]["primary"] is False
+    assert pages["twin-comparison"]["primary"] is False
     assert "one-shot-coverage" not in pages
     assert "executive-summary" not in pages
     assert "validation-diagnostics" not in pages
@@ -632,6 +634,10 @@ def test_report_build_creates_incremental_bundle(tmp_path: Path, monkeypatch) ->
     assert "Copy as Markdown" in index_html
     assert 'href="executive-summary.html"' not in index_html
     assert 'href="audit/twin-run-fixture-twin.html"' in index_html
+    assert index_html.count('class="step ready"') + index_html.count('class="step not_ready"') == 3
+    twin_data = json.loads((report_dir / "data" / "twin-validation.json").read_text())
+    assert twin_data["raw_prediction_rows_included"] is False
+    assert "rows" not in twin_data
 
 
 def test_agent_material_quarantine_blocks_commit_until_resolved(tmp_path: Path, monkeypatch) -> None:
@@ -1688,12 +1694,16 @@ def test_twin_approach_and_experiment_plan_export_jobs(tmp_path: Path, monkeypat
     assert manifest["kind"] == "twin_experiment_plan_export"
     assert manifest["approval"]["approved"] is True
     assert manifest["experiment_count"] == 2
+    assert manifest["prediction_count_estimate"] == 2
+    assert manifest["prediction_count_exported"] == 2
+    assert manifest["export_count_check"]["requires_reapproval"] is False
     job_paths = [Path(row["job_path"]) for row in manifest["exports"]]
     assert all(path.exists() for path in job_paths)
     first_job = json.loads(job_paths[0].read_text())
     assert first_job["zwill"]["scenario_count"] == 1
     assert first_job["zwill"]["heldout_questions"] == ["q1"]
     assert first_job["zwill"]["approved_validation_plan"]["approval"]["approved"] is True
+    assert first_job["zwill"]["approved_validation_plan"]["export_count_check"]["exported_prediction_count"] == 2
 
     experiments = json.loads((zwill_survey_path(tmp_path) / "digital_twin_jobs" / "experiments.json").read_text())
     by_approach = {row["approach_id"]: row for row in experiments["experiments"]}
@@ -3221,6 +3231,67 @@ def test_edsl_run_agent_study_job_suggests_results_written(tmp_path: Path, monke
 
     assert result["data"]["agent_study_job_id"] == "agent-study-demo"
     assert result["next_steps"] == [f"zwill agent-study import --path {results_path}"]
+
+
+def test_edsl_run_enforces_approved_validation_count_and_remote_inference(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    job_path = tmp_path / "approved_twin_job.json"
+    results_path = tmp_path / "approved_twin_results.json"
+    job_payload = {
+        "edsl_class_name": "Jobs",
+        "zwill": {
+            "digital_twin_job_id": "approved-twin",
+            "approved_validation_plan": {
+                "plan_id": "plan",
+                "approval": {"approved": True},
+                "export_count_check": {
+                    "approved_prediction_count_estimate": 5,
+                    "exported_prediction_count": 4,
+                    "delta": -1,
+                    "requires_reapproval": True,
+                },
+            },
+        },
+    }
+    job_path.write_text(json.dumps(job_payload))
+
+    class FakeLoadedJobs:
+        scenarios = [object()]
+        models = [object()]
+        survey = argparse.Namespace(questions=[object()])
+
+        def run(self, **_kwargs):
+            return argparse.Namespace(to_dict=lambda: {"edsl_class_name": "Results", "data": []})
+
+    class FakeJobsLoader:
+        @staticmethod
+        def from_dict(_data):
+            return FakeLoadedJobs()
+
+    monkeypatch.setattr(cli, "load_edsl_runner_classes", lambda: (FakeJobsLoader, argparse.Namespace(__dataclass_fields__={})))
+    args = argparse.Namespace(
+        job=str(job_path),
+        path=str(results_path),
+        n=None,
+        progress_bar=False,
+        fresh=False,
+        stop_on_exception=False,
+        check_api_keys=False,
+        verbose=None,
+        print_exceptions=None,
+        offload_execution=False,
+        use_api_proxy=False,
+        allow_count_delta=False,
+        run_param=None,
+        dry_run=True,
+    )
+    with pytest.raises(cli.ZwillError, match="prediction count"):
+        cli.cmd_edsl_run(args)
+
+    job_payload["zwill"]["approved_validation_plan"]["export_count_check"]["requires_reapproval"] = False
+    job_path.write_text(json.dumps(job_payload))
+    result = cli.cmd_edsl_run(args)
+    assert result["data"]["run_parameters"] == {}
 
 
 def test_edsl_run_dry_run_loads_explicit_env_path(tmp_path: Path, monkeypatch) -> None:
