@@ -3233,7 +3233,7 @@ def test_edsl_run_agent_study_job_suggests_results_written(tmp_path: Path, monke
     assert result["next_steps"] == [f"zwill agent-study import --path {results_path}"]
 
 
-def test_edsl_run_enforces_approved_validation_count_and_remote_inference(tmp_path: Path, monkeypatch) -> None:
+def test_edsl_run_enforces_approved_validation_count_delta(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     job_path = tmp_path / "approved_twin_job.json"
     results_path = tmp_path / "approved_twin_results.json"
