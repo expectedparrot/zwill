@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from .cli import *  # noqa: F403
 
+REPORT_MODEL_PARAM_DEFAULT = ["max_tokens=16000", "reasoning_effort=low"]
+LONG_REPORT_MODEL_PARAM_DEFAULT = ["max_tokens=24000", "reasoning_effort=low"]
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="zwill")
@@ -266,7 +269,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--model-param",
         action="append",
-        default=["max_tokens=10000", "reasoning_effort=high"],
+        default=REPORT_MODEL_PARAM_DEFAULT,
         help="Report-generation model parameter. Use key=value or service:model:key=value.",
     )
     p.set_defaults(func=cmd_probability_results_analysis_export)
@@ -359,7 +362,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--model-param",
         action="append",
-        default=["max_tokens=12000", "reasoning_effort=high"],
+        default=REPORT_MODEL_PARAM_DEFAULT,
         help="Report-generation model parameter. Use key=value or service:model:key=value.",
     )
     p.set_defaults(func=cmd_twin_results_executive_summary_export)
@@ -559,7 +562,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--model-param",
         action="append",
-        default=["max_tokens=24000", "reasoning_effort=high"],
+        default=LONG_REPORT_MODEL_PARAM_DEFAULT,
         help="Model parameter. Use key=value or service:model:key=value. Repeatable. Defaults request a large report-generation budget.",
     )
     p.set_defaults(func=cmd_twin_study_practitioner_report, raw_output=True)
@@ -575,7 +578,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--model-param",
         action="append",
-        default=["max_tokens=24000", "reasoning_effort=high"],
+        default=LONG_REPORT_MODEL_PARAM_DEFAULT,
         help="Model parameter. Use key=value or service:model:key=value. Repeatable. Defaults request a large report-generation budget.",
     )
     p.set_defaults(func=cmd_twin_study_practitioner_report_export)
@@ -740,7 +743,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--output-dir", help="Directory to write bundle artifacts.")
     p.add_argument("--report-export", action="store_true", help="Also export an EDSL report-writing job.")
     p.add_argument("--report-model", action="append", help="EDSL model to write the report. Repeatable. Use service:model to set service.")
-    p.add_argument("--model-param", action="append", default=["max_tokens=12000", "reasoning_effort=high"])
+    p.add_argument("--model-param", action="append", default=REPORT_MODEL_PARAM_DEFAULT)
     p.add_argument("--models", help="Comma-separated EDSL models for report generation. Entries may be service:model.")
     p.add_argument("--service-name", default="openai", help="EDSL service_name for unqualified report-generation models.")
     p.set_defaults(func=cmd_twin_experiment_bundle)
@@ -810,7 +813,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--results-path", help="Write the serialized EDSL Results object to this path. Use .gz for gzip.")
     p.add_argument("--include-plots", action="append", help="Plot manifest to include in report context and rendered HTML. Repeatable.")
     p.add_argument("--report-model", action="append", help="EDSL model to write the report. Repeatable. Use service:model to set service.")
-    p.add_argument("--model-param", action="append", default=["max_tokens=12000", "reasoning_effort=high"])
+    p.add_argument("--model-param", action="append", default=REPORT_MODEL_PARAM_DEFAULT)
     p.add_argument("--models", help="Comma-separated EDSL models for report generation. Entries may be service:model.")
     p.add_argument("--service-name", default="openai", help="EDSL service_name for unqualified report-generation models.")
     p.set_defaults(func=cmd_twin_experiment_report, raw_output=True)
@@ -826,7 +829,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--context-path", help="Write the assembled report context to this path.")
     p.add_argument("--include-plots", action="append", help="Plot manifest to include in report context and rendered HTML. Repeatable.")
     p.add_argument("--report-model", action="append", help="EDSL model to write the report. Repeatable. Use service:model to set service.")
-    p.add_argument("--model-param", action="append", default=["max_tokens=12000", "reasoning_effort=high"])
+    p.add_argument("--model-param", action="append", default=REPORT_MODEL_PARAM_DEFAULT)
     p.add_argument("--models", help="Comma-separated EDSL models for report generation. Entries may be service:model.")
     p.add_argument("--service-name", default="openai", help="EDSL service_name for unqualified report-generation models.")
     p.set_defaults(func=cmd_twin_experiment_report_export)
@@ -870,7 +873,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--model-param",
         action="append",
-        default=["max_tokens=24000", "reasoning_effort=high"],
+        default=LONG_REPORT_MODEL_PARAM_DEFAULT,
         help="Model parameter. Use key=value or service:model:key=value. Repeatable. Defaults request a large report-generation budget.",
     )
     p.set_defaults(func=cmd_twin_benchmark_practitioner_report, raw_output=True)
@@ -887,7 +890,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--model-param",
         action="append",
-        default=["max_tokens=24000", "reasoning_effort=high"],
+        default=LONG_REPORT_MODEL_PARAM_DEFAULT,
         help="Model parameter. Use key=value or service:model:key=value. Repeatable. Defaults request a large report-generation budget.",
     )
     p.set_defaults(func=cmd_twin_benchmark_practitioner_report_export)
@@ -1034,4 +1037,3 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_quarantine_resolve)
 
     return parser
-

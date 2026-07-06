@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 import zwill.cli as cli
+from zwill.generated_reports import compact_twin_specific_diagnostics_for_report
 from zwill.cli import build_twin_report, main
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -567,6 +568,57 @@ def test_executive_summary_prompt_asks_for_plain_language_use_examples() -> None
     assert "not a full replacement for respondent-level twins" in prompt
     assert "reusable categories with brief examples from this survey" in prompt
     assert "State each major recommendation once" in prompt
+
+
+def test_executive_summary_context_compacts_twin_specific_diagnostics() -> None:
+    bulky_distribution = {f"option_{index:03d}": index / 1000 for index in range(100)}
+    diagnostics = {
+        "joint_structure": {
+            "pair_count": 100,
+            "rows": [{"model_label": "m", "left_question": "q1", "right_question": "q2", "joint_l1": 0.1} for _ in range(50)],
+        },
+        "subgroup_marginals": {
+            "cell_count": 100,
+            "rows": [
+                {
+                    "model_label": "m",
+                    "heldout_question": "q1",
+                    "segment_question": "q2",
+                    "segment_value": "A",
+                    "rows": 50,
+                    "l1": 0.4,
+                    "empirical": bulky_distribution,
+                    "twin_implied": bulky_distribution,
+                }
+                for _ in range(50)
+            ],
+        },
+        "conditional_consistency": {
+            "cell_count": 100,
+            "rows": [
+                {
+                    "model_label": "m",
+                    "condition_question": "q1",
+                    "condition_value": "A",
+                    "target_question": "q2",
+                    "rows": 50,
+                    "l1": 0.5,
+                    "empirical": bulky_distribution,
+                    "twin_implied": bulky_distribution,
+                }
+                for _ in range(50)
+            ],
+        },
+    }
+
+    compact = compact_twin_specific_diagnostics_for_report(diagnostics, row_limit=3)
+
+    assert compact["subgroup_marginals"]["included_row_count"] == 3
+    assert compact["conditional_consistency"]["included_row_count"] == 3
+    assert compact["subgroup_marginals"]["omitted_count"] == 47
+    assert "empirical" not in compact["subgroup_marginals"]["rows"][0]
+    assert len(compact["subgroup_marginals"]["rows"][0]["empirical_top_options"]) == 5
+    assert len(json.dumps(compact)) < 10_000
 
 
 def test_report_build_creates_incremental_bundle(tmp_path: Path, monkeypatch) -> None:
@@ -3975,10 +4027,14 @@ def test_twin_results_executive_summary_export_import_render(tmp_path: Path, mon
     assert "rows" not in compact_context
     assert "marginal_options" not in compact_context["twin_validation"]
     assert compact_context["context_size_policy"]["raw_prediction_rows_included"] is False
+    assert compact_context["context_size_policy"]["twin_specific_rows_compacted"] is True
+    assert "twin_specific_diagnostics" in compact_context
     assert compact_context["source_filters"]["job_id"] == ["fixture-twin"]
     assert len(json.dumps(compact_context)) < 80_000
 
     def fake_build_report_job(args, report_context):
+        assert "reasoning_effort=low" in args.model_param
+        assert "max_tokens=16000" in args.model_param
         assert report_context["report_kind"] == "frontier_generated_executive_twin_validation"
         assert report_context["survey"] == "demo"
         assert report_context["executive_diagnostics"]["individual_signal"]["p_value_mean_p_actual"] >= 0

@@ -3,6 +3,92 @@ from __future__ import annotations
 from .cli import *  # noqa: F403
 
 
+def compact_twin_specific_diagnostics_for_report(
+    diagnostics: dict[str, Any],
+    *,
+    row_limit: int = 24,
+) -> dict[str, Any]:
+    def compact_distribution(values: dict[str, Any], *, limit: int = 5) -> dict[str, Any]:
+        if not isinstance(values, dict):
+            return {}
+        ranked = sorted(values.items(), key=lambda item: float(item[1] or 0.0), reverse=True)[:limit]
+        return {str(key): value for key, value in ranked}
+
+    def compact_rows(payload: dict[str, Any], keep_keys: tuple[str, ...]) -> dict[str, Any]:
+        if not isinstance(payload, dict):
+            return {}
+        rows = payload.get("rows") or []
+        compact_rows = []
+        for row in rows[:row_limit]:
+            if not isinstance(row, dict):
+                continue
+            item = {key: row.get(key) for key in keep_keys if key in row}
+            if "empirical" in row:
+                item["empirical_top_options"] = compact_distribution(row.get("empirical") or {})
+            if "twin_implied" in row:
+                item["twin_implied_top_options"] = compact_distribution(row.get("twin_implied") or {})
+            compact_rows.append(item)
+        return {
+            key: value
+            for key, value in {
+                "min_pair_rows": payload.get("min_pair_rows"),
+                "min_cell_rows": payload.get("min_cell_rows"),
+                "segment_questions_considered": payload.get("segment_questions_considered"),
+                "pair_count": payload.get("pair_count"),
+                "cell_count": payload.get("cell_count"),
+                "rows": compact_rows,
+                "included_row_count": len(compact_rows),
+                "omitted_count": max(0, int(payload.get("omitted_count") or 0) + max(0, len(rows) - len(compact_rows))),
+                "note": payload.get("note"),
+            }.items()
+            if value is not None
+        }
+
+    joint_keys = (
+        "model_label",
+        "left_question",
+        "left_question_text",
+        "right_question",
+        "right_question_text",
+        "respondents",
+        "joint_l1",
+        "empirical_cramers_v",
+        "twin_cramers_v",
+        "cramers_v_error",
+        "warning",
+    )
+    subgroup_keys = (
+        "model_label",
+        "heldout_question",
+        "heldout_question_text",
+        "segment_question",
+        "segment_question_text",
+        "segment_value",
+        "rows",
+        "l1",
+        "js",
+        "warning",
+    )
+    conditional_keys = (
+        "model_label",
+        "condition_question",
+        "condition_question_text",
+        "condition_value",
+        "target_question",
+        "target_question_text",
+        "rows",
+        "l1",
+        "js",
+        "warning",
+    )
+    return {
+        "joint_structure": compact_rows(diagnostics.get("joint_structure", {}), joint_keys),
+        "subgroup_marginals": compact_rows(diagnostics.get("subgroup_marginals", {}), subgroup_keys),
+        "conditional_consistency": compact_rows(diagnostics.get("conditional_consistency", {}), conditional_keys),
+        "note": "These compact diagnostics test capabilities that one-shot aggregate marginals cannot provide: crosstab recovery, subgroup slicing, and conditional coherence across respondent-level answers. Full rows stay in deterministic JSON artifacts, not the report-writing prompt.",
+    }
+
+
 def build_one_shot_analysis_report_context(
     args: argparse.Namespace,
     payload: dict[str, Any],
@@ -281,12 +367,7 @@ def build_executive_summary_report_context(
             "failure_examples": compact_failures,
             "row_count": len(rows),
         },
-        "twin_specific_diagnostics": {
-            "joint_structure": diagnostics.get("joint_structure", {}),
-            "subgroup_marginals": diagnostics.get("subgroup_marginals", {}),
-            "conditional_consistency": diagnostics.get("conditional_consistency", {}),
-            "note": "These diagnostics test capabilities that one-shot aggregate marginals cannot provide: crosstab recovery, subgroup slicing, and conditional coherence across respondent-level answers.",
-        },
+        "twin_specific_diagnostics": compact_twin_specific_diagnostics_for_report(diagnostics),
         "one_shot_no_persona_baseline": {
             "available": bool(one_shot_rows),
             "summary": one_shot_payload.get("summary", {}),
@@ -303,6 +384,8 @@ def build_executive_summary_report_context(
         "context_size_policy": {
             "raw_prediction_rows_included": False,
             "full_diagnostics_included": False,
+            "twin_specific_rows_compacted": True,
+            "twin_specific_row_limit_per_section": 24,
             "failure_examples_cap": len(compact_failures),
             "marginal_comparisons_cap": len(marginal_comparisons),
         },
