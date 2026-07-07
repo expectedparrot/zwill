@@ -267,6 +267,45 @@ def target_specific_leakage_exclusions(args: Any) -> dict[str, set[str]]:
     return exclusions
 
 
+def resolve_leakage_exclusion_patterns(
+    raw_exclusions: dict[str, set[str]],
+    known_question_names: set[str],
+    rank_task_items: dict[str, list[str]],
+) -> dict[str, set[str]]:
+    """Expand each exclusion pattern into concrete context question names.
+
+    A pattern may be an exact question name, a `rank_task_id` (expands to every
+    item in that battery), or a shell-style glob (`prefix*`) matched against the
+    known question names. Every pattern must resolve to at least one question.
+    """
+    import fnmatch
+
+    resolved: dict[str, set[str]] = defaultdict(set)
+    unmatched: list[str] = []
+    for target, patterns in raw_exclusions.items():
+        for pattern in patterns:
+            if pattern in rank_task_items:
+                resolved[target].update(rank_task_items[pattern])
+            elif pattern in known_question_names:
+                resolved[target].add(pattern)
+            elif any(char in pattern for char in "*?[]"):
+                matches = {name for name in known_question_names if fnmatch.fnmatchcase(name, pattern)}
+                if matches:
+                    resolved[target].update(matches)
+                else:
+                    unmatched.append(f"{target}:{pattern}")
+            else:
+                unmatched.append(f"{target}:{pattern}")
+    if unmatched:
+        raise ZwillError(
+            "invalid_input",
+            "Leakage exclusions reference unknown context questions, rank tasks, or globs.",
+            context={"unmatched": sorted(unmatched)},
+            hint="Use target:<question>, target:<rank_task_id>, or a glob like target:q13_message_*.",
+        )
+    return resolved
+
+
 def balanced_by_actual(
     respondent_ids: list[str],
     answer_by_respondent: dict[str, dict[str, str]],
@@ -446,8 +485,8 @@ def build_edsl_digital_twin_job_dict(survey_name: str, args: Any, deps: DigitalT
     context_args.questions = args.context_questions
     context_args.exclude_question = args.exclude_context_question or []
     context_question_names = deps.selected_question_names(context_args, questions)
-    leakage_exclusions = target_specific_leakage_exclusions(args)
-    unknown_exclusion_targets = sorted(set(leakage_exclusions) - set(heldout_names))
+    raw_leakage_exclusions = target_specific_leakage_exclusions(args)
+    unknown_exclusion_targets = sorted(set(raw_leakage_exclusions) - set(heldout_names))
     if unknown_exclusion_targets:
         raise ZwillError(
             "invalid_input",
@@ -455,18 +494,16 @@ def build_edsl_digital_twin_job_dict(survey_name: str, args: Any, deps: DigitalT
             context={"unknown_targets": unknown_exclusion_targets, "heldout_questions": heldout_names},
         )
     known_question_names = {question["question_name"] for question in questions}
-    unknown_exclusion_questions = sorted(
-        question_name
-        for excluded in leakage_exclusions.values()
-        for question_name in excluded
-        if question_name not in known_question_names
+    # Map each rank_task_id -> its item question names, so a whole battery can be
+    # excluded with one `target:<rank_task_id>` flag.
+    rank_task_items: dict[str, list[str]] = defaultdict(list)
+    for question in questions:
+        task_id = str(question.get("rank_task_id") or "")
+        if task_id:
+            rank_task_items[task_id].append(str(question["question_name"]))
+    leakage_exclusions = resolve_leakage_exclusion_patterns(
+        raw_leakage_exclusions, known_question_names, dict(rank_task_items)
     )
-    if unknown_exclusion_questions:
-        raise ZwillError(
-            "invalid_input",
-            "Leakage exclusions reference unknown context questions.",
-            context={"unknown_questions": unknown_exclusion_questions},
-        )
     all_respondent_ids = [row["respondent_id"] for row in read_jsonl(sdir / "respondents.jsonl")]
     if not all_respondent_ids:
         all_respondent_ids = sorted({row["respondent_id"] for row in read_jsonl(sdir / "answers.jsonl")})
