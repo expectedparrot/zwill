@@ -7,12 +7,24 @@ dependencies = [
     "python-dotenv>=1.0",
     "PyYAML>=6.0",
     "rich>=13.0",
+    "edsl",
 ]
 
 [project.optional-dependencies]
 test = [
     "pytest>=8.0",
 ]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+# edsl is developed alongside zwill in a sibling checkout. Resolve it from the
+# local editable source rather than PyPI so `uv pip install -e .` uses the same
+# EDSL you are working on. Adjust the path if your checkout lives elsewhere.
+[tool.uv.sources]
+edsl = { path = "../edsl", editable = true }
 
 [project.scripts]
 zwill = "zwill.cli:main"
@@ -24,7 +36,35 @@ include = ["zwill*"]
 zwill = [
     "skills/*/SKILL.md",
     "skills/*/agents/openai.yaml",
+    "assets/*.css",
 ]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+# Default rules (pyflakes + a subset of pycodestyle) plus import sorting.
+extend-select = ["I"]
+# The codebase deliberately re-exports shared helpers via `from .cli import *`,
+# so star-import warnings are expected noise rather than real defects.
+ignore = ["F403", "F405"]
+
+[tool.ruff.lint.per-file-ignores]
+# cli.py is the shared hub: every command module does `from .cli import *`,
+# so cli.py imports many names purely to re-export them. Those look "unused"
+# to F401 but removing them breaks the re-export contract.
+"zwill/cli.py" = ["F401"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+# `from .cli import *` re-exports mean mypy sees every shared helper as a
+# redefinition; that noise is inherent to the architecture, not a defect.
+disable_error_code = ["no-redef"]
+# mypy is advisory here (run `mypy zwill`), not a hard gate: the remaining
+# findings are mostly dict/None-invariant false positives the checker cannot
+# prove. Tighten incrementally as modules gain annotations.
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -3,12 +3,13 @@ from __future__ import annotations
 import json
 import random
 import re
-from dataclasses import dataclass
 from collections import Counter, defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
 from .errors import ZwillError
+from .jsonlio import read_jsonl
 from .twin import digital_twin_job_id_from_job, select_context_questions
 
 
@@ -41,10 +42,6 @@ def slug_id(value: str) -> str:
 
 def read_json(path: Path) -> Any:
     return json.loads(path.read_text())
-
-
-def read_jsonl(path: Path) -> list[dict[str, Any]]:
-    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
 FIELD_PLACEHOLDER_RE = re.compile(r"\[Field-([^\]]+)\]")

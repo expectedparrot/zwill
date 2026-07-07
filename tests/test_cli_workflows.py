@@ -1,19 +1,19 @@
 from __future__ import annotations
 
+import argparse
 import concurrent.futures
 import gzip
 import json
 import os
 import subprocess
 import sys
-import argparse
 from pathlib import Path
 
 import pytest
 
 import zwill.cli as cli
-from zwill.generated_reports import compact_twin_specific_diagnostics_for_report
 from zwill.cli import build_twin_report, main
+from zwill.generated_reports import compact_twin_specific_diagnostics_for_report
 
 FIXTURES = Path(__file__).parent / "fixtures"
 DEFAULT_EDSL_TEST_PYTHON = Path("/Users/johnhorton/tools/ep/edsl/.venv/bin/python")
@@ -570,6 +570,23 @@ def test_executive_summary_prompt_asks_for_plain_language_use_examples() -> None
     assert "State each major recommendation once" in prompt
 
 
+def test_executive_summary_report_uses_section_prompts() -> None:
+    sections = cli.build_executive_summary_report_section_prompts(
+        {
+            "survey": "demo",
+            "executive_diagnostics": {"metrics": {"row_count": 10}},
+            "twin_validation": {"summary": {}},
+            "twin_specific_diagnostics": {},
+        }
+    )
+
+    names = [section["question_name"] for section in sections]
+    assert names == ["executive_decision_markdown", "validation_evidence_markdown", "next_steps_appendix_markdown"]
+    assert "If a decision must be made now" in sections[0]["prompt"]
+    assert "Do not create another Recommendation section" in sections[2]["prompt"]
+    assert "Appendix A: Detailed Metrics" in sections[2]["prompt"]
+
+
 def test_executive_summary_context_compacts_twin_specific_diagnostics() -> None:
     bulky_distribution = {f"option_{index:03d}": index / 1000 for index in range(100)}
     diagnostics = {
@@ -619,6 +636,39 @@ def test_executive_summary_context_compacts_twin_specific_diagnostics() -> None:
     assert "empirical" not in compact["subgroup_marginals"]["rows"][0]
     assert len(compact["subgroup_marginals"]["rows"][0]["empirical_top_options"]) == 5
     assert len(json.dumps(compact)) < 10_000
+
+
+def test_practitioner_report_import_concatenates_multiple_sections(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    run_cli("init")
+    report_dir = zwill_project_path(tmp_path) / "practitioner_reports" / "multi-report"
+    report_dir.mkdir(parents=True)
+    (report_dir / "context.json").write_text(json.dumps({"report_id": "multi-report"}))
+    results = {
+        "edsl_class_name": "Results",
+        "zwill": {
+            "practitioner_report_id": "multi-report",
+            "practitioner_report_question_names": ["section_a", "section_b"],
+        },
+        "data": [
+            {
+                "answer": {
+                    "section_a": "## Section A\n\nFirst.",
+                    "section_b": "## Section B\n\nSecond.",
+                }
+            }
+        ],
+    }
+    results_path = tmp_path / "multi_results.json.gz"
+    with gzip.open(results_path, "wt") as f:
+        json.dump(results, f)
+
+    run_cli("twin-benchmark", "practitioner-report-import", "--report-id", "multi-report", "--path", str(results_path))
+
+    markdown = (report_dir / "report.md").read_text()
+    assert "## Section A" in markdown
+    assert "## Section B" in markdown
+    assert markdown.index("## Section A") < markdown.index("## Section B")
 
 
 def test_report_build_creates_incremental_bundle(tmp_path: Path, monkeypatch) -> None:

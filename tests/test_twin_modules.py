@@ -5,9 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from zwill.errors import ZwillError
 from zwill.cli import build_twin_report
+from zwill.errors import ZwillError
 from zwill.reporting import render_twin_report_html, render_twin_summary_report_html
+from zwill.twin_diagnostics import (
+    build_twin_conditional_consistency_diagnostics,
+    build_twin_joint_structure_diagnostics,
+    build_twin_subgroup_marginal_diagnostics,
+)
 from zwill.twin_jobs import (
     answer_commonness_by_question,
     answer_commonness_text,
@@ -24,11 +29,6 @@ from zwill.twin_results import (
     job_ids_from_manifest,
     top_prediction,
     twin_prediction_export_rows,
-)
-from zwill.twin_diagnostics import (
-    build_twin_conditional_consistency_diagnostics,
-    build_twin_joint_structure_diagnostics,
-    build_twin_subgroup_marginal_diagnostics,
 )
 
 

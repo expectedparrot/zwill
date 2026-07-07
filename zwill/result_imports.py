@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from .probability import extract_probability_answer, extract_probability_payload, normalized_probabilities, true_probabilities_for
+from .probability import (
+    extract_probability_answer,
+    extract_probability_payload,
+    normalized_probabilities,
+    true_probabilities_for,
+)
 from .twin import one_hot_metrics
 
 

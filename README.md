@@ -4,9 +4,25 @@
 
 ## Install
 
+`zwill` depends on [EDSL](https://github.com/expectedparrot/edsl), which is
+developed alongside it in a sibling checkout. `pyproject.toml` resolves `edsl`
+from `../edsl` as an editable install (see `[tool.uv.sources]`), so clone both
+repos next to each other:
+
+```
+tools/ep/
+  zwill/   # this repo
+  edsl/    # sibling EDSL checkout
+```
+
+Then, from the `zwill` directory:
+
 ```bash
 uv pip install -e .
 ```
+
+If your EDSL checkout lives elsewhere, adjust the `path` under
+`[tool.uv.sources]` in `pyproject.toml`.
 
 Run tests:
 

@@ -254,7 +254,9 @@ def write_pairwise_order_chart(groups: dict[str, dict[str, Any]], path: Path) ->
     left, right, top, bottom = 70, 30, 52, 105
     plot_width = width - left - right
     plot_height = height - top - bottom
-    y = lambda value: top + (1 - value) * plot_height
+    def y(value):
+        return top + (1 - value) * plot_height
+
     bar_gap = 20
     bar_width = (plot_width - bar_gap * max(0, len(rows) - 1)) / max(1, len(rows))
     parts = svg_header(width, height, "Probability of ordering option pairs correctly")

@@ -322,21 +322,3 @@ def cmd_probability_results_analysis_render(args: argparse.Namespace) -> dict[st
         {"report_id": args.report_id, "path": str(output_path), "markdown_path": str(paths["markdown"])},
         next_steps=[f"open {output_path}"],
     )
-
-    summary_table = Table(title="model summary")
-    for column in ["model", "rows", "mean_brier", "uniform_brier", "brier_delta", "brier_%", "mean_kl", "uniform_kl", "kl_delta", "kl_%"]:
-        summary_table.add_column(column)
-    for model, values in summary.items():
-        summary_table.add_row(
-            model,
-            str(values["rows"]),
-            f"{values['mean_brier']:.4f}",
-            f"{values['mean_uniform_brier']:.4f}",
-            f"{values['mean_brier_improvement']:.4f}",
-            f"{values['mean_brier_percent_improvement']:+.1f}%",
-            f"{values['mean_kl_divergence']:.4f}",
-            f"{values['mean_uniform_kl_divergence']:.4f}",
-            f"{values['mean_kl_improvement']:.4f}",
-            f"{values['mean_kl_percent_improvement']:+.1f}%",
-        )
-    Console().print(summary_table)

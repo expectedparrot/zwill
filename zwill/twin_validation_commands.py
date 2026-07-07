@@ -237,6 +237,11 @@ def build_executive_summary_report_prompt(*args, **kwargs):
 
     return impl(*args, **kwargs)
 
+def build_executive_summary_report_section_prompts(*args, **kwargs):
+    from .generated_reports import build_executive_summary_report_section_prompts as impl
+
+    return impl(*args, **kwargs)
+
 def build_edsl_executive_summary_report_job_dict(*args, **kwargs):
     from .generated_reports import build_edsl_executive_summary_report_job_dict as impl
 
@@ -263,6 +268,14 @@ def cmd_twin_results_executive_summary_export(args: argparse.Namespace) -> dict[
     report_id = job_dict["zwill"]["practitioner_report_id"]
     context_bytes = len(json.dumps(context, separators=(",", ":")).encode("utf-8"))
     prompt_bytes = len(prompt.encode("utf-8"))
+    section_prompt_bytes = [
+        {
+            "question_name": question.get("question_name"),
+            "prompt_bytes": len(str(question.get("question_text") or "").encode("utf-8")),
+        }
+        for question in ((job_dict.get("survey") or {}).get("questions") or [])
+        if isinstance(question, dict)
+    ]
     data = write_practitioner_report_export(
         report_id,
         job_dict,
@@ -281,6 +294,7 @@ def cmd_twin_results_executive_summary_export(args: argparse.Namespace) -> dict[
             "diagnostic_markdown_path": str(markdown_path or path.with_suffix(".md")),
             "context_bytes": context_bytes,
             "prompt_bytes": prompt_bytes,
+            "section_prompt_bytes": section_prompt_bytes,
             "raw_prediction_rows_in_prompt": False,
         },
         next_steps=[

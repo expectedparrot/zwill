@@ -501,13 +501,13 @@ def write_practitioner_report_export(
     }
 
 
-def extract_free_text_answer(results_dict: dict[str, Any], question_name: str) -> str:
+def extract_free_text_answer(results_dict: dict[str, Any], question_name: str, *, allow_fallback: bool = True) -> str:
     inspected: list[dict[str, Any]] = []
     for row in results_dict.get("data", []):
         answer = row.get("answer", {})
         if isinstance(answer, dict):
             value = answer.get(question_name)
-            if value is None and answer:
+            if value is None and answer and allow_fallback:
                 value = next(iter(answer.values()))
         else:
             value = answer
@@ -528,6 +528,24 @@ def extract_free_text_answer(results_dict: dict[str, Any], question_name: str) -
         hint="Inspect the stored Results object. If answers are null or raw_model_response is empty, rerun with a smaller compact context or a report model with a larger context/output budget.",
         context={"question_name": question_name, "rows": inspected[:10], "row_count": len(results_dict.get("data", []))},
     )
+
+
+def extract_free_text_answers(results_dict: dict[str, Any], question_names: list[str]) -> dict[str, str]:
+    answers = {}
+    errors = []
+    for question_name in question_names:
+        try:
+            answers[question_name] = extract_free_text_answer(results_dict, question_name, allow_fallback=False)
+        except ZwillError as exc:
+            errors.append({"question_name": question_name, "error": exc.message, "context": exc.context})
+    if errors:
+        raise ZwillError(
+            "edsl_run_failed",
+            "Report-writing job ran but one or more sections returned no Markdown text.",
+            hint="Inspect the stored Results object. If a section is empty, rerun with smaller section context or lower reasoning effort.",
+            context={"section_errors": errors, "row_count": len(results_dict.get("data", []))},
+        )
+    return answers
 
 
 def cmd_twin_benchmark_practitioner_report_export(args: argparse.Namespace) -> dict[str, Any]:
@@ -601,8 +619,14 @@ def cmd_twin_benchmark_practitioner_report_import(args: argparse.Namespace) -> d
     raw_dir.mkdir(parents=True, exist_ok=True)
     stored_raw = raw_dir / source.name
     shutil.copy2(source, stored_raw)
-    question_name = results.get("zwill", {}).get("practitioner_report_question_name", "practitioner_report_markdown")
-    markdown = extract_free_text_answer(results, question_name)
+    question_names = results.get("zwill", {}).get("practitioner_report_question_names")
+    if isinstance(question_names, list) and question_names:
+        section_answers = extract_free_text_answers(results, [str(name) for name in question_names])
+        markdown = "\n\n".join(section_answers[str(name)] for name in question_names)
+        question_name = ",".join(str(name) for name in question_names)
+    else:
+        question_name = results.get("zwill", {}).get("practitioner_report_question_name", "practitioner_report_markdown")
+        markdown = extract_free_text_answer(results, question_name)
     paths["markdown"].write_text(markdown + "\n")
     write_json(
         paths["import"],
