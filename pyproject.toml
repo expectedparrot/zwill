@@ -36,6 +36,7 @@ include = ["zwill*"]
 zwill = [
     "skills/*/SKILL.md",
     "skills/*/agents/openai.yaml",
+    "assets/*.css",
 ]
 
 [tool.ruff]
