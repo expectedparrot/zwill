@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .report_common import *  # noqa: F403
+from .twin_baseline import conditional_baseline_appendix_html, has_conditional_baseline
 
 
 def render_twin_supporting_artifacts_section(pages: list[dict[str, Any]], output_dir: Path) -> str:
@@ -179,6 +180,9 @@ def render_twin_report_html(
     heldout_texts = sorted({str(row.get("heldout_question_text")) for row in rows if row.get("heldout_question_text")})
     respondent_count = len({row.get("respondent_id") for row in rows})
     model_names = sorted({str(row.get("twin_set_label") or row.get("model_label") or row.get("model")) for row in rows})
+    conditional_baseline_appendix = (
+        conditional_baseline_appendix_html() if has_conditional_baseline(model_names) else ""
+    )
     context_counts = sorted({len(row.get("observed_answers", [])) for row in rows})
     actual_counts: dict[str, int] = {}
     for row in rows:
@@ -807,6 +811,7 @@ def render_twin_report_html(
     [heldoutFilter, modelFilter, wrongOnly, sortSelect].forEach((el) => el.addEventListener('change', updateRows));
     updateRows();
   </script>
+  {conditional_baseline_appendix}
 </body>
 </html>"""
 
@@ -823,6 +828,9 @@ def render_twin_summary_report_html(
     heldout_questions = sorted({str(row.get("heldout_question")) for row in rows})
     respondent_count = len({row.get("respondent_id") for row in rows})
     model_names = sorted({str(row.get("twin_set_label") or row.get("model_label") or row.get("model")) for row in rows})
+    conditional_baseline_appendix = (
+        conditional_baseline_appendix_html() if has_conditional_baseline(model_names) else ""
+    )
     import_health = (health or {}).get("import", {})
     job_label = (health or {}).get("job_id") or ", ".join(str(job) for job in (health or {}).get("job_ids", [])[:4])
     if (health or {}).get("job_ids") and len((health or {}).get("job_ids", [])) > 4:
@@ -1320,6 +1328,7 @@ def render_twin_summary_report_html(
         </table>
       </div>
     </section>
+    {conditional_baseline_appendix}
   </main>
   <script type="application/json" id="twin-summary-report-data">{summary_data}</script>
 </body>
@@ -1532,6 +1541,11 @@ def render_twin_job_comparison_report_html(payload: dict[str, Any]) -> str:
     diagnostics = payload.get("diagnostics", {})
     job_ids = payload.get("job_ids", [])
     descriptions = diagnostics.get("twin_set_descriptions", {})
+    conditional_baseline_appendix = (
+        conditional_baseline_appendix_html()
+        if has_conditional_baseline([str(row.get("model_label")) for row in rows])
+        else ""
+    )
 
     def numeric(value: Any, precision: int = 3) -> str:
         if value is None:
@@ -1787,6 +1801,7 @@ def render_twin_job_comparison_report_html(payload: dict[str, Any]) -> str:
       <div class="table-wrap"><table><thead><tr><th>Twin set</th><th>Job id</th><th>Model</th><th>Source</th><th>Created/imported</th></tr></thead><tbody>{''.join(job_rows) or '<tr><td colspan="5">No job metadata available.</td></tr>'}</tbody></table></div>
     </section>
     {''.join(question_blocks) or '<section class="panel"><div class="subtle">No question comparison rows available.</div></section>'}
+    {conditional_baseline_appendix}
   </main>
   <script type="application/json" id="twin-job-comparison-data">{report_data}</script>
 </body>

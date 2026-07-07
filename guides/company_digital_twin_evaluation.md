@@ -130,6 +130,20 @@ zwill prob-results report \
 
 This tells you whether a model can guess reasonable aggregate distributions from question text and context alone. It does not test individual-level twin quality.
 
+### The conditional baseline (the one that matters)
+
+Uniform and empirical-marginal baselines both ignore the individual. But the whole claim of a digital twin is *individual-level* prediction from a respondent's own answers. To know whether the frontier model is earning its keep, compare it against a cheap model that uses the same observed answers with no LLM reasoning:
+
+```bash
+zwill twin-baseline run \
+  --survey customer_validation \
+  --heldout-questions q12,q18,q24,q31
+```
+
+This embeds every (question, option) pair and each option label (OpenAI `text-embedding-3-small`, so `OPENAI_API_KEY` must be set), represents each respondent by the centroid of the options they actually chose, and fits a small logistic regression across the *non*-held-out questions. Because every feature is a semantic similarity rather than a question identity, the fitted model transfers to held-out target questions it never saw — the same generalization a twin claims. It writes predictions in the normal twin schema under a `baseline:conditional-embedding` label, so every `twin-results` report and comparison works on it directly.
+
+If a frontier-model twin cannot beat this cheap conditional baseline, the LLM is not adding individual-level signal beyond what a trivial embedding model already recovers. That is the decisive comparison, not the twin-versus-marginal one.
+
 ## Step 4: Export A Digital Twin Job
 
 A digital twin job asks the model to predict each held-out target for each respondent using that respondent's allowed context.
@@ -261,6 +275,7 @@ Twins are promising when:
 
 - They beat uniform baselines by a meaningful margin.
 - They beat or approach empirical-marginal baselines on individual-level scores.
+- They beat the cheap conditional baseline (`zwill twin-baseline run`) on individual-level scores. This is the strongest evidence that the frontier model adds real individual signal rather than rediscovering simple correlations.
 - Their implied marginals are close enough for the intended decision.
 - Calibration is acceptable: high confidence usually means high correctness.
 - Performance is stable across target families and respondent subgroups.
