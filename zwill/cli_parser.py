@@ -6,8 +6,31 @@ REPORT_MODEL_PARAM_DEFAULT = ["max_tokens=16000", "reasoning_effort=low"]
 LONG_REPORT_MODEL_PARAM_DEFAULT = ["max_tokens=24000", "reasoning_effort=low"]
 
 
+COMMAND_OVERVIEW = """\
+command groups (run `zwill <command> --help` for subcommands):
+
+  getting started   init, status, guide, next
+  survey data       survey, raw, question, respondent, answer, agent-material,
+                    quarantine, commit, table, context
+  inspection        report, prob-results
+  model jobs        edsl-export, edsl-run, workflow
+  digital twins     twin-study, twin-experiment, twin-approach, twin-baseline,
+                    twin-validate, twin-results, twin-benchmark
+  agents            agent-list, agent-study
+  misc              skills
+
+New here? Run `zwill guide` for the end-to-end walkthrough, then `zwill next`
+after each stage. Import file formats: `zwill guide show import-format`.
+"""
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="zwill")
+    parser = argparse.ArgumentParser(
+        prog="zwill",
+        description="Build survey datasets and validated digital-twin reports.",
+        epilog=COMMAND_OVERVIEW,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     p = subparsers.add_parser("init")
@@ -1058,9 +1081,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--source-raw")
     p.add_argument("--source-note")
     p.set_defaults(func=cmd_question_add)
-    p = question.add_parser("import")
+    p = question.add_parser(
+        "import",
+        help="Import questions from a JSONL file (see `zwill guide show import-format`).",
+        description="Import questions from a JSONL file. Each row needs at least question_name, question_type, and question_text; multiple_choice questions also need question_options. Full schema: `zwill guide show import-format`.",
+    )
     p.add_argument("--survey", required=True)
-    p.add_argument("--path", required=True)
+    p.add_argument("--path", required=True, help="JSONL file, one question object per line.")
     p.set_defaults(func=cmd_question_import)
 
     respondent = subparsers.add_parser("respondent").add_subparsers(dest="respondent_command", required=True)
@@ -1072,9 +1099,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--source-raw")
     p.add_argument("--source-note")
     p.set_defaults(func=cmd_respondent_add)
-    p = respondent.add_parser("import")
+    p = respondent.add_parser(
+        "import",
+        help="Import respondents from a JSONL file (see `zwill guide show import-format`).",
+        description="Import respondents from a JSONL file. Each row needs respondent_id; weight/metadata/source are optional. Answer import auto-creates unseen respondents. Full schema: `zwill guide show import-format`.",
+    )
     p.add_argument("--survey", required=True)
-    p.add_argument("--path", required=True)
+    p.add_argument("--path", required=True, help="JSONL file, one respondent object per line.")
     p.set_defaults(func=cmd_respondent_import)
 
     agent_material = subparsers.add_parser("agent-material").add_subparsers(dest="agent_material_command", required=True)
@@ -1116,9 +1147,13 @@ def build_parser() -> argparse.ArgumentParser:
     group.add_argument("--answer")
     group.add_argument("--missing-code")
     p.set_defaults(func=cmd_answer_add)
-    p = answer.add_parser("import")
+    p = answer.add_parser(
+        "import",
+        help="Import answers from a JSONL file (see `zwill guide show import-format`).",
+        description="Import answers from a JSONL file. Each row needs respondent_id, question, and either answer or missing_code. When the question has question_options, answer must be one of them or the row is quarantined. Full schema: `zwill guide show import-format`.",
+    )
     p.add_argument("--survey", required=True)
-    p.add_argument("--path", required=True)
+    p.add_argument("--path", required=True, help="JSONL file, one answer object per line.")
     p.set_defaults(func=cmd_answer_import)
 
     quarantine = subparsers.add_parser("quarantine").add_subparsers(dest="quarantine_command", required=True)

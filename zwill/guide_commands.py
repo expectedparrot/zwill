@@ -28,6 +28,10 @@ GUIDES: dict[str, tuple[str, str]] = {
         "Interpreting results",
         "How to read a twin-validate bundle and gate a positive claim.",
     ),
+    "import-format": (
+        "Import file formats",
+        "Per-file JSONL schema for question / respondent / answer import, with examples.",
+    ),
 }
 DEFAULT_GUIDE = "agent-workflow"
 

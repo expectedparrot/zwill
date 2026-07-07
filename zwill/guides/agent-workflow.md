@@ -57,8 +57,11 @@ noise?" Do not report a positive result from a bare twin run.
   `use_api_proxy`, `disable_remote_inference`, `offload_execution`, or local
   provider calls unless explicitly requested.
 - For Gemini or other verbose providers, set a generous output-token cap for
-  probability jobs. Prefer `maxOutputTokens=8192` unless there is a specific
-  reason not to.
+  probability jobs. `maxOutputTokens` is Google-specific — scope it to the model
+  with a per-model param so other providers don't warn about an unknown
+  parameter: `--model-param google:gemini-2.5-pro:maxOutputTokens=8192`
+  (OpenAI uses `max_tokens`). Passing `maxOutputTokens` globally makes OpenAI
+  warn `Unknown parameter(s) for model ...: maxOutputTokens`.
 - After exporting an approved plan, compare approved prediction count with the
   exported manifest's actual scenario/model count. If filtering or limits change
   the count materially, stop and re-approve the updated plan.
@@ -74,12 +77,15 @@ next command. The full path:
 1. **Initialize** — `zwill init` creates the `.zwill/` project database.
 2. **Create a survey** — `zwill survey create --name <survey>`.
 3. **Archive the raw source** — `zwill raw add --survey <survey> --id <id>
-   --path <file> --kind <workbook|csv|questionnaire|...>` records provenance.
-   Then convert to structured records.
+   --title <title> --path <file> --kind <workbook|csv|questionnaire|...>` records
+   provenance (`--title` is required). Then convert to structured records.
 4. **Import structured data** — `questions.jsonl`, `respondents.jsonl`,
    `answers.jsonl` via `zwill question import` / `respondent import` /
-   `answer import`. Expand codebooks to human-readable labels first; a code that
-   cannot be expanded should be marked incomplete, not treated as a label.
+   `answer import`. Run `zwill guide show import-format` for the full per-file
+   JSONL schema (fields, option-validation rule, rank/multi-select conventions,
+   and copy-pasteable example rows). Expand codebooks to human-readable labels
+   first; a code that cannot be expanded should be marked incomplete, not treated
+   as a label.
 5. **Commit** — `zwill commit --survey <survey>` freezes the observed truth
    marginals used to score twins.
 6. **Inspect** — `zwill survey report --survey <survey> --format html --path
@@ -112,10 +118,14 @@ next command. The full path:
      --heldout-questions <q1,q2,...> --context-question-count 8 \
      --sample-respondents 200 --seed 20260706 --complete-cases \
      --model openai:gpt-5.5 --model google:gemini-2.5-pro \
+     --allow-unapproved \
      --path twin.edsl.json
    zwill edsl-run --job twin.edsl.json --path twin_results.json.gz
    zwill twin-results import --survey <survey> --path twin_results.json.gz
    ```
+   `twin-probability-job` exports require an approved plan; this one-off/debug
+   form passes `--allow-unapproved`. For a validation run, drop that flag and use
+   `--approved-plan <plan.json>` (see the `twin-experiment` plan flow below).
    (For a single survey you can also use `zwill twin-study run`.)
    For validation runs beyond one-off debugging, prefer `twin-experiment` plans:
    the plan must specify held-out targets, all eligible questions considered,
