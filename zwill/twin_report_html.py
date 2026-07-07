@@ -8,6 +8,7 @@ from typing import Any
 from .report_common import *  # noqa: F403
 from .twin_baseline import conditional_baseline_appendix_html, has_conditional_baseline
 from .twin_bootstrap import bootstrap_ci_section_html
+from .twin_scoring import skill_score_section_html
 
 
 def render_twin_supporting_artifacts_section(pages: list[dict[str, Any]], output_dir: Path) -> str:
@@ -181,6 +182,7 @@ def render_twin_report_html(
     heldout_texts = sorted({str(row.get("heldout_question_text")) for row in rows if row.get("heldout_question_text")})
     respondent_count = len({row.get("respondent_id") for row in rows})
     model_names = sorted({str(row.get("twin_set_label") or row.get("model_label") or row.get("model")) for row in rows})
+    skill_score_section = skill_score_section_html(rows)
     bootstrap_ci_section = bootstrap_ci_section_html(rows)
     conditional_baseline_appendix = (
         conditional_baseline_appendix_html() if has_conditional_baseline(model_names) else ""
@@ -813,6 +815,7 @@ def render_twin_report_html(
     [heldoutFilter, modelFilter, wrongOnly, sortSelect].forEach((el) => el.addEventListener('change', updateRows));
     updateRows();
   </script>
+  {skill_score_section}
   {bootstrap_ci_section}
   {conditional_baseline_appendix}
 </body>
@@ -831,6 +834,7 @@ def render_twin_summary_report_html(
     heldout_questions = sorted({str(row.get("heldout_question")) for row in rows})
     respondent_count = len({row.get("respondent_id") for row in rows})
     model_names = sorted({str(row.get("twin_set_label") or row.get("model_label") or row.get("model")) for row in rows})
+    skill_score_section = skill_score_section_html(rows)
     bootstrap_ci_section = bootstrap_ci_section_html(rows)
     conditional_baseline_appendix = (
         conditional_baseline_appendix_html() if has_conditional_baseline(model_names) else ""
@@ -1332,7 +1336,8 @@ def render_twin_summary_report_html(
         </table>
       </div>
     </section>
-    {bootstrap_ci_section}
+    {skill_score_section}
+  {bootstrap_ci_section}
     {conditional_baseline_appendix}
   </main>
   <script type="application/json" id="twin-summary-report-data">{summary_data}</script>
@@ -1546,6 +1551,7 @@ def render_twin_job_comparison_report_html(payload: dict[str, Any]) -> str:
     diagnostics = payload.get("diagnostics", {})
     job_ids = payload.get("job_ids", [])
     descriptions = diagnostics.get("twin_set_descriptions", {})
+    skill_score_section = skill_score_section_html(rows)
     bootstrap_ci_section = bootstrap_ci_section_html(rows)
     conditional_baseline_appendix = (
         conditional_baseline_appendix_html()
@@ -1807,7 +1813,8 @@ def render_twin_job_comparison_report_html(payload: dict[str, Any]) -> str:
       <div class="table-wrap"><table><thead><tr><th>Twin set</th><th>Job id</th><th>Model</th><th>Source</th><th>Created/imported</th></tr></thead><tbody>{''.join(job_rows) or '<tr><td colspan="5">No job metadata available.</td></tr>'}</tbody></table></div>
     </section>
     {''.join(question_blocks) or '<section class="panel"><div class="subtle">No question comparison rows available.</div></section>'}
-    {bootstrap_ci_section}
+    {skill_score_section}
+  {bootstrap_ci_section}
     {conditional_baseline_appendix}
   </main>
   <script type="application/json" id="twin-job-comparison-data">{report_data}</script>
