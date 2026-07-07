@@ -8,13 +8,17 @@ baseline that uses the *same* observed answers.
 A per-question regression cannot do this: a genuinely held-out target question has
 never been seen, so there are no per-question weights to learn. This baseline
 instead works entirely in embedding space. Every (question, option) pair and every
-option label is embedded once; a respondent is represented by the centroid of the
+option label is embedded once; a respondent is represented by the mean of the
 (question, selected-option) pairs they actually chose. A small logistic regression
-is trained across the *non*-held-out questions to map similarity features to a
-select/not-select label, then applied to the held-out questions. Because every
-feature is a semantic similarity rather than a question identity, the learned model
-transfers to target questions it has never seen -- exactly the deployment scenario
-a digital twin claims to handle.
+maps two similarity features -- how close a candidate option is to the respondent's
+profile -- to a select/not-select label.
+
+Training is leave-one-question-out: each held-out target is scored by a model
+trained only on the *other* option-bearing questions, so the target question's own
+answer pattern never enters training. Because every feature is a semantic
+similarity rather than a question identity, the model transfers to target
+questions it has never seen -- exactly the deployment scenario a digital twin
+claims to handle.
 
 Predictions are emitted in the same row schema as real twin predictions, tagged
 with a baseline ``model_label``, so they flow through the existing scoring,
@@ -25,9 +29,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-import math
 import os
 from typing import Any, Callable
+
+import numpy as np
 
 from .probability import true_probabilities_for
 from .twin import one_hot_metrics
@@ -43,34 +48,24 @@ DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 
 
 # ---------------------------------------------------------------------------
-# Vector helpers
+# Vector helpers (kept list-friendly for direct use and testing)
 # ---------------------------------------------------------------------------
-def _dot(a: list[float], b: list[float]) -> float:
-    return sum(x * y for x, y in zip(a, b))
-
-
-def _norm(a: list[float]) -> float:
-    return math.sqrt(sum(x * x for x in a))
-
-
 def cosine(a: list[float] | None, b: list[float] | None) -> float:
     if not a or not b:
         return 0.0
-    na, nb = _norm(a), _norm(b)
+    va = np.asarray(a, dtype=float)
+    vb = np.asarray(b, dtype=float)
+    na = float(np.linalg.norm(va))
+    nb = float(np.linalg.norm(vb))
     if na == 0.0 or nb == 0.0:
         return 0.0
-    return _dot(a, b) / (na * nb)
+    return float(va @ vb / (na * nb))
 
 
-def centroid(vectors: list[list[float]]) -> list[float] | None:
-    if not vectors:
-        return None
-    dim = len(vectors[0])
-    totals = [0.0] * dim
-    for vector in vectors:
-        for index in range(dim):
-            totals[index] += vector[index]
-    return [value / len(vectors) for value in totals]
+def _unit(matrix: np.ndarray) -> np.ndarray:
+    norms = np.linalg.norm(matrix, axis=-1, keepdims=True)
+    norms[norms == 0.0] = 1.0
+    return matrix / norms
 
 
 # ---------------------------------------------------------------------------
@@ -92,6 +87,7 @@ def openai_embedder(
     model: str = DEFAULT_EMBEDDING_MODEL,
     api_key: str | None = None,
     batch_size: int = 256,
+    dimensions: int | None = 512,
 ) -> Embedder:
     def embed(texts: list[str]) -> list[list[float]]:
         try:
@@ -108,10 +104,11 @@ def openai_embedder(
                 "embed question and option text (or pass a custom embedder)."
             )
         client = OpenAI(api_key=key)
+        extra = {"dimensions": dimensions} if dimensions else {}
         vectors: list[list[float]] = []
         for start in range(0, len(texts), batch_size):
             chunk = texts[start : start + batch_size]
-            response = client.embeddings.create(model=model, input=chunk)
+            response = client.embeddings.create(model=model, input=chunk, **extra)
             vectors.extend(item.embedding for item in response.data)
         return vectors
 
@@ -125,14 +122,12 @@ def embedding_index(texts: list[str], embedder: Embedder) -> dict[str, list[floa
         return {}
     vectors = embedder(unique)
     if len(vectors) != len(unique):
-        raise ValueError(
-            f"Embedder returned {len(vectors)} vectors for {len(unique)} texts."
-        )
+        raise ValueError(f"Embedder returned {len(vectors)} vectors for {len(unique)} texts.")
     return dict(zip(unique, vectors))
 
 
 # ---------------------------------------------------------------------------
-# Pure-Python logistic regression (small feature vector, so this is plenty)
+# Logistic regression (numpy; small feature vector, standardized inputs)
 # ---------------------------------------------------------------------------
 class LogisticRegression:
     def __init__(self, *, l2: float = 1.0, learning_rate: float = 0.5, iterations: int = 500) -> None:
@@ -141,64 +136,45 @@ class LogisticRegression:
         self.iterations = iterations
         self.weights: list[float] = []
         self.bias: float = 0.0
-        self._means: list[float] = []
-        self._stds: list[float] = []
+        self._mean: np.ndarray | None = None
+        self._std: np.ndarray | None = None
 
-    @staticmethod
-    def _sigmoid(value: float) -> float:
-        if value >= 0:
-            z = math.exp(-value)
-            return 1.0 / (1.0 + z)
-        z = math.exp(value)
-        return z / (1.0 + z)
+    def _standardize(self, features: np.ndarray) -> np.ndarray:
+        return (features - self._mean) / self._std
 
-    def _standardize(self, rows: list[list[float]]) -> list[list[float]]:
-        return [
-            [
-                (row[index] - self._means[index]) / self._stds[index]
-                for index in range(len(self._means))
-            ]
-            for row in rows
-        ]
-
-    def fit(self, features: list[list[float]], labels: list[int]) -> "LogisticRegression":
-        if not features:
+    def fit(self, features: list[list[float]] | np.ndarray, labels: list[int] | np.ndarray) -> "LogisticRegression":
+        x = np.asarray(features, dtype=float)
+        y = np.asarray(labels, dtype=float)
+        if x.size == 0:
             raise ValueError("cannot fit logistic regression on empty features")
-        dim = len(features[0])
-        n = len(features)
-        self._means = [sum(row[i] for row in features) / n for i in range(dim)]
-        self._stds = []
-        for i in range(dim):
-            variance = sum((row[i] - self._means[i]) ** 2 for row in features) / n
-            self._stds.append(math.sqrt(variance) or 1.0)
-        standardized = self._standardize(features)
-        self.weights = [0.0] * dim
-        self.bias = 0.0
+        self._mean = x.mean(axis=0)
+        std = x.std(axis=0)
+        std[std == 0.0] = 1.0
+        self._std = std
+        standardized = self._standardize(x)
+        n, dim = standardized.shape
+        weights = np.zeros(dim)
+        bias = 0.0
         for _ in range(self.iterations):
-            grad_w = [0.0] * dim
-            grad_b = 0.0
-            for row, label in zip(standardized, labels):
-                prediction = self._sigmoid(self._raw(row))
-                error = prediction - label
-                for i in range(dim):
-                    grad_w[i] += error * row[i]
-                grad_b += error
-            for i in range(dim):
-                grad_w[i] = grad_w[i] / n + self.l2 * self.weights[i] / n
-                self.weights[i] -= self.learning_rate * grad_w[i]
-            self.bias -= self.learning_rate * (grad_b / n)
+            predictions = 1.0 / (1.0 + np.exp(-(standardized @ weights + bias)))
+            error = predictions - y
+            grad_w = standardized.T @ error / n + self.l2 * weights / n
+            grad_b = float(error.mean())
+            weights -= self.learning_rate * grad_w
+            bias -= self.learning_rate * grad_b
+        self.weights = weights.tolist()
+        self.bias = float(bias)
         return self
 
-    def _raw(self, standardized_row: list[float]) -> float:
-        return self.bias + sum(w * x for w, x in zip(self.weights, standardized_row))
-
-    def predict_proba(self, features: list[list[float]]) -> list[float]:
-        standardized = self._standardize(features)
-        return [self._sigmoid(self._raw(row)) for row in standardized]
+    def predict_proba(self, features: list[list[float]] | np.ndarray) -> list[float]:
+        x = np.asarray(features, dtype=float)
+        standardized = self._standardize(x)
+        weights = np.asarray(self.weights)
+        return (1.0 / (1.0 + np.exp(-(standardized @ weights + self.bias)))).tolist()
 
 
 # ---------------------------------------------------------------------------
-# Respondent representation and features
+# List-based respondent profile (used directly and in tests)
 # ---------------------------------------------------------------------------
 def respondent_profile(
     answers: dict[str, str],
@@ -208,7 +184,7 @@ def respondent_profile(
     pair_vectors: dict[tuple[str, str], list[float]],
     option_vectors: dict[str, list[float]],
 ) -> tuple[list[float] | None, list[float] | None]:
-    """Centroids of the (question, selected-option) pairs a respondent chose."""
+    """Mean of the (question, selected-option) pairs a respondent chose."""
     pair_selected: list[list[float]] = []
     option_selected: list[list[float]] = []
     for question_name, answer in answers.items():
@@ -223,28 +199,11 @@ def respondent_profile(
         option_vector = option_vectors.get(answer)
         if option_vector is not None:
             option_selected.append(option_vector)
-    return centroid(pair_selected), centroid(option_selected)
+    pair_profile = np.mean(pair_selected, axis=0).tolist() if pair_selected else None
+    option_profile = np.mean(option_selected, axis=0).tolist() if option_selected else None
+    return pair_profile, option_profile
 
 
-def option_features(
-    question_name: str,
-    option_label: str,
-    profile_pair: list[float] | None,
-    profile_option: list[float] | None,
-    pair_vectors: dict[tuple[str, str], list[float]],
-    option_vectors: dict[str, list[float]],
-) -> list[float]:
-    pair_vector = pair_vectors.get((question_name, option_label))
-    option_vector = option_vectors.get(option_label)
-    return [
-        cosine(pair_vector, profile_pair),
-        cosine(option_vector, profile_option),
-    ]
-
-
-# ---------------------------------------------------------------------------
-# Top-level: train across non-held-out questions, predict held-out ones
-# ---------------------------------------------------------------------------
 def baseline_job_id(
     survey: str,
     heldout_questions: list[str],
@@ -263,6 +222,9 @@ def baseline_job_id(
     return "baseline_" + hashlib.sha256(raw.encode()).hexdigest()[:14]
 
 
+# ---------------------------------------------------------------------------
+# Top-level: train leave-one-question-out, predict held-out questions
+# ---------------------------------------------------------------------------
 def build_conditional_baseline_predictions(
     *,
     survey: str,
@@ -282,94 +244,143 @@ def build_conditional_baseline_predictions(
         name: [str(option) for option in (q.get("question_options") or [])]
         for name, q in question_by_name.items()
     }
-    heldout_set = set(heldout_questions)
+    option_question_names = [name for name in question_by_name if question_options.get(name)]
 
-    # Collect and embed every text we need, exactly once.
+    # Collect and embed every text we need, exactly once, then unit-normalize so
+    # cosine similarity becomes a dot product.
     texts: list[str] = []
-    for name, question in question_by_name.items():
-        question_text = str(question.get("question_text") or name)
-        for option in question_options.get(name, []):
+    for name in option_question_names:
+        question_text = str(question_by_name[name].get("question_text") or name)
+        for option in question_options[name]:
             texts.append(pair_text(question_text, option))
             texts.append(option_text(option))
     index = embedding_index(texts, embedder)
+    if not index:
+        raise ValueError("No option-bearing questions to embed for the conditional baseline.")
 
-    pair_vectors: dict[tuple[str, str], list[float]] = {}
-    option_vectors: dict[str, list[float]] = {}
-    for name, question in question_by_name.items():
-        question_text = str(question.get("question_text") or name)
-        for option in question_options.get(name, []):
-            pair_vectors[(name, option)] = index[pair_text(question_text, option)]
-            option_vectors[option] = index[option_text(option)]
-
-    # Training set: every (respondent, non-held-out question, option) triple.
-    train_features: list[list[float]] = []
-    train_labels: list[int] = []
-    for respondent_id, answers in answers_by_respondent.items():
-        for question_name, answer in answers.items():
-            if question_name in heldout_set or question_name not in question_by_name:
-                continue
-            options = question_options.get(question_name, [])
-            if answer not in options:
-                continue
-            profile_pair, profile_option = respondent_profile(
-                answers,
-                exclude_question=question_name,
-                question_options=question_options,
-                pair_vectors=pair_vectors,
-                option_vectors=option_vectors,
-            )
-            if profile_pair is None:
-                continue
-            for option in options:
-                train_features.append(
-                    option_features(
-                        question_name, option, profile_pair, profile_option, pair_vectors, option_vectors
-                    )
-                )
-                train_labels.append(1 if option == answer else 0)
-
-    if not train_features:
-        raise ValueError(
-            "No training rows: need respondents with observed answers to non-held-out questions."
+    # Per option-bearing question, unit-normalized matrices of pair and option vectors.
+    pair_unit: dict[str, np.ndarray] = {}
+    option_unit: dict[str, np.ndarray] = {}
+    for name in option_question_names:
+        question_text = str(question_by_name[name].get("question_text") or name)
+        pair_unit[name] = _unit(
+            np.asarray([index[pair_text(question_text, option)] for option in question_options[name]], dtype=float)
         )
-    model = LogisticRegression(l2=l2).fit(train_features, train_labels)
+        option_unit[name] = _unit(
+            np.asarray([index[option_text(option)] for option in question_options[name]], dtype=float)
+        )
+
+    # Per respondent: unit pair/option vectors for the options they selected, plus
+    # running sums so a profile that excludes any one question is an O(dim) update.
+    selected_pair: dict[str, dict[str, np.ndarray]] = {}
+    selected_option: dict[str, dict[str, np.ndarray]] = {}
+    pair_sum: dict[str, np.ndarray] = {}
+    option_sum: dict[str, np.ndarray] = {}
+    for respondent_id, answers in answers_by_respondent.items():
+        pair_map: dict[str, np.ndarray] = {}
+        option_map: dict[str, np.ndarray] = {}
+        for question_name, answer in answers.items():
+            options = question_options.get(question_name)
+            if not options or answer not in options:
+                continue
+            position = options.index(answer)
+            pair_map[question_name] = pair_unit[question_name][position]
+            option_map[question_name] = option_unit[question_name][position]
+        if not pair_map:
+            continue
+        selected_pair[respondent_id] = pair_map
+        selected_option[respondent_id] = option_map
+        pair_sum[respondent_id] = np.sum(list(pair_map.values()), axis=0)
+        option_sum[respondent_id] = np.sum(list(option_map.values()), axis=0)
+
+    def profile_excluding(respondent_id: str, exclude: str) -> tuple[np.ndarray, np.ndarray] | None:
+        pair_map = selected_pair.get(respondent_id)
+        if not pair_map:
+            return None
+        count = len(pair_map)
+        if exclude in pair_map:
+            count -= 1
+            if count <= 0:
+                return None
+            pair_profile = (pair_sum[respondent_id] - pair_map[exclude]) / count
+            option_profile = (option_sum[respondent_id] - selected_option[respondent_id][exclude]) / count
+        else:
+            pair_profile = pair_sum[respondent_id] / count
+            option_profile = option_sum[respondent_id] / count
+        return _unit(pair_profile), _unit(option_profile)
+
+    def feature_matrix(question_name: str, pair_profile: np.ndarray, option_profile: np.ndarray) -> np.ndarray:
+        # cosine(candidate, profile) == dot(unit candidate, unit profile)
+        return np.column_stack(
+            (pair_unit[question_name] @ pair_profile, option_unit[question_name] @ option_profile)
+        )
+
+    # Training features grouped by source question (profile excludes its own question).
+    features_by_question: dict[str, np.ndarray] = {}
+    labels_by_question: dict[str, np.ndarray] = {}
+    for question_name in option_question_names:
+        options = question_options[question_name]
+        feature_rows: list[np.ndarray] = []
+        label_rows: list[np.ndarray] = []
+        for respondent_id, pair_map in selected_pair.items():
+            if question_name not in pair_map:
+                continue
+            profile = profile_excluding(respondent_id, question_name)
+            if profile is None:
+                continue
+            feature_rows.append(feature_matrix(question_name, *profile))
+            selected = answers_by_respondent[respondent_id][question_name]
+            label_rows.append(np.asarray([1.0 if option == selected else 0.0 for option in options]))
+        if feature_rows:
+            features_by_question[question_name] = np.vstack(feature_rows)
+            labels_by_question[question_name] = np.concatenate(label_rows)
+
+    if not features_by_question:
+        raise ValueError(
+            "No training rows: need respondents with observed answers to option-bearing questions."
+        )
+
+    # Leave-one-question-out models.
+    models: dict[str, LogisticRegression] = {}
+    training_rows_by_question: dict[str, int] = {}
+    for heldout_question in heldout_questions:
+        if heldout_question not in features_by_question:
+            continue
+        train_x = np.vstack([m for q, m in features_by_question.items() if q != heldout_question])
+        train_y = np.concatenate([labels_by_question[q] for q in features_by_question if q != heldout_question])
+        if train_x.size == 0:
+            continue
+        models[heldout_question] = LogisticRegression(l2=l2).fit(train_x, train_y)
+        training_rows_by_question[heldout_question] = int(train_x.shape[0])
 
     rows: list[dict[str, Any]] = []
     skipped_no_profile = 0
     skipped_no_actual = 0
     for heldout_question in heldout_questions:
-        if heldout_question not in question_by_name:
+        model = models.get(heldout_question)
+        if model is None:
             continue
         question = question_by_name[heldout_question]
-        options = question_options.get(heldout_question, [])
+        options = question_options[heldout_question]
         heldout_text = str(question.get("question_text") or heldout_question)
         marginal_probabilities = true_probabilities_for(heldout_question, truth, options) if truth else {}
+        weights = np.asarray(model.weights)
         for respondent_id in respondent_ids:
             answers = answers_by_respondent.get(respondent_id, {})
             actual_answer = answers.get(heldout_question)
             if actual_answer is None:
                 skipped_no_actual += 1
                 continue
-            profile_pair, profile_option = respondent_profile(
-                answers,
-                exclude_question=heldout_question,
-                question_options=question_options,
-                pair_vectors=pair_vectors,
-                option_vectors=option_vectors,
-            )
-            if profile_pair is None:
+            profile = profile_excluding(respondent_id, heldout_question)
+            if profile is None:
                 skipped_no_profile += 1
                 continue
-            feature_rows = [
-                option_features(heldout_question, option, profile_pair, profile_option, pair_vectors, option_vectors)
-                for option in options
-            ]
-            raw_scores = model.predict_proba(feature_rows)
-            total = sum(raw_scores)
-            if total <= 0:
-                probabilities = [1.0 / len(options) for _ in options]
-            else:
-                probabilities = [score / total for score in raw_scores]
+            standardized = (feature_matrix(heldout_question, *profile) - model._mean) / model._std
+            raw_scores = 1.0 / (1.0 + np.exp(-(standardized @ weights + model.bias)))
+            total = float(raw_scores.sum())
+            probabilities = (
+                [1.0 / len(options)] * len(options) if total <= 0 else (raw_scores / total).tolist()
+            )
             probabilities_by_option = {option: probabilities[i] for i, option in enumerate(options)}
             metrics = one_hot_metrics(options, actual_answer, probabilities_by_option)
             marginal_metrics = (
@@ -391,9 +402,9 @@ def build_conditional_baseline_predictions(
                     "model_parameters": {"embedding_model": embedding_model, "feature_version": FEATURE_VERSION},
                     "option_labels": options,
                     "probabilities": probabilities_by_option,
-                    "raw_probabilities": raw_scores,
+                    "raw_probabilities": raw_scores.tolist(),
                     "raw_probability_sum": total,
-                    "notes": f"Conditional embedding baseline ({FEATURE_VERSION}).",
+                    "notes": f"Conditional embedding baseline ({FEATURE_VERSION}), leave-one-question-out.",
                     **metrics,
                     "empirical_marginal_probabilities": marginal_probabilities,
                     "empirical_marginal_probability_actual": marginal_metrics.get("probability_actual"),
@@ -409,16 +420,18 @@ def build_conditional_baseline_predictions(
                 }
             )
 
+    scored_questions = sorted(models)
     meta = {
         "job_id": job_id,
         "model_label": MODEL_LABEL,
         "embedding_model": embedding_model,
         "feature_version": FEATURE_VERSION,
-        "training_rows": len(train_features),
+        "training_rows": sum(training_rows_by_question.values()),
+        "training_rows_by_question": training_rows_by_question,
         "prediction_rows": len(rows),
-        "heldout_questions": [q for q in heldout_questions if q in question_by_name],
-        "weights": model.weights,
-        "bias": model.bias,
+        "heldout_questions": scored_questions,
+        "unscored_questions": [q for q in heldout_questions if q not in models],
+        "feature_weights_by_question": {q: models[q].weights for q in scored_questions},
         "skipped_no_profile": skipped_no_profile,
         "skipped_no_actual": skipped_no_actual,
         "unique_texts_embedded": len(index),
