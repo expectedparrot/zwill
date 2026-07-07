@@ -1078,6 +1078,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--question-option", action="append")
     p.add_argument("--option-label", action="append")
     p.add_argument("--role", default="survey_item")
+    p.add_argument("--rank-task-id", help="Declare this question as an item of the named rank battery (groups items reliably instead of relying on the wording heuristic).")
     p.add_argument("--source-raw")
     p.add_argument("--source-note")
     p.set_defaults(func=cmd_question_add)

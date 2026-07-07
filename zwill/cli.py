@@ -45,6 +45,7 @@ from .rank import (
     build_rank_report,
     detect_rank_tasks,
     extract_rank_payload,
+    potential_undetected_rank_batteries,
     rank_job_id_from_job,
     rank_job_id_from_results,
     rank_metrics,

@@ -114,6 +114,8 @@ def cmd_question_add(args: argparse.Namespace) -> dict[str, Any]:
         "role": args.role,
         "registered_at": utc_now(),
     }
+    if getattr(args, "rank_task_id", None):
+        question["rank_task_id"] = args.rank_task_id
     option_labels = parse_option_labels(args.option_label)
     if option_labels:
         question["option_labels"] = option_labels
@@ -135,6 +137,20 @@ def cmd_question_import(args: argparse.Namespace) -> dict[str, Any]:
         imported.append(row["question_name"])
     annotated, rank_tasks = annotate_rank_items(list(existing.values()))
     rewrite_jsonl(sdir / "questions.jsonl", annotated)
+    warnings = []
+    suspected = potential_undetected_rank_batteries(annotated, rank_tasks)
+    if suspected:
+        warnings.append(
+            {
+                "code": "possible_undetected_rank_battery",
+                "message": (
+                    f"{len(suspected)} group(s) of numbered numeric-option questions were not "
+                    "grouped into a rank battery. If these are ranking/MaxDiff batteries, add a "
+                    "shared `rank_task_id` to their rows so they are detected reliably."
+                ),
+                "suspected_batteries": suspected,
+            }
+        )
     return envelope(
         "zwill question import",
         "ok",
@@ -145,6 +161,7 @@ def cmd_question_import(args: argparse.Namespace) -> dict[str, Any]:
             "rank_task_count": len(rank_tasks),
             "rank_tasks": rank_tasks,
         },
+        warnings=warnings,
     )
 
 
