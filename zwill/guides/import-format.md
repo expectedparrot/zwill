@@ -21,6 +21,12 @@ One row per question.
 | `source` | no | Provenance object, e.g. `{"raw_id": "<raw id>", "note": "<source variable name>"}`. |
 | `source.known_options` | no | Fallback option universe for a **context** question that has no `question_options` (e.g. free-text-ish fields you still want to present with a fixed set). Used only when `question_options` is empty. |
 | `rank_task_id` | no | Explicitly groups this row into a named rank battery (see rank section). |
+| `context_priority` | no | Number that pulls this question toward the front when a twin's context is count-limited (`--context-question-count`). Higher wins; ties keep `questions.jsonl` order. |
+
+**Context selection is positional by default.** When `--context-question-count`
+limits how many observed answers a twin sees, zwill keeps the respondent's
+answered questions in `questions.jsonl` order and takes the first N. Order your
+questions deliberately, or set `context_priority` on the ones that matter most.
 
 Example row:
 

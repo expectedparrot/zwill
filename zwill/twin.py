@@ -104,12 +104,24 @@ def select_context_questions(
     selected_questions: list[str],
     heldout_question: str,
     count: int | None,
+    priority_by_question: dict[str, float] | None = None,
 ) -> list[str]:
+    """Choose which of a respondent's answered questions to show as context.
+
+    Candidates keep the order of `selected_questions` (i.e. questions.jsonl
+    order), so column ordering decides what a count-limited twin sees. Pass
+    `priority_by_question` (from a question's `context_priority` field) to pull
+    high-priority questions to the front before the count cut; ties keep the
+    positional order (a stable sort), so behavior is unchanged when no priorities
+    are set.
+    """
     candidates = [
         question_name
         for question_name in selected_questions
         if question_name != heldout_question and question_name in respondent_answers
     ]
+    if priority_by_question:
+        candidates.sort(key=lambda name: -float(priority_by_question.get(name, 0.0)))
     if count is not None:
         candidates = candidates[:count]
     return candidates

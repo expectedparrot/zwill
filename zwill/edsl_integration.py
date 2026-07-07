@@ -845,6 +845,11 @@ def build_edsl_rank_utility_twin_job_dict(survey_name: str, args: argparse.Names
     context_question_names = selected_question_names(context_args, questions)
     all_rank_item_names = {name for task in selected_tasks for name in task.get("source_question_names", [])}
     context_question_names = [name for name in context_question_names if name not in all_rank_item_names]
+    context_priority_by_question = {
+        str(question["question_name"]): float(question["context_priority"])
+        for question in questions
+        if question.get("context_priority") is not None
+    }
 
     all_respondent_ids = [row["respondent_id"] for row in read_jsonl(sdir / "respondents.jsonl")]
     if not all_respondent_ids:
@@ -888,7 +893,9 @@ def build_edsl_rank_utility_twin_job_dict(survey_name: str, args: argparse.Names
                 skipped_missing.append({"respondent_id": respondent_id, "rank_task_id": task["rank_task_id"], "missing_items": missing_items})
                 continue
             target_context = [name for name in context_question_names if name not in task_item_ids]
-            selected_context = select_context_questions(respondent_answers, target_context, "", args.context_question_count)
+            selected_context = select_context_questions(
+                respondent_answers, target_context, "", args.context_question_count, context_priority_by_question
+            )
             observed_answers = [
                 {
                     "question_name": question_name,

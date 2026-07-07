@@ -464,6 +464,11 @@ def build_edsl_digital_twin_job_dict(survey_name: str, args: Any, deps: DigitalT
         existing_names = {question["question_name"] for question in questions}
         questions.extend([spec for spec in extra_specs if spec["question_name"] not in existing_names])
     question_by_name = {question["question_name"]: question for question in questions}
+    context_priority_by_question = {
+        str(question["question_name"]): float(question["context_priority"])
+        for question in questions
+        if question.get("context_priority") is not None
+    }
     if args.balance_actual and args.stratify_actual:
         raise ZwillError("invalid_input", "Use only one of --balance-actual or --stratify-actual.")
     heldout_names = selected_heldout_question_names(args, questions)
@@ -573,6 +578,7 @@ def build_edsl_digital_twin_job_dict(survey_name: str, args: Any, deps: DigitalT
                 target_context_question_names,
                 heldout_name,
                 args.context_question_count,
+                context_priority_by_question,
             )
             observed_answers = [
                 {
