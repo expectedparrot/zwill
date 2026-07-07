@@ -160,6 +160,9 @@ def build_twin_joint_structure_diagnostics(rows: list[dict[str, Any]], *, min_pa
                         "empirical_cramers_v": empirical_v,
                         "twin_cramers_v": twin_v,
                         "cramers_v_error": abs(twin_v - empirical_v) if twin_v is not None and empirical_v is not None else None,
+                        # Signed: negative means the twin-implied association is weaker
+                        # than the empirical one (correlation attenuation / over-shrinkage).
+                        "cramers_v_gap": (twin_v - empirical_v) if twin_v is not None and empirical_v is not None else None,
                         "warning": "sparse_pair" if len(respondents) < 100 else "",
                     }
                 )
@@ -169,7 +172,55 @@ def build_twin_joint_structure_diagnostics(rows: list[dict[str, Any]], *, min_pa
         "pair_count": len(diagnostics),
         "rows": diagnostics[:limit],
         "omitted_count": max(0, len(diagnostics) - limit),
+        "attenuation": twin_correlation_attenuation(diagnostics),
         "note": "Compares empirical crosstabs with twin-implied crosstabs built by aggregating each respondent's predicted probabilities across pairs of held-out questions.",
+    }
+
+
+def twin_correlation_attenuation(diagnostics: list[dict[str, Any]]) -> dict[str, Any]:
+    """Summarise whether twin-implied associations are systematically weaker than empirical.
+
+    Because the twin-implied joint is a product of each respondent's marginals, it can
+    only reproduce cross-question association through individual heterogeneity, and tends
+    to regress everyone toward a common distribution. When the twin's Cramer's V is
+    systematically below the empirical V, that is correlation attenuation (over-shrinkage):
+    a named, diagnosable failure mode, not just noise in the L1.
+    """
+    by_model: dict[str, list[float]] = defaultdict(list)
+    for row in diagnostics:
+        gap = row.get("cramers_v_gap")
+        if gap is not None:
+            by_model[str(row.get("model_label") or "")].append(float(gap))
+
+    def verdict(gaps: list[float]) -> str:
+        if not gaps:
+            return "insufficient_pairs"
+        mean_gap = sum(gaps) / len(gaps)
+        share_attenuated = sum(1 for gap in gaps if gap < 0) / len(gaps)
+        if mean_gap <= -0.05 and share_attenuated >= 0.6:
+            return "attenuated"  # twin under-models cross-question correlation
+        if mean_gap >= 0.05 and share_attenuated <= 0.4:
+            return "overstated"  # twin over-states correlation
+        return "matched"
+
+    models = {}
+    for label, gaps in by_model.items():
+        models[label] = {
+            "pairs": len(gaps),
+            "mean_cramers_v_gap": sum(gaps) / len(gaps) if gaps else None,
+            "share_attenuated": sum(1 for gap in gaps if gap < 0) / len(gaps) if gaps else None,
+            "verdict": verdict(gaps),
+        }
+    all_gaps = [gap for gaps in by_model.values() for gap in gaps]
+    return {
+        "models": models,
+        "overall": {
+            "pairs": len(all_gaps),
+            "mean_cramers_v_gap": sum(all_gaps) / len(all_gaps) if all_gaps else None,
+            "share_attenuated": sum(1 for gap in all_gaps if gap < 0) / len(all_gaps) if all_gaps else None,
+            "verdict": verdict(all_gaps),
+        },
+        "note": "twin Cramer's V minus empirical Cramer's V, averaged over question pairs. Negative = the twin under-models cross-question correlation (over-shrinkage toward a common distribution).",
     }
 
 

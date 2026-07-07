@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from zwill.twin_diagnostics import build_context_leakage_diagnostics, observed_pair_joint
+from zwill.twin_diagnostics import (
+    build_context_leakage_diagnostics,
+    observed_pair_joint,
+    twin_correlation_attenuation,
+)
 
 
 def _questions(names):
@@ -52,3 +56,16 @@ def test_bias_correction_defuses_high_cardinality_false_positive() -> None:
     assert pair["context_distinct_answers"] == 200
     assert pair["cramers_v"] < 0.5  # deflated well below the flag threshold
     assert diag["flagged_count"] == 0
+
+
+def test_attenuation_verdict_flags_systematic_shrinkage() -> None:
+    rows = [{"model_label": "m", "cramers_v_gap": g} for g in (-0.2, -0.15, -0.1, -0.25, 0.02)]
+    result = twin_correlation_attenuation(rows)
+    assert result["overall"]["verdict"] == "attenuated"
+    assert result["overall"]["mean_cramers_v_gap"] < 0
+    assert result["models"]["m"]["verdict"] == "attenuated"
+
+
+def test_attenuation_matched_when_gaps_small() -> None:
+    rows = [{"model_label": "m", "cramers_v_gap": g} for g in (0.01, -0.02, 0.0, 0.03)]
+    assert twin_correlation_attenuation(rows)["overall"]["verdict"] == "matched"

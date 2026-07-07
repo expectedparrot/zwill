@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import math
 
-from zwill.twin_scoring import skill_score_section_html, skill_score_summary
+from zwill.twin_scoring import (
+    probability_granularity_summary,
+    skill_score_section_html,
+    skill_score_summary,
+)
 
 
 def _row(model, question, rid, *, nll, uniform_nll, marginal_nll, brier=0.0, uniform_brier=1.0, marginal_brier=0.5, top1=0):
@@ -71,3 +75,21 @@ def test_section_renders_only_with_models() -> None:
     rows = [_row("m", "q1", "r1", nll=0.5, uniform_nll=1.0, marginal_nll=1.0)]
     html = skill_score_section_html(rows)
     assert "Skill scores" in html and "sanity" in html
+
+
+def test_granularity_flags_coarse_round_number_model() -> None:
+    coarse = [{"model_label": "llm", "probabilities": {"a": 0.7, "b": 0.3}} for _ in range(20)]
+    fine = [{"model_label": "base", "probabilities": {"a": 0.673, "b": 0.327}} for _ in range(20)]
+    summary = probability_granularity_summary(coarse + fine)
+    assert summary["models"]["llm"]["round_fraction"] == 1.0
+    assert summary["models"]["llm"]["warning"] == "coarse_probabilities"
+    assert summary["models"]["base"]["round_fraction"] < 0.5
+    assert summary["models"]["base"]["warning"] == ""
+
+
+def test_granularity_counts_distinct_values() -> None:
+    rows = [
+        {"model_label": "m", "probabilities": {"a": 0.5, "b": 0.5}},
+        {"model_label": "m", "probabilities": {"a": 0.8, "b": 0.2}},
+    ]
+    assert probability_granularity_summary(rows)["models"]["m"]["distinct_values"] == 3
