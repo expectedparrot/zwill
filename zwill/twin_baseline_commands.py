@@ -53,12 +53,19 @@ def cmd_twin_baseline_run(args: argparse.Namespace, *, embedder: Embedder | None
 
     heldout_questions = selected_baseline_heldout_questions(args, questions)
 
-    respondent_ids = [row["respondent_id"] for row in respondents] or sorted(answers_by_respondent)
-    if getattr(args, "sample_respondents", None):
-        rng = random.Random(getattr(args, "seed", None))
-        pool = [rid for rid in respondent_ids if answers_by_respondent.get(rid)]
-        rng.shuffle(pool)
-        respondent_ids = sorted(pool[: args.sample_respondents])
+    restrict = getattr(args, "restrict_respondent_ids", None)
+    if restrict:
+        # Score the baseline on exactly these respondents (e.g. a twin job's set),
+        # so a unified report compares every model on the same people.
+        restrict_set = {str(rid) for rid in restrict}
+        respondent_ids = sorted(rid for rid in answers_by_respondent if str(rid) in restrict_set)
+    else:
+        respondent_ids = [row["respondent_id"] for row in respondents] or sorted(answers_by_respondent)
+        if getattr(args, "sample_respondents", None):
+            rng = random.Random(getattr(args, "seed", None))
+            pool = [rid for rid in respondent_ids if answers_by_respondent.get(rid)]
+            rng.shuffle(pool)
+            respondent_ids = sorted(pool[: args.sample_respondents])
 
     truth_path = sdir / "committed" / "truth_marginals.json"
     truth = read_json(truth_path, {}) if truth_path.exists() else {}

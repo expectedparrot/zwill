@@ -1401,6 +1401,11 @@ def cmd_twin_results_leakage_audit(*args, **kwargs):
 
     return impl(*args, **kwargs)
 
+def cmd_twin_validate(*args, **kwargs):
+    from .twin_validation_workflow import cmd_twin_validate as impl
+
+    return impl(*args, **kwargs)
+
 def filtered_twin_prediction_rows(*args, **kwargs):
     from .twin_result_commands import filtered_twin_prediction_rows as impl
 

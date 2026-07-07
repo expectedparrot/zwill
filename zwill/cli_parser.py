@@ -303,6 +303,28 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--path", help="Also write the prediction rows as JSONL to this path.")
     p.set_defaults(func=cmd_twin_baseline_run)
 
+    p = subparsers.add_parser(
+        "twin-validate",
+        help="Run the full twin validation flow (leakage audit + conditional baseline + bootstrap CIs + HTML report) for one or more twin jobs.",
+    )
+    p.add_argument("--survey", required=True)
+    p.add_argument("--job-id", action="append", help="Imported twin job id to validate. Repeatable.")
+    p.add_argument("--jobs", help="Comma-separated twin job ids to validate.")
+    p.add_argument("--out", required=True, help="Output bundle directory for the report and diagnostics.")
+    p.add_argument("--view", choices=["summary", "full"], default="full", help="HTML report view.")
+    p.add_argument("--skip-baseline", action="store_true", help="Do not fit the conditional baseline.")
+    p.add_argument("--require-baseline", action="store_true", help="Fail (rather than warn) if the baseline cannot run.")
+    p.add_argument("--skip-leakage-audit", action="store_true", help="Do not run the context leakage audit.")
+    p.add_argument("--skip-bootstrap", action="store_true", help="Do not compute bootstrap confidence intervals.")
+    p.add_argument("--embedding-model", default="text-embedding-3-small", help="OpenAI embedding model for the baseline.")
+    p.add_argument("--l2", type=float, default=1.0, help="L2 regularization strength for the baseline logistic model.")
+    p.add_argument("--leakage-threshold", type=float, default=0.7, help="Cramer's V threshold for flagging leakage.")
+    p.add_argument("--min-pair-rows", type=int, default=30, help="Minimum co-answered respondents for a leakage pair.")
+    p.add_argument("--n-boot", type=int, default=1000, help="Bootstrap resamples.")
+    p.add_argument("--ci", type=float, default=0.95, help="Confidence level (0-1).")
+    p.add_argument("--seed", type=int, default=0, help="Random seed for baseline and bootstrap.")
+    p.set_defaults(func=cmd_twin_validate)
+
     twin_results = subparsers.add_parser("twin-results").add_subparsers(dest="twin_results_command", required=True)
     p = twin_results.add_parser("import")
     p.add_argument("--survey", required=True)
