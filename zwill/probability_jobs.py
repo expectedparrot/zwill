@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
 from .errors import ZwillError
+from .jsonlio import read_jsonl
 from .probability import probability_job_id_from_job
 
 
@@ -19,10 +19,6 @@ class ProbabilityJobBuilderDeps:
     parse_model_params: Callable[[Any], dict[tuple[str | None, str | None], dict[str, Any]]]
     parse_model_specs: Callable[[Any], list[tuple[str, str | None]]]
     model_kwargs_for: Callable[[str, str | None, dict[tuple[str | None, str | None], dict[str, Any]]], dict[str, Any]]
-
-
-def read_jsonl(path: Path) -> list[dict[str, Any]]:
-    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
 def probability_question_text() -> str:

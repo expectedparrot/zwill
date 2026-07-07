@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.12"]
+
+    steps:
+      # zwill and edsl must be siblings so [tool.uv.sources] can resolve
+      # edsl from ../edsl (see pyproject.toml / README).
+      - name: Check out zwill
+        uses: actions/checkout@v4
+        with:
+          path: zwill
+
+      - name: Check out edsl (sibling)
+        uses: actions/checkout@v4
+        with:
+          repository: expectedparrot/edsl
+          path: edsl
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install zwill (with edsl and test deps)
+        working-directory: zwill
+        run: uv pip install --system -e ".[test]"
+
+      - name: Run tests
+        working-directory: zwill
+        run: python -m pytest -q

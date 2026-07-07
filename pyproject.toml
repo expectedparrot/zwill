@@ -7,12 +7,19 @@ dependencies = [
     "python-dotenv>=1.0",
     "PyYAML>=6.0",
     "rich>=13.0",
+    "edsl",
 ]
 
 [project.optional-dependencies]
 test = [
     "pytest>=8.0",
 ]
+
+# edsl is developed alongside zwill in a sibling checkout. Resolve it from the
+# local editable source rather than PyPI so `uv pip install -e .` uses the same
+# EDSL you are working on. Adjust the path if your checkout lives elsewhere.
+[tool.uv.sources]
+edsl = { path = "../edsl", editable = true }
 
 [project.scripts]
 zwill = "zwill.cli:main"
