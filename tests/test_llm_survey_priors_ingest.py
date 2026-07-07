@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import json
 import importlib.util
+import json
 from pathlib import Path
-
 
 SCRIPT_PATH = Path(__file__).parents[1] / "examples" / "llm_survey_priors" / "ingest_normalized.py"
 SPEC = importlib.util.spec_from_file_location("ingest_normalized", SCRIPT_PATH)

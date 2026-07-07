@@ -1,19 +1,19 @@
 from __future__ import annotations
 
+import argparse
 import concurrent.futures
 import gzip
 import json
 import os
 import subprocess
 import sys
-import argparse
 from pathlib import Path
 
 import pytest
 
 import zwill.cli as cli
-from zwill.generated_reports import compact_twin_specific_diagnostics_for_report
 from zwill.cli import build_twin_report, main
+from zwill.generated_reports import compact_twin_specific_diagnostics_for_report
 
 FIXTURES = Path(__file__).parent / "fixtures"
 DEFAULT_EDSL_TEST_PYTHON = Path("/Users/johnhorton/tools/ep/edsl/.venv/bin/python")

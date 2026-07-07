@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import contextlib
+import csv
 import fcntl
 import gzip
 import hashlib
@@ -11,11 +11,11 @@ import json
 import os
 import random
 import re
-import subprocess
 import shutil
+import statistics
+import subprocess
 import sys
 import tempfile
-import statistics
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,6 +36,8 @@ from .probability import (
 )
 from .probability_jobs import (
     ProbabilityJobBuilderDeps,
+)
+from .probability_jobs import (
     build_edsl_probability_job_dict as build_edsl_probability_job_dict_impl,
 )
 from .rank import (
@@ -51,29 +53,6 @@ from .rank import (
     selected_rank_tasks,
     synthetic_rank_questions,
 )
-from .twin_jobs import (
-    DigitalTwinJobBuilderDeps,
-    answer_commonness_by_question,
-    answer_commonness_text,
-    balanced_by_actual,
-    build_edsl_digital_twin_job_dict as build_edsl_digital_twin_job_dict_impl,
-    chunked_job_id,
-    expand_question_text_fields,
-    result_chunk_label,
-    selected_heldout_question_names,
-    stratified_by_actual,
-)
-from .twin_results import (
-    aggregate_twin_marginals,
-    distribution_distance_metrics,
-    filter_prediction_rows,
-    job_ids_from_manifest,
-    top_prediction,
-    twin_prediction_export_rows,
-    write_csv_rows,
-    zip_csv,
-)
-from .twin_report import build_twin_report, twin_top_prediction
 from .reporting import (
     EP_REPORT_CSS,
     build_probability_report,
@@ -81,7 +60,6 @@ from .reporting import (
     escape_script_text,
     fmt_probs,
     markdown_to_html,
-    report_display_title,
     render_probability_report_html,
     render_twin_benchmark_report_html,
     render_twin_job_comparison_report_html,
@@ -91,6 +69,7 @@ from .reporting import (
     render_twin_summary_report_html,
     render_twin_supporting_artifacts_section,
     render_twin_value_diagnostics_section,
+    report_display_title,
 )
 from .result_imports import (
     extract_probability_prediction_rows,
@@ -110,7 +89,31 @@ from .twin import (
     one_hot_metrics,
     select_context_questions,
 )
-
+from .twin_jobs import (
+    DigitalTwinJobBuilderDeps,
+    answer_commonness_by_question,
+    answer_commonness_text,
+    balanced_by_actual,
+    chunked_job_id,
+    expand_question_text_fields,
+    result_chunk_label,
+    selected_heldout_question_names,
+    stratified_by_actual,
+)
+from .twin_jobs import (
+    build_edsl_digital_twin_job_dict as build_edsl_digital_twin_job_dict_impl,
+)
+from .twin_report import build_twin_report, twin_top_prediction
+from .twin_results import (
+    aggregate_twin_marginals,
+    distribution_distance_metrics,
+    filter_prediction_rows,
+    job_ids_from_manifest,
+    top_prediction,
+    twin_prediction_export_rows,
+    write_csv_rows,
+    zip_csv,
+)
 
 ROOT = Path(".zwill")
 SCHEMA_VERSION = 1
@@ -608,7 +611,7 @@ def project_metadata(project_id: str) -> dict[str, Any]:
 
 def cmd_project_create(args: argparse.Namespace) -> dict[str, Any]:
     require_workspace()
-    pdir = ensure_project(args.project_id, title=args.title)
+    ensure_project(args.project_id, title=args.title)
     if args.use:
         head_path().write_text(f"{validate_project_id(args.project_id)}\n")
     return envelope(

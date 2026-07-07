@@ -35,9 +35,13 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Install zwill (with edsl and test deps)
+      - name: Install zwill (with edsl and dev deps)
         working-directory: zwill
-        run: uv pip install --system -e ".[test]"
+        run: uv pip install --system -e ".[dev]"
+
+      - name: Lint (ruff)
+        working-directory: zwill
+        run: ruff check zwill tests
 
       - name: Run tests
         working-directory: zwill

@@ -10,7 +10,6 @@ from typing import Any
 
 from .probability import probability_metrics, true_probabilities_for
 
-
 EP_REPORT_CSS = """
 :root {
 --ep-green: #428a5f;
@@ -2843,23 +2842,6 @@ def render_twin_practitioner_report_html(
             "</tr>"
         )
 
-    risk_rows = [
-        row
-        for row in rows
-        if (row.get("nll_p95") is not None and row.get("nll_p95", 0.0) >= 10.0)
-        or (row.get("ece") is not None and row.get("ece", 0.0) >= 0.2)
-    ]
-    risk_text = (
-        "Some model/question pairs had very confident wrong guesses. Inspect these before using rankings or cutoffs."
-        if risk_rows
-        else "No severe confidence warnings appeared at the benchmark level."
-    )
-    best_accuracy_text = (
-        f"{escape_html(best_accuracy.get('model'))} reached {pct(best_accuracy.get('accuracy'))} on "
-        f"{escape_html(best_accuracy.get('survey'))}."
-        if best_accuracy
-        else "Not enough scored rows."
-    )
     best_model_text = escape_html(best_confidence_model[0] or "n/a")
     report_data = escape_script_text(json.dumps(payload, separators=(",", ":")))
     generation_data = escape_script_text(json.dumps(generation or {}, separators=(",", ":")))

@@ -743,7 +743,7 @@ def render_twin_experiment_package_runbook(manifest: dict[str, Any], package_man
             "After the jobs finish, return to the zwill project directory that contains the original survey and import completed Results files:",
             "",
             "```bash",
-            f"zwill twin-experiment import-plan-results --manifest <package-dir>/export_manifest.json --results-dir <package-dir>/results",
+            "zwill twin-experiment import-plan-results --manifest <package-dir>/export_manifest.json --results-dir <package-dir>/results",
             f"zwill twin-experiment plan-status --survey {survey} --plan-id {plan_id}",
             "```",
             "",

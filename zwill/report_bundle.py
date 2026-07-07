@@ -1451,7 +1451,9 @@ def render_validation_diagnostics_html(*, survey: str, artifacts: dict[str, str]
     section = render_validation_diagnostics_section(survey=survey, artifacts=artifacts, output_dir=output_dir)
     import html
 
-    esc = lambda value: html.escape(str(value), quote=True)
+    def esc(value):
+        return html.escape(str(value), quote=True)
+
     return f"""<!doctype html>
 <html lang="en">
 <head>

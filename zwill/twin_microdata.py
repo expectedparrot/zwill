@@ -500,7 +500,6 @@ def build_experiment_microdata_audit(
             "top1_correct": bool(prediction.get("top1_correct")),
             "notes": prediction.get("notes"),
             "twin_material_text": scenario.get("twin_material_text") or prediction.get("twin_material_text"),
-            "agent_material_text": scenario.get("agent_material_text"),
             "prompt_template": templates.get(job_id),
             "source_row": prediction.get("row"),
         }
