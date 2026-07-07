@@ -132,7 +132,18 @@ def zip_csv(csv_path: Path, zip_path: Path) -> None:
         archive.write(csv_path, arcname=csv_path.name)
 
 
-def aggregate_twin_marginals(rows: list[dict[str, Any]]) -> dict[tuple[str, str], dict[str, Any]]:
+def aggregate_twin_marginals(
+    rows: list[dict[str, Any]],
+    weights: dict[str, float] | None = None,
+) -> dict[tuple[str, str], dict[str, Any]]:
+    """Aggregate per-respondent twin distributions into an implied population marginal.
+
+    Committed truth marginals are weighted by respondent weight, so the twin-implied
+    marginal must be weighted the same way or every marginal L1/JS/Brier comparison
+    against truth is biased by a pure weighting mismatch that has nothing to do with
+    prediction quality. Pass `weights` (respondent_id -> weight); omit it to weight
+    every respondent equally (the previous behaviour).
+    """
     grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for row in rows:
         question = row.get("heldout_question")
@@ -146,18 +157,25 @@ def aggregate_twin_marginals(rows: list[dict[str, Any]]) -> dict[tuple[str, str]
         if not options:
             options = sorted({option for row in group_rows for option in row.get("probabilities", {})})
         totals = {str(option): 0.0 for option in options}
+        weight_total = 0.0
         for row in group_rows:
+            # Default missing weights to 1.0, matching how truth marginals treat
+            # respondents without an explicit weight.
+            weight = float(weights.get(str(row.get("respondent_id")), 1.0)) if weights else 1.0
             probabilities = row.get("probabilities", {})
             for option in options:
-                totals[str(option)] += float(probabilities.get(str(option), 0.0))
-        count = len(group_rows)
+                totals[str(option)] += weight * float(probabilities.get(str(option), 0.0))
+            weight_total += weight
         aggregates[(question, label)] = {
             "question": question,
             "question_text": group_rows[0].get("heldout_question_text"),
             "model_label": label,
-            "respondent_count": count,
+            "respondent_count": len(group_rows),
+            "weighted_respondents": weight_total,
             "options": [str(option) for option in options],
-            "probabilities": {option: totals[option] / count for option in totals} if count else totals,
+            "probabilities": (
+                {option: totals[option] / weight_total for option in totals} if weight_total > 0 else totals
+            ),
         }
     return aggregates
 
