@@ -60,6 +60,35 @@ def cramers_v_from_joint(joint: dict[tuple[str, str], float]) -> float | None:
     return math.sqrt(max(0.0, chi2 / denominator))
 
 
+def bias_corrected_cramers_v(joint: dict[tuple[str, str], float], n: int) -> float | None:
+    """Bergsma (2013) bias-corrected Cramer's V.
+
+    Raw Cramer's V is inflated for high-cardinality variables -- a free-text field
+    with near-unique values looks ~1.0 against everything. The correction subtracts
+    the expected chi-square under independence, so a leakage audit does not fire on
+    the cardinality artifact. `joint` holds proportions; `n` is the sample size.
+    """
+    if not joint or n < 2:
+        return None
+    phi2 = cramers_v_from_joint(joint)
+    if phi2 is None:
+        return None
+    row_labels = {left for (left, _right) in joint}
+    col_labels = {right for (_left, right) in joint}
+    r, c = len(row_labels), len(col_labels)
+    if r < 2 or c < 2:
+        return None
+    # cramers_v_from_joint returns V = sqrt(phi2 / min(r-1, c-1)); recover phi2.
+    phi2_value = phi2 * phi2 * min(r - 1, c - 1)
+    phi2_tilde = max(0.0, phi2_value - (r - 1) * (c - 1) / (n - 1))
+    r_tilde = r - (r - 1) ** 2 / (n - 1)
+    c_tilde = c - (c - 1) ** 2 / (n - 1)
+    denominator = min(r_tilde - 1, c_tilde - 1)
+    if denominator <= 0:
+        return 0.0
+    return math.sqrt(phi2_tilde / denominator)
+
+
 def empirical_joint_distribution(left_rows: dict[str, dict[str, Any]], right_rows: dict[str, dict[str, Any]]) -> dict[tuple[str, str], float]:
     counts: Counter[tuple[str, str]] = Counter()
     for respondent_id in sorted(set(left_rows) & set(right_rows)):
@@ -279,4 +308,84 @@ def build_twin_conditional_consistency_diagnostics(
         "rows": diagnostics[:limit],
         "omitted_count": max(0, len(diagnostics) - limit),
         "note": "Checks whether twin-implied target distributions remain coherent when conditioning on actual answers to other held-out questions.",
+    }
+
+
+def observed_pair_joint(
+    answer_by_respondent: dict[str, dict[str, Any]],
+    target_question: str,
+    context_question: str,
+) -> tuple[dict[tuple[str, str], float], int]:
+    """Empirical joint of (target answer, context answer) over respondents who answered both."""
+    counts: Counter[tuple[str, str]] = Counter()
+    for answers in answer_by_respondent.values():
+        target = answers.get(target_question)
+        context = answers.get(context_question)
+        if target is None or context is None:
+            continue
+        counts[(str(target), str(context))] += 1
+    total = sum(counts.values())
+    if not total:
+        return {}, 0
+    return {key: value / total for key, value in counts.items()}, total
+
+
+def build_context_leakage_diagnostics(
+    questions: list[dict[str, Any]],
+    answer_by_respondent: dict[str, dict[str, Any]],
+    target_questions: list[str],
+    *,
+    min_pair_rows: int = 30,
+    warn_threshold: float = 0.7,
+    limit: int = 200,
+) -> dict[str, Any]:
+    """Flag context questions that near-deterministically predict a target answer.
+
+    The digital-twin validity threat is leakage: a context item whose value all but
+    determines the held-out target lets the model "predict" the target by copying,
+    not by modelling a respondent. This measures association strength (Cramer's V)
+    between each target and every other question on the observed data, so leaky
+    context surfaces as a number to review rather than relying on the analyst to
+    catch it by eye.
+    """
+    question_names = [str(q["question_name"]) for q in questions]
+    question_text = {str(q["question_name"]): str(q.get("question_text") or "") for q in questions}
+    targets = [name for name in target_questions if name in set(question_names)]
+
+    rows = []
+    for target in targets:
+        for context_question in question_names:
+            if context_question == target:
+                continue
+            joint, n = observed_pair_joint(answer_by_respondent, target, context_question)
+            if n < min_pair_rows:
+                continue
+            cramers_v = bias_corrected_cramers_v(joint, n)
+            if cramers_v is None:
+                continue
+            target_cardinality = len({left for (left, _right) in joint})
+            context_cardinality = len({right for (_left, right) in joint})
+            rows.append(
+                {
+                    "target_question": target,
+                    "target_question_text": question_text.get(target, ""),
+                    "context_question": context_question,
+                    "context_question_text": question_text.get(context_question, ""),
+                    "cramers_v": cramers_v,
+                    "respondents": n,
+                    "target_distinct_answers": target_cardinality,
+                    "context_distinct_answers": context_cardinality,
+                    "warning": "possible_leakage" if cramers_v >= warn_threshold else "",
+                }
+            )
+    rows.sort(key=lambda item: -item["cramers_v"])
+    flagged = [row for row in rows if row["warning"]]
+    return {
+        "warn_threshold": warn_threshold,
+        "min_pair_rows": min_pair_rows,
+        "pair_count": len(rows),
+        "flagged_count": len(flagged),
+        "rows": rows[:limit],
+        "omitted_count": max(0, len(rows) - limit),
+        "note": "Bias-corrected (Bergsma) Cramer's V between each target and every other question on observed answers. High values mark context that may let a twin copy the target instead of modelling the respondent. The correction prevents high-cardinality (e.g. free-text) context from firing spuriously; check the distinct-answer counts when interpreting.",
     }

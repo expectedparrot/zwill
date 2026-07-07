@@ -454,3 +454,74 @@ def cmd_twin_results_bootstrap(args: argparse.Namespace) -> dict[str, Any]:
         },
         warnings=warnings,
     )
+
+
+def cmd_twin_results_leakage_audit(args: argparse.Namespace) -> dict[str, Any]:
+    from .twin_diagnostics import build_context_leakage_diagnostics
+
+    sdir = require_survey(args.survey)
+    questions = read_jsonl(sdir / "questions.jsonl")
+    if not questions:
+        raise ZwillError("invalid_input", "Survey has no imported questions to audit.")
+    answer_by_respondent: dict[str, dict[str, Any]] = defaultdict(dict)
+    for row in read_jsonl(sdir / "answers.jsonl"):
+        if row.get("answer") is None:
+            continue
+        answer_by_respondent[row["respondent_id"]][row["question"]] = row["answer"]
+
+    question_names = [str(q["question_name"]) for q in questions]
+    targets: list[str] = []
+    for value in getattr(args, "target", None) or []:
+        targets.append(str(value))
+    if getattr(args, "targets", None):
+        targets.extend(item.strip() for item in str(args.targets).split(",") if item.strip())
+    job_ids = set(getattr(args, "job_id", None) or [])
+    if getattr(args, "jobs", None):
+        job_ids.update(item.strip() for item in str(args.jobs).split(",") if item.strip())
+    if job_ids:
+        for row in read_jsonl(digital_twin_predictions_path(sdir)):
+            if row.get("job_id") in job_ids and row.get("heldout_question"):
+                targets.append(str(row["heldout_question"]))
+    if not targets:
+        targets = question_names  # audit every question as a potential target
+    deduped: list[str] = []
+    for target in targets:
+        if target not in deduped:
+            deduped.append(target)
+
+    diagnostics = build_context_leakage_diagnostics(
+        questions,
+        answer_by_respondent,
+        deduped,
+        min_pair_rows=int(getattr(args, "min_pair_rows", 30) or 30),
+        warn_threshold=float(getattr(args, "threshold", 0.7) or 0.7),
+    )
+    if getattr(args, "path", None):
+        write_json(Path(args.path), diagnostics)
+
+    warnings = []
+    if diagnostics["flagged_count"]:
+        top = diagnostics["rows"][0]
+        warnings.append(
+            {
+                "code": "possible_leakage",
+                "message": (
+                    f"{diagnostics['flagged_count']} context->target pair(s) exceed Cramer's V "
+                    f"{diagnostics['warn_threshold']}; strongest: {top['context_question']} -> "
+                    f"{top['target_question']} (V={top['cramers_v']:.2f})."
+                ),
+            }
+        )
+    return envelope(
+        "zwill twin-results leakage-audit",
+        "ok",
+        {
+            "targets_audited": deduped,
+            "warn_threshold": diagnostics["warn_threshold"],
+            "pair_count": diagnostics["pair_count"],
+            "flagged_count": diagnostics["flagged_count"],
+            "flagged": [row for row in diagnostics["rows"] if row["warning"]],
+            "full_result_path": str(Path(args.path)) if getattr(args, "path", None) else None,
+        },
+        warnings=warnings,
+    )
