@@ -43,6 +43,14 @@ jobs:
         working-directory: zwill
         run: ruff check zwill tests
 
+      # Advisory only: mypy surfaces type issues but does not fail the build,
+      # since the codebase's `import *` re-exports and dict/None invariants
+      # produce false positives. Tighten toward gating over time.
+      - name: Type check (mypy, advisory)
+        working-directory: zwill
+        continue-on-error: true
+        run: mypy zwill
+
       - name: Run tests
         working-directory: zwill
         run: python -m pytest -q

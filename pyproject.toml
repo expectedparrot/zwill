@@ -55,6 +55,16 @@ ignore = ["F403", "F405"]
 # to F401 but removing them breaks the re-export contract.
 "zwill/cli.py" = ["F401"]
 
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+# `from .cli import *` re-exports mean mypy sees every shared helper as a
+# redefinition; that noise is inherent to the architecture, not a defect.
+disable_error_code = ["no-redef"]
+# mypy is advisory here (run `mypy zwill`), not a hard gate: the remaining
+# findings are mostly dict/None-invariant false positives the checker cannot
+# prove. Tighten incrementally as modules gain annotations.
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
