@@ -8,6 +8,7 @@ dependencies = [
     "PyYAML>=6.0",
     "rich>=13.0",
     "edsl",
+    "openai>=1.0",
 ]
 
 [project.optional-dependencies]

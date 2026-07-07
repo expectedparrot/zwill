@@ -283,6 +283,26 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--path", help="Write standalone HTML report output to this path. Defaults to .zwill/practitioner_reports/<id>/report.html.")
     p.set_defaults(func=cmd_probability_results_analysis_render)
 
+    twin_baseline = subparsers.add_parser(
+        "twin-baseline",
+        help="Cheap conditional baselines that score the same held-out questions as digital twins.",
+    ).add_subparsers(dest="twin_baseline_command", required=True)
+    p = twin_baseline.add_parser(
+        "run",
+        help="Fit an embedding + logistic conditional baseline and store its held-out predictions.",
+    )
+    p.add_argument("--survey", required=True)
+    p.add_argument("--heldout-question", action="append", help="Held-out target question. Repeatable.")
+    p.add_argument("--heldout-questions", help="Comma-separated held-out target questions.")
+    p.add_argument("--sample-respondents", type=int, help="Optional random respondent sample size (debugging).")
+    p.add_argument("--seed", type=int, help="Seed for --sample-respondents.")
+    p.add_argument("--embedding-model", default="text-embedding-3-small", help="OpenAI embedding model.")
+    p.add_argument("--l2", type=float, default=1.0, help="L2 regularization strength for the logistic model.")
+    p.add_argument("--job-id", help="Override the derived baseline job id.")
+    p.add_argument("--replace", action="store_true", help="Overwrite existing predictions for this job id.")
+    p.add_argument("--path", help="Also write the prediction rows as JSONL to this path.")
+    p.set_defaults(func=cmd_twin_baseline_run)
+
     twin_results = subparsers.add_parser("twin-results").add_subparsers(dest="twin_results_command", required=True)
     p = twin_results.add_parser("import")
     p.add_argument("--survey", required=True)
