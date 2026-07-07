@@ -424,3 +424,36 @@ def test_twin_specific_diagnostics_score_joint_subgroup_and_conditional_structur
     assert {row["segment_value"] for row in subgroup["rows"]} == {"office", "remote"}
     assert conditional["cell_count"] >= 2
     assert {row["condition_question"] for row in conditional["rows"]} == {"q1", "q2"}
+
+
+def _marginal_rows():
+    # Two respondents: one certain "yes", one certain "no".
+    return [
+        {"heldout_question": "q1", "model_label": "m", "respondent_id": "r1",
+         "option_labels": ["yes", "no"], "probabilities": {"yes": 1.0, "no": 0.0}},
+        {"heldout_question": "q1", "model_label": "m", "respondent_id": "r2",
+         "option_labels": ["yes", "no"], "probabilities": {"yes": 0.0, "no": 1.0}},
+    ]
+
+
+def test_aggregate_twin_marginals_unweighted_is_simple_average() -> None:
+    agg = aggregate_twin_marginals(_marginal_rows())
+    probs = agg[("q1", "m")]["probabilities"]
+    assert probs["yes"] == 0.5 and probs["no"] == 0.5
+
+
+def test_aggregate_twin_marginals_respects_respondent_weights() -> None:
+    # r1 (yes) weighted 3x r2 (no) -> implied marginal 0.75 yes, matching a weighted
+    # truth marginal built the same way.
+    agg = aggregate_twin_marginals(_marginal_rows(), {"r1": 3.0, "r2": 1.0})
+    probs = agg[("q1", "m")]["probabilities"]
+    assert probs["yes"] == 0.75 and probs["no"] == 0.25
+    assert agg[("q1", "m")]["weighted_respondents"] == 4.0
+
+
+def test_aggregate_twin_marginals_defaults_missing_weight_to_one() -> None:
+    # r2 absent from the weight map -> treated as weight 1.0, not dropped.
+    agg = aggregate_twin_marginals(_marginal_rows(), {"r1": 1.0})
+    probs = agg[("q1", "m")]["probabilities"]
+    assert probs["yes"] == 0.5 and probs["no"] == 0.5
+    assert agg[("q1", "m")]["weighted_respondents"] == 2.0

@@ -290,7 +290,11 @@ def cmd_twin_results_marginal_diagnostics(args: argparse.Namespace) -> None:
     else:
         targets = empirical_marginal_targets(sdir)
         target_label = "empirical"
-    aggregates = aggregate_twin_marginals(source_rows)
+    respondent_weights = {
+        str(row.get("respondent_id")): float(row.get("weight", 1.0))
+        for row in read_jsonl(sdir / "respondents.jsonl")
+    }
+    aggregates = aggregate_twin_marginals(source_rows, respondent_weights)
     summary_rows = []
     option_rows = []
     issues = []
