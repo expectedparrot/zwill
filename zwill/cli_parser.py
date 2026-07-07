@@ -371,8 +371,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--path", required=True)
     p.add_argument("--job-id")
     p.add_argument("--replace", action="store_true")
+    p.add_argument("--merge", action="store_true", help="Upsert rows into an existing job (by respondent/held-out/model) instead of replacing it. Use to re-import recovered rows from twin-results retry-malformed without losing the rows that already scored.")
     p.add_argument("--allow-missing-actual", action="store_true", help="Import true holdout predictions whose scenarios omit actual_answer.")
     p.set_defaults(func=cmd_twin_results_import)
+    p = twin_results.add_parser(
+        "retry-malformed",
+        help="Build a retry job containing only the scenarios whose model rows were dropped as malformed, so a couple of provider hiccups don't force a full re-run.",
+    )
+    p.add_argument("--survey", required=True)
+    p.add_argument("--job-id", required=True, help="Imported twin job id whose malformed rows to retry.")
+    p.add_argument("--job", required=True, help="The original exported EDSL job file that produced this job's results.")
+    p.add_argument("--path", help="Where to write the retry job. Defaults to the job dir's retry.edsl.json.")
+    p.set_defaults(func=cmd_twin_results_retry_malformed)
     p = twin_results.add_parser("export", help="Export stored digital twin predictions to CSV.")
     p.add_argument("--survey", required=True)
     p.add_argument("--job-id", action="append", help="Job id to export. Repeatable.")

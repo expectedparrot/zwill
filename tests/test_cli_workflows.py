@@ -388,6 +388,78 @@ def create_tiny_binary_survey() -> None:
     run_cli("commit", "--survey", "demo")
 
 
+def _twin_results_dict(job_id: str, rows: list[tuple[str, str, str]]) -> dict:
+    # rows: (respondent_id, actual_answer, response_probabilities_json_or_bad)
+    return {
+        "edsl_class_name": "Results",
+        "zwill": {"digital_twin_job_id": job_id},
+        "data": [
+            {
+                "scenario": {
+                    "respondent_id": rid,
+                    "heldout_question_name": "q1",
+                    "heldout_question_text": "Pick one",
+                    "heldout_options": ["yes", "no"],
+                    "actual_answer": actual,
+                },
+                "model": {"model": "gpt-5.5", "inference_service": "openai", "parameters": {}},
+                "answer": {"response_probabilities": probs},
+            }
+            for rid, actual, probs in rows
+        ],
+    }
+
+
+def test_twin_results_retry_malformed_recovers_dropped_rows(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    create_tiny_binary_survey()
+    job_id = "twinjob"
+
+    # First import: r1 good, r2 malformed -> one dropped row.
+    results = _twin_results_dict(
+        job_id,
+        [("r1", "yes", '{"probabilities":[0.7,0.3],"notes":"ok"}'), ("r2", "no", "not json")],
+    )
+    results_path = tmp_path / "results.json.gz"
+    with gzip.open(results_path, "wt") as f:
+        json.dump(results, f)
+    imported = cli.cmd_twin_results_import(
+        argparse.Namespace(survey="demo", path=str(results_path), job_id=job_id, replace=False, merge=False, allow_missing_actual=False)
+    )
+    assert imported["data"]["extracted_count"] == 1
+    assert imported["data"]["issue_count"] == 1
+
+    # Original job with both scenarios; retry-malformed keeps only the failed one.
+    job = {
+        "edsl_class_name": "Jobs",
+        "zwill": {"digital_twin_job_id": job_id},
+        "scenarios": [
+            {"respondent_id": "r1", "heldout_question_name": "q1"},
+            {"respondent_id": "r2", "heldout_question_name": "q1"},
+        ],
+    }
+    job_path = tmp_path / "twin.edsl.json"
+    job_path.write_text(json.dumps(job))
+    retry = cli.cmd_twin_results_retry_malformed(
+        argparse.Namespace(survey="demo", job_id=job_id, job=str(job_path), path=str(tmp_path / "retry.edsl.json"))
+    )
+    assert retry["data"]["retry_scenario_count"] == 1
+    retry_job = json.loads((tmp_path / "retry.edsl.json").read_text())
+    assert [s["respondent_id"] for s in retry_job["scenarios"]] == ["r2"]
+
+    # Re-run recovers r2; merge import keeps r1 and adds r2 (issue count clears).
+    retry_results = _twin_results_dict(job_id, [("r2", "no", '{"probabilities":[0.2,0.8],"notes":"ok"}')])
+    retry_results_path = tmp_path / "retry_results.json.gz"
+    with gzip.open(retry_results_path, "wt") as f:
+        json.dump(retry_results, f)
+    merged = cli.cmd_twin_results_import(
+        argparse.Namespace(survey="demo", path=str(retry_results_path), job_id=job_id, replace=False, merge=True, allow_missing_actual=False)
+    )
+    assert merged["data"]["issue_count"] == 0
+    rows = [r for r in cli.read_jsonl(cli.digital_twin_predictions_path(zwill_survey_path(tmp_path))) if r["job_id"] == job_id]
+    assert sorted(r["respondent_id"] for r in rows) == ["r1", "r2"]
+
+
 def test_agent_material_is_stored_and_kept_out_of_table_and_marginals(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()

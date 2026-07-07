@@ -1417,6 +1417,11 @@ def cmd_twin_results_import(*args, **kwargs):
 
     return impl(*args, **kwargs)
 
+def cmd_twin_results_retry_malformed(*args, **kwargs):
+    from .result_commands import cmd_twin_results_retry_malformed as impl
+
+    return impl(*args, **kwargs)
+
 def cmd_rank_results_import(*args, **kwargs):
     from .result_commands import cmd_rank_results_import as impl
 

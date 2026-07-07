@@ -127,6 +127,13 @@ next command. The full path:
    form passes `--allow-unapproved`. For a validation run, drop that flag and use
    `--approved-plan <plan.json>` (see the `twin-experiment` plan flow below).
    (For a single survey you can also use `zwill twin-study run`.)
+   If import reports a non-zero `issue_count` (a few provider rows returned
+   malformed JSON), recover just those without re-running the whole job:
+   ```bash
+   zwill twin-results retry-malformed --survey <survey> --job-id <twin_job_id> --job twin.edsl.json
+   zwill edsl-run --job <retry.edsl.json> --path <retry_results.json.gz>
+   zwill twin-results import --survey <survey> --job-id <twin_job_id> --merge --path <retry_results.json.gz>
+   ```
    For validation runs beyond one-off debugging, prefer `twin-experiment` plans:
    the plan must specify held-out targets, all eligible questions considered,
    excluded questions and reasons, respondent sample, construction approaches,

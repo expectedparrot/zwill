@@ -15,14 +15,15 @@ def cmd_twin_results_import(args: argparse.Namespace) -> dict[str, Any]:
         return cmd_rank_results_import(args)
 
     job_id = args.job_id or results.get("zwill", {}).get("digital_twin_job_id") or digital_twin_job_id_from_results(results)
+    merge = getattr(args, "merge", False)
     jdir = digital_twin_jobs_dir(sdir) / job_id
-    if jdir.exists() and not args.replace:
+    if jdir.exists() and not args.replace and not merge:
         raise ZwillError(
             "already_exists",
             f"Digital twin results already imported for job id {job_id}.",
-            hint="Use --replace to overwrite this import.",
+            hint="Use --replace to overwrite this import, or --merge to add recovered rows (e.g. after retry-malformed).",
         )
-    if jdir.exists():
+    if jdir.exists() and not merge:
         shutil.rmtree(jdir)
     raw_dir = jdir / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
@@ -31,7 +32,6 @@ def cmd_twin_results_import(args: argparse.Namespace) -> dict[str, Any]:
     truth_path = sdir / "committed" / "truth_marginals.json"
     truth = read_json(truth_path, {}) if truth_path.exists() else {}
 
-    existing = [row for row in read_jsonl(digital_twin_predictions_path(sdir)) if row.get("job_id") != job_id]
     imported_at = utc_now()
     extracted, issues = extract_twin_prediction_rows(
         results,
@@ -43,7 +43,31 @@ def cmd_twin_results_import(args: argparse.Namespace) -> dict[str, Any]:
         allow_missing_actual=getattr(args, "allow_missing_actual", False),
     )
 
-    rewrite_jsonl(digital_twin_predictions_path(sdir), existing + extracted)
+    def _row_key(row: dict[str, Any]) -> tuple[Any, ...]:
+        return (row.get("job_id"), row.get("respondent_id"), row.get("heldout_question"), row.get("model_label"))
+
+    all_rows = read_jsonl(digital_twin_predictions_path(sdir))
+    if merge:
+        # Upsert: keep every existing row except those the recovered rows replace
+        # (same job/respondent/heldout/model), so re-importing a small retry batch
+        # doesn't wipe the rows that scored fine the first time.
+        recovered_keys = {_row_key(row) for row in extracted}
+        kept = [row for row in all_rows if _row_key(row) not in recovered_keys]
+        rewrite_jsonl(digital_twin_predictions_path(sdir), kept + extracted)
+    else:
+        existing = [row for row in all_rows if row.get("job_id") != job_id]
+        rewrite_jsonl(digital_twin_predictions_path(sdir), existing + extracted)
+    report_issues = issues
+    if merge:
+        # Carry forward prior issues, dropping any now resolved by the recovered
+        # rows, so import.json reflects what is still outstanding after the retry.
+        resolved = {(row.get("respondent_id"), row.get("heldout_question"), row.get("model_label")) for row in extracted}
+        prior = read_json(jdir / "import.json", {}).get("issues", []) if (jdir / "import.json").exists() else []
+        carried = [
+            issue for issue in prior
+            if (issue.get("respondent_id"), issue.get("heldout_question"), issue.get("model")) not in resolved
+        ]
+        report_issues = carried + issues
     write_json(
         jdir / "import.json",
         {
@@ -55,8 +79,8 @@ def cmd_twin_results_import(args: argparse.Namespace) -> dict[str, Any]:
             "stored_hash": sha256(stored_raw),
             "row_count": len(results.get("data", [])),
             "extracted_count": len(extracted),
-            "issue_count": len(issues),
-            "issues": issues,
+            "issue_count": len(report_issues),
+            "issues": report_issues,
             "imported_at": imported_at,
         },
     )
@@ -71,7 +95,7 @@ def cmd_twin_results_import(args: argparse.Namespace) -> dict[str, Any]:
             "stored_raw": str(stored_raw),
             "row_count": len(results.get("data", [])),
             "extracted_count": len(extracted),
-            "issue_count": len(issues),
+            "issue_count": len(report_issues),
             "models": sorted({row.get("model_label") or model_label(row.get("service"), row.get("model")) for row in extracted}),
             "heldout_questions": sorted({row.get("heldout_question") for row in extracted if row.get("heldout_question")}),
         },
@@ -84,13 +108,87 @@ def cmd_twin_results_import(args: argparse.Namespace) -> dict[str, Any]:
             "stored_raw": str(stored_raw),
             "row_count": len(results.get("data", [])),
             "extracted_count": len(extracted),
-            "issue_count": len(issues),
-            "issues": issues,
+            "issue_count": len(report_issues),
+            "issues": report_issues,
+            "recovered_count": len(extracted) if merge else None,
         },
         next_steps=[
             f"zwill twin-results export --survey {args.survey} --job-id {job_id} --path predictions.csv"
             if getattr(args, "allow_missing_actual", False)
             else f"zwill twin-results report --survey {args.survey} --job-id {job_id}"
+        ],
+    )
+
+
+def _scenario_matches_pairs(scenario: dict[str, Any], pairs: set[tuple[Any, Any]]) -> bool:
+    return (scenario.get("respondent_id"), scenario.get("heldout_question_name")) in pairs
+
+
+def filter_retry_scenarios(job_dict: dict[str, Any], failed_pairs: set[tuple[Any, Any]]) -> tuple[dict[str, Any], int]:
+    """Return a copy of an exported twin job with only the scenarios whose
+    (respondent, held-out question) failed, plus the kept count. Uses the original
+    job so re-run prompts are byte-for-byte identical."""
+    retry = json.loads(json.dumps(job_dict))
+    scenarios = retry.get("scenarios")
+    if isinstance(scenarios, dict) and isinstance(scenarios.get("scenarios"), list):
+        filtered = [s for s in scenarios["scenarios"] if _scenario_matches_pairs(s, failed_pairs)]
+        scenarios["scenarios"] = filtered
+        return retry, len(filtered)
+    if isinstance(scenarios, list):
+        filtered = [s for s in scenarios if _scenario_matches_pairs(s, failed_pairs)]
+        retry["scenarios"] = filtered
+        return retry, len(filtered)
+    return retry, 0
+
+
+def cmd_twin_results_retry_malformed(args: argparse.Namespace) -> dict[str, Any]:
+    sdir = require_survey(args.survey)
+    job_id = args.job_id
+    jdir = digital_twin_jobs_dir(sdir) / job_id
+    import_path = jdir / "import.json"
+    if not import_path.exists():
+        raise ZwillError(
+            "not_found",
+            f"No import record found for twin job id {job_id}.",
+            hint=f"Import the results first: `zwill twin-results import --survey {args.survey} --path <results>`.",
+        )
+    issues = read_json(import_path, {}).get("issues", [])
+    if not issues:
+        return envelope(
+            "zwill twin-results retry-malformed",
+            "ok",
+            {"job_id": job_id, "malformed_count": 0, "retry_scenario_count": 0},
+            next_steps=[f"zwill twin-results report --survey {args.survey} --job-id {job_id}"],
+        )
+    job_path = Path(args.job)
+    if not job_path.exists():
+        raise ZwillError("not_found", f"Original EDSL job file does not exist: {args.job}.")
+    job_dict = read_json_or_gzip(job_path)
+    failed_pairs = {(issue.get("respondent_id"), issue.get("heldout_question")) for issue in issues}
+    retry_dict, kept = filter_retry_scenarios(job_dict, failed_pairs)
+    if kept == 0:
+        raise ZwillError(
+            "invalid_input",
+            "No scenarios in the job matched the malformed rows.",
+            context={"failed_pairs": sorted(f"{r}:{q}" for r, q in failed_pairs)[:10]},
+            hint="Pass the original job file that produced these results.",
+        )
+    out_path = Path(args.path) if getattr(args, "path", None) else jdir / "retry.edsl.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    write_json(out_path, retry_dict)
+    results_path = jdir / "retry_results.json.gz"
+    return envelope(
+        "zwill twin-results retry-malformed",
+        "ok",
+        {
+            "job_id": job_id,
+            "malformed_count": len(issues),
+            "retry_scenario_count": kept,
+            "retry_job_path": str(out_path),
+        },
+        next_steps=[
+            f"zwill edsl-run --job {out_path} --path {results_path}",
+            f"zwill twin-results import --survey {args.survey} --job-id {job_id} --merge --path {results_path}",
         ],
     )
 
