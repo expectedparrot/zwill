@@ -72,6 +72,46 @@ def _has_rows(path: Path) -> bool:
     return path.exists() and any(line.strip() for line in path.read_text().splitlines())
 
 
+def _report_stage_for_survey(survey: str) -> dict[str, Any] | None:
+    manifests = sorted(Path.cwd().glob("*/stage-manifest.json"), key=lambda path: path.stat().st_mtime, reverse=True)
+    for manifest_path in manifests:
+        manifest = read_json(manifest_path, {})
+        if manifest.get("survey") != survey:
+            continue
+        output_dir = manifest.get("output_dir") or str(manifest_path.parent)
+        for stage_id in ("final_report", "generated_analysis"):
+            stage = (manifest.get("stages") or {}).get(stage_id) or {}
+            next_step = str(stage.get("next_step") or "").strip()
+            if stage.get("status") != "ready" and next_step:
+                return {
+                    "stage": stage_id,
+                    "why": f"Report bundle '{output_dir}' is blocked: {', '.join(stage.get('missing') or ['required report artifact'])}.",
+                    "next_command": next_step,
+                    "report_bundle": output_dir,
+                    "stage_manifest": str(manifest_path),
+                }
+        for page in manifest.get("pages") or []:
+            next_step = str(page.get("next_step") or "").strip()
+            if page.get("primary", True) and page.get("status") != "ready" and next_step:
+                return {
+                    "stage": str(page.get("page_id") or "report_page"),
+                    "why": f"Report bundle '{output_dir}' has an unfinished primary page: {page.get('title') or page.get('page_id')}.",
+                    "next_command": next_step,
+                    "report_bundle": output_dir,
+                    "stage_manifest": str(manifest_path),
+                }
+        final_stage = ((manifest.get("stages") or {}).get("final_report") or {})
+        if final_stage.get("status") == "ready":
+            return {
+                "stage": "ready",
+                "why": f"Report bundle '{output_dir}' has passed the final report gate.",
+                "next_command": f"open {output_dir}/index.html",
+                "report_bundle": output_dir,
+                "stage_manifest": str(manifest_path),
+            }
+    return None
+
+
 def _stage_for_survey(survey: str) -> dict[str, Any]:
     sdir = survey_dir(survey)
     if not _has_rows(sdir / "questions.jsonl") or not _has_rows(sdir / "answers.jsonl"):
@@ -119,10 +159,13 @@ def _stage_for_survey(survey: str) -> dict[str, Any]:
                 f"zwill twin-validate --survey {survey} --jobs {','.join(twin_jobs)} --out validation_bundle"
             ),
         }
+    report_stage = _report_stage_for_survey(survey)
+    if report_stage:
+        return report_stage
     return {
         "stage": "build_report",
         "why": f"Survey '{survey}' has been validated; build the report folder with an index.html.",
-        "next_command": f"zwill report build --survey {survey} --output-dir report_out",
+        "next_command": f"zwill report build --survey {survey} --path report_out",
     }
 
 

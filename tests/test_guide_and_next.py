@@ -112,6 +112,29 @@ def test_next_walks_the_pipeline(tmp_path, monkeypatch) -> None:
     ])
     assert _stage() == "build_report"
 
+    report_dir = tmp_path / "demo_report"
+    report_dir.mkdir()
+    (report_dir / "stage-manifest.json").write_text(json.dumps({
+        "survey": "demo",
+        "output_dir": "demo_report",
+        "stages": {
+            "generated_analysis": {
+                "status": "blocked",
+                "missing": ["frontier-model one-shot marginal analysis Markdown"],
+                "next_step": "zwill prob-results analysis-export --survey demo --path demo_report/one-shot-marginals.html",
+            },
+            "final_report": {
+                "status": "blocked",
+                "missing": ["frontier-model one-shot marginal analysis Markdown"],
+                "next_step": "zwill prob-results analysis-export --survey demo --path demo_report/one-shot-marginals.html",
+            },
+        },
+        "pages": [],
+    }))
+    result = cmd_next(argparse.Namespace(survey=None))["data"]
+    assert result["stage"] == "final_report"
+    assert "prob-results analysis-export" in result["next_command"]
+
 
 def test_next_prompts_to_choose_when_multiple_surveys(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
