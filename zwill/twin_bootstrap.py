@@ -17,6 +17,7 @@ for which respondents happened to be in the sample.
 from __future__ import annotations
 
 import hashlib
+import html
 from typing import Any
 
 import numpy as np
@@ -187,3 +188,103 @@ def _delta_block(
             "questions": len(macro_samples[metric]),
         }
     return {"questions": per_question, "macro": macro}
+
+
+# ---------------------------------------------------------------------------
+# Report rendering
+# ---------------------------------------------------------------------------
+_CONDITIONAL_BASELINE_LABEL = "baseline:conditional-embedding"
+
+# metric key -> (display label, number format, higher-is-better)
+_REPORT_METRICS = (
+    ("probability_actual", "p(actual)", "{:.3f}", True),
+    ("negative_log_likelihood", "NLL", "{:.3f}", False),
+    ("top1_correct", "accuracy", "{:.3f}", True),
+)
+
+
+def _fmt(value: float, spec: str) -> str:
+    return spec.format(value)
+
+
+def bootstrap_ci_section_html(
+    rows: list[dict[str, Any]],
+    *,
+    baseline_model: str | None = None,
+    n_boot: int = 500,
+    seed: int = 0,
+    ci: float = 0.95,
+) -> str:
+    """Render a bootstrap-CI panel for a set of twin prediction rows.
+
+    Shows each model's macro score with a confidence interval and, when a
+    baseline model is present, the paired delta of every other model against it
+    with an interval and a significance marker. Returns '' when there is nothing
+    to show (no scored models).
+    """
+    labels = sorted({str(row.get("model_label") or row.get("model") or "") for row in rows} - {""})
+    if not labels:
+        return ""
+    if baseline_model is None and _CONDITIONAL_BASELINE_LABEL in labels:
+        baseline_model = _CONDITIONAL_BASELINE_LABEL
+    result = bootstrap_summary(rows, baseline_model=baseline_model, n_boot=n_boot, seed=seed, ci=ci)
+    if not result["models"]:
+        return ""
+
+    ci_pct = int(round(ci * 100))
+    header_cells = "".join(f"<th>{label}</th>" for _key, label, _spec, _hib in _REPORT_METRICS)
+    score_rows = []
+    for label in sorted(result["models"]):
+        macro = result["models"][label]["macro"]
+        cells = []
+        for key, _label, spec, _hib in _REPORT_METRICS:
+            stat = macro.get(key)
+            if not stat:
+                cells.append("<td></td>")
+                continue
+            cells.append(
+                f"<td><b>{_fmt(stat['mean'], spec)}</b> "
+                f"<span class=\"subtle\">[{_fmt(stat['lo'], spec)}, {_fmt(stat['hi'], spec)}]</span></td>"
+            )
+        score_rows.append(f"<tr><td>{html.escape(label)}</td>{''.join(cells)}</tr>")
+
+    delta_html = ""
+    deltas = result.get("deltas_vs_baseline")
+    if deltas and deltas["models"]:
+        delta_rows = []
+        for label in sorted(deltas["models"]):
+            macro = deltas["models"][label]["macro"]
+            cells = []
+            for key, _label, spec, higher_is_better in _REPORT_METRICS:
+                stat = macro.get(key)
+                if not stat:
+                    cells.append("<td></td>")
+                    continue
+                excludes_zero = stat["lo"] > 0 or stat["hi"] < 0
+                # A "win" is an improvement in the right direction whose CI clears zero.
+                improved = (stat["delta"] > 0) if higher_is_better else (stat["delta"] < 0)
+                mark = " ✓" if (excludes_zero and improved) else (" ✗" if excludes_zero else "")
+                sign = "+" if stat["delta"] >= 0 else ""
+                cells.append(
+                    f"<td>{sign}{_fmt(stat['delta'], spec)} "
+                    f"<span class=\"subtle\">[{sign if stat['lo'] >= 0 else ''}{_fmt(stat['lo'], spec)}, "
+                    f"{'+' if stat['hi'] >= 0 else ''}{_fmt(stat['hi'], spec)}]</span>{mark}</td>"
+                )
+            delta_rows.append(f"<tr><td>{html.escape(label)}</td>{''.join(cells)}</tr>")
+        delta_html = f"""
+  <h3>Paired difference vs baseline <code>{html.escape(deltas['baseline_model'])}</code></h3>
+  <p class="subtle">Each model minus the baseline on the respondents both scored. ✓ = improvement whose {ci_pct}% interval clears zero; ✗ = a gap the wrong way that also clears zero.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Model</th>{header_cells}</tr></thead>
+    <tbody>{''.join(delta_rows)}</tbody>
+  </table></div>"""
+
+    return f"""
+<section class="panel bootstrap-ci" style="margin-top:2rem;">
+  <h2>Confidence intervals (bootstrap over respondents)</h2>
+  <p class="subtle">{ci_pct}% intervals from {result['n_boot']} bootstrap resamples of respondents, macro-averaged across held-out questions. Intervals that exclude zero (for deltas) indicate the gap is unlikely to be sampling noise.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Model</th>{header_cells}</tr></thead>
+    <tbody>{''.join(score_rows)}</tbody>
+  </table></div>{delta_html}
+</section>"""
