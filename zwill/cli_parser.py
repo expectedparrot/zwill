@@ -985,6 +985,27 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--format", choices=["text", "json"], default="text")
     p.set_defaults(func=cmd_skills_path, raw_output=True)
 
+    guide = subparsers.add_parser(
+        "guide",
+        help="Print the zwill agent workflow guide (or `guide list` / `guide show <name>`).",
+    )
+    guide_sub = guide.add_subparsers(dest="guide_command")
+    p = guide_sub.add_parser("show", help="Print a bundled guide by name.")
+    p.add_argument("name", nargs="?", help="Guide name; omit for the agent workflow.")
+    p.set_defaults(func=cmd_guide_show, raw_output=True)
+    p = guide_sub.add_parser("list", help="List the bundled guides.")
+    p.add_argument("--format", choices=["table", "json"], default="table")
+    p.set_defaults(func=cmd_guide_list, table_output=True)
+    # Bare `zwill guide` prints the default walkthrough.
+    guide.set_defaults(func=cmd_guide_show, raw_output=True, name=None, guide_command=None)
+
+    p = subparsers.add_parser(
+        "next",
+        help="Show which pipeline stage you are in and the exact command to run next.",
+    )
+    p.add_argument("--survey", help="Survey to report the stage for (defaults to the only/first survey).")
+    p.set_defaults(func=cmd_next)
+
     context = subparsers.add_parser("context").add_subparsers(dest="context_command", required=True)
     for command_name, func in [("add", cmd_context_add), ("set", cmd_context_set)]:
         p = context.add_parser(command_name)

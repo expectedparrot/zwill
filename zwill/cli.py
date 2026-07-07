@@ -179,6 +179,21 @@ def cmd_skills_list(args: argparse.Namespace) -> dict[str, Any]:
     return envelope("zwill skills list", "ok", {"skills": rows})
 
 
+def cmd_guide_show(*args, **kwargs):
+    from .guide_commands import cmd_guide_show as impl
+
+    return impl(*args, **kwargs)
+
+def cmd_guide_list(*args, **kwargs):
+    from .guide_commands import cmd_guide_list as impl
+
+    return impl(*args, **kwargs)
+
+def cmd_next(*args, **kwargs):
+    from .guide_commands import cmd_next as impl
+
+    return impl(*args, **kwargs)
+
 def cmd_skills_path(args: argparse.Namespace) -> dict[str, Any]:
     path = installed_skill_path(args.name)
     if args.format == "json":
@@ -590,7 +605,11 @@ def cmd_init(_: argparse.Namespace) -> dict[str, Any]:
             "active_project": active_project_id(),
             "project_path": str(pdir),
         },
-        next_steps=["zwill survey create --name <survey>"],
+        next_steps=[
+            "zwill guide   # end-to-end walkthrough",
+            "zwill next    # what to run next at any point",
+            "zwill survey create --name <survey>",
+        ],
     )
 
 
