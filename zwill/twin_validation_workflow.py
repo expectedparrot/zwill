@@ -181,6 +181,32 @@ def cmd_twin_validate(args: argparse.Namespace, *, embedder=None) -> dict[str, A
     cmd_twin_results_report(report_args)
     steps["report"] = {"path": str(report_path), "view": getattr(args, "view", "full")}
 
+    # Rank batteries are validated through a separate rank-utility flow, not this
+    # probability-job gate. If the survey has rank tasks, say so loudly and point
+    # at that flow so ranking questions aren't silently left unvalidated.
+    rank_tasks = detect_rank_tasks(read_jsonl(sdir / "questions.jsonl"))
+    if rank_tasks:
+        rank_predictions_path = rank_twin_predictions_path(sdir)
+        rank_predictions_imported = rank_predictions_path.exists() and bool(read_jsonl(rank_predictions_path))
+        steps["rank_coverage"] = {
+            "rank_task_count": len(rank_tasks),
+            "rank_task_ids": [task["rank_task_id"] for task in rank_tasks],
+            "rank_predictions_imported": rank_predictions_imported,
+            "covered_by_twin_validate": False,
+        }
+        warnings.append(
+            {
+                "code": "rank_tasks_not_validated_here",
+                "message": (
+                    f"This survey has {len(rank_tasks)} rank battery(ies) that twin-validate does NOT cover "
+                    "(it gates twin-probability-jobs only). Validate ranking separately via the rank-utility "
+                    "flow: `edsl-export --target rank-utility-twin-job` -> `edsl-run` -> "
+                    "`twin-results import` -> `twin-results rank-report`."
+                ),
+                "rank_task_ids": [task["rank_task_id"] for task in rank_tasks],
+            }
+        )
+
     write_json(
         out_dir / "manifest.json",
         {

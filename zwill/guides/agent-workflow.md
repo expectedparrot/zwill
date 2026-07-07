@@ -171,6 +171,27 @@ next command. The full path:
    ```
    Open `report_out/index.html` or `report_out/report/index.html`.
 
+## Ranking questions (a separate validation flow)
+
+`twin-validate` gates **twin-probability-jobs only** — multiple-choice held-out
+targets. Ranking / MaxDiff batteries are validated through a parallel
+rank-utility flow and are **not** covered by the headline gate. If your survey
+has rank batteries, `twin-validate` warns you (`rank_tasks_not_validated_here`).
+Validate them separately:
+
+```bash
+zwill edsl-export --survey <survey> --target rank-utility-twin-job \
+  --rank-task-id <rank_task_id> --allow-unapproved --path rank.edsl.json
+zwill edsl-run --job rank.edsl.json --path rank_results.json.gz
+zwill twin-results import --survey <survey> --path rank_results.json.gz
+zwill twin-results rank-report --survey <survey> --rank-task-id <rank_task_id> \
+  --format html --path report_out/rank-<rank_task_id>.html
+```
+
+Declare batteries with an explicit `rank_task_id` at import so they are detected
+reliably (see `zwill guide show import-format`), and link the rank report pages
+from your report folder.
+
 ## Reading the result (do not over-claim)
 
 When you reach the bundle, run `zwill guide show interpreting-results` for the full
