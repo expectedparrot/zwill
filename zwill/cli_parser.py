@@ -350,6 +350,19 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--ci", type=float, default=0.95, help="Confidence level (0-1).")
     p.add_argument("--path", help="Write the full bootstrap result JSON to this path.")
     p.set_defaults(func=cmd_twin_results_bootstrap)
+    p = twin_results.add_parser(
+        "leakage-audit",
+        help="Flag context questions that near-deterministically predict a target (Cramer's V on observed answers).",
+    )
+    p.add_argument("--survey", required=True)
+    p.add_argument("--target", action="append", help="Target question to audit. Repeatable.")
+    p.add_argument("--targets", help="Comma-separated target questions to audit.")
+    p.add_argument("--job-id", action="append", help="Derive targets from this job's held-out questions. Repeatable.")
+    p.add_argument("--jobs", help="Comma-separated job ids whose held-out questions become targets.")
+    p.add_argument("--threshold", type=float, default=0.7, help="Cramer's V at or above which a pair is flagged.")
+    p.add_argument("--min-pair-rows", type=int, default=30, help="Minimum co-answered respondents to score a pair.")
+    p.add_argument("--path", help="Write the full audit JSON (all pairs) to this path.")
+    p.set_defaults(func=cmd_twin_results_leakage_audit)
     p = twin_results.add_parser("report")
     p.add_argument("--survey", required=True)
     p.add_argument("--job-id", action="append", help="Digital twin job id. Repeatable.")
