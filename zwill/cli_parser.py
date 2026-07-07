@@ -163,6 +163,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--traits-presentation-template", help="Jinja template for presenting AgentList traits in EDSL prompts.")
     p.add_argument("--traits-presentation-template-path", help="Path to a Jinja template for presenting AgentList traits in EDSL prompts.")
     p.add_argument("--no-default-traits-presentation-template", action="store_true", help="Use EDSL's default Agent trait presentation instead of zwill's survey-answer template.")
+    p.add_argument("--quiet", action="store_true", help="Suppress stdout (the job is still written to --path). Useful when scripting.")
     p.set_defaults(func=cmd_edsl_export, raw_output=True)
 
     agent_list = subparsers.add_parser("agent-list").add_subparsers(dest="agent_list_command", required=True)
@@ -185,6 +186,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--models", help="Comma-separated EDSL models. Entries may be service:model.")
     p.add_argument("--service-name", help="EDSL service_name for unqualified models.")
     p.add_argument("--model-param", action="append", help="Model parameter. Use key=value or service:model:key=value. Repeatable.")
+    p.add_argument("--quiet", action="store_true", help="Suppress stdout (the job is still written to --path). Useful when scripting.")
     p.set_defaults(func=cmd_agent_study_export, raw_output=True)
     p = agent_study.add_parser("import", help="Import serialized EDSL Results from an agent-study job.")
     p.add_argument("--path", required=True)

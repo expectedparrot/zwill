@@ -1137,9 +1137,13 @@ def test_edsl_export_agent_list_through_parser_writes_selected_traits_and_instru
         str(path),
     )
 
-    output = json.loads(capsys.readouterr().out)
+    stdout_payload = json.loads(capsys.readouterr().out)
     written = json.loads(path.read_text())
-    assert output == written
+    # With --path, stdout is a clean envelope (metadata) and the file holds the job.
+    assert stdout_payload["command"] == "zwill edsl-export"
+    assert stdout_payload["status"] == "ok"
+    assert stdout_payload["data"]["path"] == str(path)
+    output = written
     assert output["zwill"]["selected_questions"] == ["q1"]
     r1 = next(agent for agent in output["agent_list"] if agent["name"] == "r1")
     assert set(r1["traits"]) == {"q1"}
@@ -1433,9 +1437,11 @@ def test_agent_study_export_accepts_question_path_and_parser_args(tmp_path: Path
         str(job_path),
     )
 
-    output = json.loads(capsys.readouterr().out)
+    stdout_payload = json.loads(capsys.readouterr().out)
     written = json.loads(job_path.read_text())
-    assert output["zwill"]["question_name"] == "new_question"
+    assert stdout_payload["command"] == "zwill agent-study export"
+    assert stdout_payload["data"]["path"] == str(job_path)
+    assert written["zwill"]["question_name"] == "new_question"
     assert written["survey"]["questions"][0]["question_options"] == ["Yes", "No"]
     assert written["models"][0]["parameters"]["temperature"] == 0
 

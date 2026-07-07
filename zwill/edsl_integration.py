@@ -675,14 +675,28 @@ def build_edsl_agent_study_job_dict(args: argparse.Namespace) -> dict[str, Any]:
     return data
 
 
-def cmd_agent_study_export(args: argparse.Namespace) -> None:
-    export_dict = build_edsl_agent_study_job_dict(args)
-    output = json.dumps(export_dict, indent=2)
+def emit_raw_export(command: str, args: argparse.Namespace, output: str, data: dict[str, Any]) -> None:
+    """Shared output contract for raw JSON-job exports.
+
+    With --path the file is the artifact and stdout carries a clean, parseable
+    envelope (metadata, not a second copy of the whole job). Without --path,
+    stdout is the artifact (pipe-friendly). --quiet suppresses stdout entirely.
+    """
+    quiet = getattr(args, "quiet", False)
     if args.path:
         path = Path(args.path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(output + "\n")
-    print(output)
+        if not quiet:
+            print_json(envelope(command, "ok", {"path": str(path), **data}))
+    elif not quiet:
+        print(output)
+
+
+def cmd_agent_study_export(args: argparse.Namespace) -> None:
+    export_dict = build_edsl_agent_study_job_dict(args)
+    output = json.dumps(export_dict, indent=2)
+    emit_raw_export("zwill agent-study export", args, output, {})
 
 
 
@@ -1120,8 +1134,18 @@ def cmd_edsl_export(args: argparse.Namespace) -> None:
         if approved_plan:
             export_dict.setdefault("zwill", {})["approved_validation_plan"] = approved_plan
     output = json.dumps(export_dict, indent=2)
-    if args.path:
-        path = Path(args.path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(output + "\n")
-    print(output)
+    zwill_meta = export_dict.get("zwill") if isinstance(export_dict.get("zwill"), dict) else {}
+    scenario_count = zwill_meta.get("scenario_count")
+    if scenario_count is None:
+        scenario_count = len(export_dict.get("scenarios", []) or []) or None
+    emit_raw_export(
+        "zwill edsl-export",
+        args,
+        output,
+        {
+            "target": args.target,
+            "survey": args.survey,
+            "scenario_count": scenario_count,
+            "model_count": len(export_dict.get("models", []) or []) or None,
+        },
+    )

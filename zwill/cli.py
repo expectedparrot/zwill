@@ -770,7 +770,17 @@ def cmd_survey_report(args: argparse.Namespace) -> dict[str, Any] | None:
     if args.format == "json":
         output = json.dumps(payload, indent=2)
         if args.path:
+            # The file holds the raw report payload (survey/summary/questions/...);
+            # stdout carries a parseable envelope pointing at it, so scripts get a
+            # consistent {command,status,data,...} shape on stdout.
             Path(args.path).write_text(output + "\n")
+            print_json(
+                envelope(
+                    "zwill survey report",
+                    "ok",
+                    {"survey": args.survey, "format": "json", "path": str(args.path), **payload["summary"]},
+                )
+            )
         else:
             print(output)
         return None
