@@ -399,3 +399,54 @@ def cmd_twin_results_marginal_diagnostics(args: argparse.Namespace) -> None:
         )
     Console().print(table)
 
+
+
+def cmd_twin_results_bootstrap(args: argparse.Namespace) -> dict[str, Any]:
+    from .twin_bootstrap import bootstrap_summary
+
+    rows = filtered_twin_prediction_rows(args)
+    if not rows:
+        raise ZwillError("not_found", "No twin prediction rows matched the given filters.")
+    baseline_model = getattr(args, "baseline_model", None)
+    result = bootstrap_summary(
+        rows,
+        baseline_model=baseline_model,
+        n_boot=int(getattr(args, "n_boot", 1000) or 1000),
+        seed=int(getattr(args, "seed", 0) or 0),
+        ci=float(getattr(args, "ci", 0.95) or 0.95),
+    )
+    if getattr(args, "path", None):
+        write_json(Path(args.path), result)
+
+    # Compact headline: macro score CIs per model, and macro deltas vs the baseline.
+    headline_models = {
+        label: block["macro"] for label, block in result["models"].items()
+    }
+    headline_deltas = {}
+    if "deltas_vs_baseline" in result:
+        headline_deltas = {
+            "baseline_model": result["deltas_vs_baseline"]["baseline_model"],
+            "models": {
+                label: block["macro"]
+                for label, block in result["deltas_vs_baseline"]["models"].items()
+            },
+        }
+    warnings = []
+    if baseline_model and baseline_model not in result["models"]:
+        warnings.append(
+            {"code": "baseline_not_found", "message": f"Baseline model '{baseline_model}' not present in the matched rows."}
+        )
+    return envelope(
+        "zwill twin-results bootstrap",
+        "ok",
+        {
+            "n_boot": result["n_boot"],
+            "ci": result["ci"],
+            "seed": result["seed"],
+            "models": sorted(result["models"]),
+            "macro_scores": headline_models,
+            "macro_deltas_vs_baseline": headline_deltas,
+            "full_result_path": str(Path(args.path)) if getattr(args, "path", None) else None,
+        },
+        warnings=warnings,
+    )

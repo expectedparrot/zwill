@@ -333,6 +333,23 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--path", required=True, help="Write CSV output to this path.")
     p.add_argument("--zip-path", help="Write zip output to this path. Defaults to --path with .zip suffix.")
     p.set_defaults(func=cmd_twin_results_package)
+    p = twin_results.add_parser(
+        "bootstrap",
+        help="Bootstrap confidence intervals over respondents for model scores and paired deltas vs a baseline.",
+    )
+    p.add_argument("--survey", required=True)
+    p.add_argument("--job-id", action="append", help="Digital twin job id. Repeatable.")
+    p.add_argument("--jobs", help="Comma-separated digital twin job ids.")
+    p.add_argument("--manifest", help="Twin results manifest whose job ids to include.")
+    p.add_argument("--model", help="Restrict to a single model or model label.")
+    p.add_argument("--question", action="append", help="Held-out question to include. Repeatable.")
+    p.add_argument("--questions", help="Comma-separated held-out questions to include.")
+    p.add_argument("--baseline-model", help="Model label to compute paired deltas against (e.g. baseline:conditional-embedding).")
+    p.add_argument("--n-boot", type=int, default=1000, help="Number of bootstrap resamples.")
+    p.add_argument("--seed", type=int, default=0, help="Bootstrap random seed.")
+    p.add_argument("--ci", type=float, default=0.95, help="Confidence level (0-1).")
+    p.add_argument("--path", help="Write the full bootstrap result JSON to this path.")
+    p.set_defaults(func=cmd_twin_results_bootstrap)
     p = twin_results.add_parser("report")
     p.add_argument("--survey", required=True)
     p.add_argument("--job-id", action="append", help="Digital twin job id. Repeatable.")

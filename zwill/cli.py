@@ -1391,6 +1391,11 @@ def cmd_twin_baseline_run(*args, **kwargs):
 
     return impl(*args, **kwargs)
 
+def cmd_twin_results_bootstrap(*args, **kwargs):
+    from .twin_result_commands import cmd_twin_results_bootstrap as impl
+
+    return impl(*args, **kwargs)
+
 def filtered_twin_prediction_rows(*args, **kwargs):
     from .twin_result_commands import filtered_twin_prediction_rows as impl
 
