@@ -204,6 +204,71 @@ def respondent_profile(
     return pair_profile, option_profile
 
 
+def has_conditional_baseline(model_labels: list[str]) -> bool:
+    return MODEL_LABEL in set(model_labels)
+
+
+def conditional_baseline_appendix_html() -> str:
+    """Explain what the conditional baseline is and why it is the fair comparison.
+
+    Rendered as a report appendix whenever a `baseline:conditional-embedding`
+    model appears alongside digital-twin predictions.
+    """
+    return """
+<section class="appendix" style="margin-top:3rem;padding-top:1.5rem;border-top:1px solid var(--ep-border,#e0e0e0);">
+  <h2>Appendix: the conditional baseline and why it is a fair comparison</h2>
+  <p>
+    One of the models above is labelled <code>baseline:conditional-embedding</code>.
+    It is not a digital twin. It is a deliberately cheap statistical model included
+    to answer one question: is the frontier-model twin adding <em>individual-level</em>
+    signal, or only rediscovering patterns a trivial model could find?
+  </p>
+  <p>
+    The two obvious baselines do not answer that. A <strong>uniform</strong> baseline
+    uses no information. An <strong>empirical-marginal</strong> baseline uses the
+    population distribution of the target question &mdash; it has no notion of the
+    individual, and it is an <em>oracle</em>: for a genuinely new question, that
+    distribution does not exist yet. The digital twin's whole claim is to predict a
+    question no one has answered, using what a specific respondent said elsewhere.
+    The conditional baseline is built to test exactly that claim on the cheap.
+  </p>
+  <h3>How it is built</h3>
+  <ul>
+    <li>Every (question, option) pair and every option label is embedded once.</li>
+    <li>Each respondent is represented by the mean embedding of the options they
+      actually chose &mdash; a compact summary of "what this person is like".</li>
+    <li>A small logistic regression maps two similarity features (how close a
+      candidate option is to that respondent's profile) to a select / do-not-select
+      outcome, and the per-option scores are normalised into a distribution.</li>
+  </ul>
+  <h3>Why it is fair, not rigged</h3>
+  <p>
+    Training is <strong>leave-one-question-out</strong>: each held-out target is
+    scored by a model trained only on the <em>other</em> questions. Nothing about the
+    target &mdash; not a single respondent's answer to it, and not its marginal &mdash;
+    ever enters training. The baseline therefore uses only what is genuinely available
+    when predicting a new question: the wording of that question and its options, and
+    the respondent's answers to <em>other</em> questions.
+  </p>
+  <p>
+    In particular, the baseline does <strong>not</strong> use the target question's own
+    empirical marginal. That would be leakage: for a real new question the marginal is
+    unknown, and the twin does not get it either. Because every feature is a semantic
+    similarity rather than a question identity, the fitted model transfers to target
+    questions it has never seen &mdash; the same generalisation the twin claims.
+  </p>
+  <h3>How to read the comparison</h3>
+  <p>
+    A twin that <strong>cannot</strong> beat this baseline is not adding individual
+    signal beyond cheap embedding similarity. A twin that <strong>does</strong> beat it
+    &mdash; and beats the oracle empirical marginal &mdash; is contributing real
+    predictive value about individuals, most plausibly from pretrained world knowledge
+    that a small linear model cannot recover from the available questions alone.
+  </p>
+</section>
+"""
+
+
 def baseline_job_id(
     survey: str,
     heldout_questions: list[str],
