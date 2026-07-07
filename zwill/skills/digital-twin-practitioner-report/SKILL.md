@@ -42,8 +42,9 @@ The HTML wrapper supplies reusable context about digital twins, persona-based re
 
 ## Inputs To Collect
 
+- **The validation bundle**: prefer `zwill twin-validate --survey <s> --jobs <j> --out <dir>`, which produces `report.html`, `bootstrap.json`, `leakage_audit.json`, and `manifest.json` in one step. This is the primary evidence source — it already contains the conditional baseline, skill scores, bootstrap confidence intervals, the leakage audit, and the calibration/attenuation/granularity diagnostics. If it exists, read it first.
 - Survey context markdown: source, field dates if known, population, sampling frame, weighting status, question wording notes, and any caveats.
-- Twin study artifacts: HTML/JSON/CSV reports from `zwill twin-results report`, `zwill twin-study compare`, or `zwill twin-benchmark report`.
+- Twin study artifacts (when a bundle was not produced): HTML/JSON/CSV from `zwill twin-results report`, `zwill twin-study compare`, or `zwill twin-benchmark report`.
 - Study design: held-out questions, context question count, respondent sample size, seed, complete-case rules, models, model parameters.
 - Quality checks: imported row counts, malformed responses, missing options, skipped respondents/questions, codebook expansion status.
 
@@ -57,6 +58,11 @@ If these are missing, run or request the missing `zwill` commands before writing
 - Avoid technical metric names in practitioner prose unless necessary. Translate NLL, Brier, ECE, p95, and p(actual) into plain language such as "confidence quality," "probability assigned to the real answer," and "occasional very confident wrong guesses."
 - Compare against uniform baseline as "random guessing."
 - Compare against empirical marginal baseline as "guessing based on how the whole group answered." Beating it means the twin used respondent-specific information, not just the group average. Label it unavailable for genuinely new questions.
+- **Treat the conditional baseline as the decisive comparison.** It is a cheap statistical model ("individual information, no frontier model") that uses only what would be available for a genuinely new question — the wording of the question/options and the respondent's other answers. Explain it as "the simplest model that still personalizes to each respondent." A twin earns a real recommendation only if it beats this baseline, not merely uniform or the group average. If the twin only beats uniform and the group average but not the conditional baseline, say the added value over a cheap model is unproven.
+- **Report differences as ranges, not points.** The bundle's bootstrap confidence intervals say whether a gap is real or could be sampling noise. Only call one model better than another (or better than the baseline) when the interval for the difference is clearly on one side of zero. Do not build a recommendation on a difference whose interval straddles zero.
+- **Confirm no leakage before any positive claim.** Read `leakage_audit.json`: if a context answer near-deterministically predicts the held-out target, the twin may be copying rather than reasoning, and that target's result is inflated. Exclude flagged targets or caveat them explicitly.
+- **Watch for washed-out relationships.** If the report's correlation-attenuation verdict says the twin under-models cross-question association, the twin regresses respondents toward a common distribution — its per-question marginals can look reasonable while the joint structure between questions is lost. Flag this when the practitioner cares about how answers relate (segments, cross-tabs), not just single-question shares.
+- **Note coarse probabilities.** If a model is flagged for coarse (round-number) probabilities, its confidence quality is quantization-limited — temper any claim that rests on fine-grained probability values.
 - Prefer claims by question type or use case, not global "works/does not work" claims.
 - If performance varies by model, question type, or option rarity, make that heterogeneity the core finding.
 - Treat cross-survey or multi-question benchmarks as collections of distinct twin exercises. Do not write as if there is one homogeneous set of twins. Separate claims by survey, held-out question family, option structure, respondent sample size, and model when those differ.
@@ -147,4 +153,8 @@ Use this ladder to calibrate recommendations:
 - Performance driven by majority-class answers.
 - Model outputs malformed JSON or omits options.
 - A "new question" recommendation based only on group-average guessing performance.
+- **The twin does not beat the conditional baseline** — the frontier model adds no individual signal beyond a cheap model, even if it beats uniform and the group average.
+- **A claimed advantage whose bootstrap interval straddles zero** — treat it as noise, not a finding.
+- **The only targets the twin does well on are the ones the leakage audit flagged** — the result is copying, not modelling.
+- **The twin's implied cross-question relationships are systematically weaker than the empirical ones** (attenuation) when the decision depends on how answers relate.
 - Claims based on coded numeric labels instead of expanded codebook values.
