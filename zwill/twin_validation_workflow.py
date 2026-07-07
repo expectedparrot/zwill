@@ -101,6 +101,7 @@ def cmd_twin_validate(args: argparse.Namespace, *, embedder=None) -> dict[str, A
             sample_respondents=None,
             seed=int(getattr(args, "seed", 0) or 0),
             embedding_model=getattr(args, "embedding_model", None),
+            embedder=getattr(args, "embedder", None),
             l2=float(getattr(args, "l2", 1.0) or 1.0),
             job_id=None,
             replace=True,
@@ -108,13 +109,18 @@ def cmd_twin_validate(args: argparse.Namespace, *, embedder=None) -> dict[str, A
         )
         try:
             baseline_result = cmd_twin_baseline_run(baseline_args, embedder=embedder)
-        except RuntimeError as exc:
-            # openai_embedder raises RuntimeError when OPENAI_API_KEY is missing.
+        except (RuntimeError, ZwillError) as exc:
+            # The embedder raises when it has no credentials (RuntimeError from the
+            # provider client, or a ZwillError from embedder resolution).
             if getattr(args, "require_baseline", False):
                 raise ZwillError(
                     "missing_dependency",
                     f"Conditional baseline could not run: {exc}",
-                    hint="Set OPENAI_API_KEY, or pass --skip-baseline to run without it.",
+                    hint=(
+                        "Set OPENAI_API_KEY, or set EXPECTED_PARROT_API_KEY and pass "
+                        "--embedder edsl to route embeddings through Expected Parrot, "
+                        "or pass --skip-baseline to run without the baseline."
+                    ),
                 ) from exc
             warnings.append(
                 {"code": "baseline_skipped", "message": f"Conditional baseline skipped: {exc}"}

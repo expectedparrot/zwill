@@ -7,8 +7,39 @@ from .twin_baseline import (
     Embedder,
     baseline_job_id,
     build_conditional_baseline_predictions,
+    edsl_embedder,
     openai_embedder,
 )
+
+
+def resolve_baseline_embedder(args: Any, embedding_model: str) -> Embedder:
+    """Pick the embedding backend for the conditional baseline.
+
+    `--embedder auto` (the default) uses a direct OpenAI key when one is present,
+    otherwise routes embeddings through Expected Parrot (remote EDSL), which needs
+    only an EXPECTED_PARROT_API_KEY. `openai` and `edsl`/`expected-parrot` force a
+    backend. This lets the gated `--require-baseline` validation run for users who
+    only have Expected Parrot credentials.
+    """
+    choice = (getattr(args, "embedder", None) or "auto").lower()
+    if choice in {"edsl", "expected-parrot", "ep", "remote"}:
+        return edsl_embedder(model=embedding_model)
+    if choice == "openai":
+        return openai_embedder(model=embedding_model)
+    # auto
+    if os.environ.get("OPENAI_API_KEY"):
+        return openai_embedder(model=embedding_model)
+    if os.environ.get("EXPECTED_PARROT_API_KEY"):
+        return edsl_embedder(model=embedding_model)
+    raise ZwillError(
+        "missing_dependency",
+        "No embedding credentials found for the conditional baseline.",
+        hint=(
+            "Set OPENAI_API_KEY for direct OpenAI embeddings, or "
+            "EXPECTED_PARROT_API_KEY to route embeddings through Expected Parrot "
+            "(--embedder edsl). Or pass --skip-baseline."
+        ),
+    )
 
 
 def selected_baseline_heldout_questions(args: Any, questions: list[dict[str, Any]]) -> list[str]:
@@ -71,7 +102,7 @@ def cmd_twin_baseline_run(args: argparse.Namespace, *, embedder: Embedder | None
     truth = read_json(truth_path, {}) if truth_path.exists() else {}
 
     embedding_model = getattr(args, "embedding_model", None) or DEFAULT_EMBEDDING_MODEL
-    active_embedder = embedder or openai_embedder(model=embedding_model)
+    active_embedder = embedder or resolve_baseline_embedder(args, embedding_model)
 
     job_id = args.job_id or baseline_job_id(args.survey, heldout_questions, respondent_ids, embedding_model)
     jdir = digital_twin_jobs_dir(sdir) / job_id
