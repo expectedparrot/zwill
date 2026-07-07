@@ -79,6 +79,18 @@ def build_parser() -> argparse.ArgumentParser:
     add_report_build_args(p)
     p.add_argument("--final", action="store_true", help="Fail unless generated executive analysis is available.")
     p.set_defaults(func=cmd_report_render)
+    p = report.add_parser(
+        "generate-interpretations",
+        help="Run export -> edsl-run -> import -> render for the required generated interpretations (one-shot analysis and/or twin executive summary) in one command.",
+    )
+    p.add_argument("--survey", required=True)
+    p.add_argument("--job-id", help="Twin job id whose executive summary interpretation to generate.")
+    p.add_argument("--probability-job-id", help="One-shot probability job id whose analysis interpretation to generate.")
+    p.add_argument("--path", help="Report output directory for the rendered HTML pages. Defaults to <survey>_report/.")
+    p.add_argument("--env-path", help="Explicit .env file for the edsl-run model calls.")
+    p.add_argument("--permutations", type=int, default=DEFAULT_REPORT_PERMUTATIONS, help="Permutation simulations for the executive-summary chance tests.")
+    p.add_argument("--seed", type=int, default=20260701, help="Random seed for simulation diagnostics.")
+    p.set_defaults(func=cmd_report_generate_interpretations)
 
     project = subparsers.add_parser("project").add_subparsers(dest="project_command", required=True)
     p = project.add_parser("create", help="Create a project under .zwill/projects/.")

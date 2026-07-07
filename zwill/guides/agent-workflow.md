@@ -153,14 +153,16 @@ next command. The full path:
      --job-id <twin_job_id> --probability-job-id <probability_job_id>
    ```
    If `zwill report render --final` reports missing generated interpretation,
-   follow its hint, usually:
+   generate both required interpretations (one-shot analysis + twin executive
+   summary) with one command that runs every export -> edsl-run -> import ->
+   render step for you:
    ```bash
-   zwill twin-results executive-summary-export --survey <survey> --job-id <twin_job_id> \
-     --path report_out/executive-summary.html
-   zwill edsl-run --job <generated_report_job.edsl.json> --path <generated_report_results.json.gz>
-   zwill twin-results executive-summary-import --report-id <report_id> --path <generated_report_results.json.gz>
-   zwill twin-results executive-summary-render --report-id <report_id> --path report_out/executive-summary.html
+   zwill report generate-interpretations --survey <survey> --path report_out \
+     --job-id <twin_job_id> --probability-job-id <probability_job_id>
    ```
+   (Or run the eight steps by hand — `twin-results executive-summary-export` ->
+   `edsl-run` -> `executive-summary-import` -> `executive-summary-render`, and the
+   parallel `prob-results analysis-*` chain — if you need per-step control.)
 11. **Final gate** — render the final report only after the one-shot and twin
    generated interpretations are imported:
    ```bash

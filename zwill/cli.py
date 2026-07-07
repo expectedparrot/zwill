@@ -932,6 +932,11 @@ def cmd_report_render(*args, **kwargs):
 
     return impl(*args, **kwargs)
 
+def cmd_report_generate_interpretations(*args, **kwargs):
+    from .report_bundle import cmd_report_generate_interpretations as impl
+
+    return impl(*args, **kwargs)
+
 def read_probability_imports(*args, **kwargs):
     from .report_bundle import read_probability_imports as impl
 
