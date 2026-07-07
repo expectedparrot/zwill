@@ -8,7 +8,39 @@ from typing import Any
 from .report_common import *  # noqa: F403
 from .twin_baseline import conditional_baseline_appendix_html, has_conditional_baseline
 from .twin_bootstrap import bootstrap_ci_section_html
-from .twin_scoring import skill_score_section_html
+from .twin_scoring import probability_granularity_section_html, skill_score_section_html
+
+
+def correlation_attenuation_banner_html(joint_structure: dict[str, Any]) -> str:
+    """Render the correlation-attenuation verdict from joint-structure diagnostics.
+
+    Surfaces "twin Cramer's V systematically below empirical V" as a named
+    over-shrinkage result, with per-model gaps. Returns '' when the verdict is
+    inconclusive or the joint diagnostics are absent.
+    """
+    attenuation = (joint_structure or {}).get("attenuation") or {}
+    overall = attenuation.get("overall") or {}
+    verdict_text = {
+        "attenuated": "Correlation attenuation: the twin under-models cross-question association, regressing respondents toward a common distribution (over-shrinkage).",
+        "overstated": "The twin over-states cross-question association relative to the empirical crosstabs.",
+        "matched": "Twin-implied and empirical cross-question associations are roughly matched.",
+    }.get(str(overall.get("verdict")), "")
+    if not verdict_text or overall.get("mean_cramers_v_gap") is None:
+        return ""
+    badge = "⚠ " if overall.get("verdict") == "attenuated" else ""
+    per_model = " · ".join(
+        f"{escape_html(label)}: gap {info.get('mean_cramers_v_gap'):+.3f} ({info.get('verdict')})"
+        for label, info in sorted((attenuation.get("models") or {}).items())
+        if info.get("mean_cramers_v_gap") is not None
+    )
+    return (
+        '<div class="attenuation-banner panel" style="margin-top:1rem;">'
+        f"<b>{badge}Correlation structure:</b> {verdict_text} "
+        f"Mean twin&minus;empirical Cramer's V gap {overall.get('mean_cramers_v_gap'):+.3f} "
+        f"over {escape_html(overall.get('pairs'))} question pairs."
+        + (f'<div class="subtle">{per_model}</div>' if per_model else "")
+        + "</div>"
+    )
 
 
 def render_twin_supporting_artifacts_section(pages: list[dict[str, Any]], output_dir: Path) -> str:
@@ -98,6 +130,8 @@ def render_twin_value_diagnostics_section(diagnostics: dict[str, Any]) -> str:
             f"<td>{esc(row.get('warning', ''))}</td>"
             "</tr>"
         )
+    attenuation_banner = correlation_attenuation_banner_html(joint)
+
     return f"""
     <section class="summary-card twin-value-diagnostics">
       <h2>Joint Structure And Slicing Diagnostics</h2>
@@ -107,6 +141,7 @@ def render_twin_value_diagnostics_section(diagnostics: dict[str, Any]) -> str:
         <div><b>{esc(subgroup.get('cell_count', 0))}</b><span>subgroup cells scored</span></div>
         <div><b>{esc(conditional.get('cell_count', 0))}</b><span>conditional cells scored</span></div>
       </div>
+      {attenuation_banner}
       <h3>Best Recovered Crosstabs</h3>
       <div class="table-wrap">
         <table>
@@ -183,6 +218,8 @@ def render_twin_report_html(
     respondent_count = len({row.get("respondent_id") for row in rows})
     model_names = sorted({str(row.get("twin_set_label") or row.get("model_label") or row.get("model")) for row in rows})
     skill_score_section = skill_score_section_html(rows)
+    granularity_section = probability_granularity_section_html(rows)
+    attenuation_banner_section = correlation_attenuation_banner_html((diagnostics or {}).get("joint_structure"))
     bootstrap_ci_section = bootstrap_ci_section_html(rows)
     conditional_baseline_appendix = (
         conditional_baseline_appendix_html() if has_conditional_baseline(model_names) else ""
@@ -816,6 +853,8 @@ def render_twin_report_html(
     updateRows();
   </script>
   {skill_score_section}
+  {granularity_section}
+  {attenuation_banner_section}
   {bootstrap_ci_section}
   {conditional_baseline_appendix}
 </body>
@@ -835,6 +874,8 @@ def render_twin_summary_report_html(
     respondent_count = len({row.get("respondent_id") for row in rows})
     model_names = sorted({str(row.get("twin_set_label") or row.get("model_label") or row.get("model")) for row in rows})
     skill_score_section = skill_score_section_html(rows)
+    granularity_section = probability_granularity_section_html(rows)
+    attenuation_banner_section = correlation_attenuation_banner_html((diagnostics or {}).get("joint_structure"))
     bootstrap_ci_section = bootstrap_ci_section_html(rows)
     conditional_baseline_appendix = (
         conditional_baseline_appendix_html() if has_conditional_baseline(model_names) else ""
@@ -1337,6 +1378,8 @@ def render_twin_summary_report_html(
       </div>
     </section>
     {skill_score_section}
+  {granularity_section}
+  {attenuation_banner_section}
   {bootstrap_ci_section}
     {conditional_baseline_appendix}
   </main>
@@ -1552,6 +1595,8 @@ def render_twin_job_comparison_report_html(payload: dict[str, Any]) -> str:
     job_ids = payload.get("job_ids", [])
     descriptions = diagnostics.get("twin_set_descriptions", {})
     skill_score_section = skill_score_section_html(rows)
+    granularity_section = probability_granularity_section_html(rows)
+    attenuation_banner_section = correlation_attenuation_banner_html((diagnostics or {}).get("joint_structure"))
     bootstrap_ci_section = bootstrap_ci_section_html(rows)
     conditional_baseline_appendix = (
         conditional_baseline_appendix_html()
@@ -1814,6 +1859,8 @@ def render_twin_job_comparison_report_html(payload: dict[str, Any]) -> str:
     </section>
     {''.join(question_blocks) or '<section class="panel"><div class="subtle">No question comparison rows available.</div></section>'}
     {skill_score_section}
+  {granularity_section}
+  {attenuation_banner_section}
   {bootstrap_ci_section}
     {conditional_baseline_appendix}
   </main>

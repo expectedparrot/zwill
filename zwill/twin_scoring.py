@@ -165,3 +165,71 @@ def skill_score_section_html(rows: list[dict[str, Any]]) -> str:
   </table></div>
   <p class="subtle">Accuracy is a sanity check, not a headline: one answer per respondent cannot validate an individual probability, and top-1 accuracy rewards confident mode-guessing. Read the skill scores.</p>
 </section>"""
+
+
+# ---------------------------------------------------------------------------
+# Probability granularity (data-quality check on the returned distributions)
+# ---------------------------------------------------------------------------
+def _grid_distance(value: float, step: float = 0.05) -> float:
+    nearest = round(value / step) * step
+    return abs(value - nearest)
+
+
+def probability_granularity_summary(rows: list[dict[str, Any]], *, round_tol: float = 0.01) -> dict[str, Any]:
+    """Measure how coarse each model's returned probabilities are.
+
+    LLMs pile probability mass on round numbers (0.7, 0.8, 0.9). When the returned
+    distributions are coarse, Brier and calibration are quantization-limited -- the
+    scores can't be better than the grid the model answered on. This reports, per
+    model, the share of probability values that sit on a 0.05 grid and how many
+    distinct values were used, so a coarse model is visible before its scores are
+    over-interpreted.
+    """
+    by_model: dict[str, list[float]] = {}
+    for row in rows:
+        label = str(row.get("model_label") or row.get("model") or "")
+        if not label:
+            continue
+        values = [float(v) for v in (row.get("probabilities") or {}).values()]
+        by_model.setdefault(label, []).extend(values)
+
+    models: dict[str, Any] = {}
+    for label, values in by_model.items():
+        if not values:
+            continue
+        on_grid = sum(1 for v in values if _grid_distance(v) <= round_tol)
+        models[label] = {
+            "values": len(values),
+            "distinct_values": len({round(v, 4) for v in values}),
+            "round_fraction": on_grid / len(values),
+            "mean_grid_distance": sum(_grid_distance(v) for v in values) / len(values),
+            "warning": "coarse_probabilities" if on_grid / len(values) >= 0.8 else "",
+        }
+    return {"models": models, "round_tol": round_tol, "grid_step": 0.05}
+
+
+def probability_granularity_section_html(rows: list[dict[str, Any]]) -> str:
+    summary = probability_granularity_summary(rows)
+    if not summary["models"]:
+        return ""
+    body = []
+    for label in sorted(summary["models"]):
+        info = summary["models"][label]
+        flag = ' <span class="bad">coarse</span>' if info["warning"] else ""
+        body.append(
+            "<tr>"
+            f"<td>{html.escape(label)}{flag}</td>"
+            f"<td>{info['distinct_values']}</td>"
+            f"<td>{info['round_fraction']:.1%}</td>"
+            f"<td>{info['mean_grid_distance']:.3f}</td>"
+            "</tr>"
+        )
+    return f"""
+<section class="panel probability-granularity" style="margin-top:2rem;">
+  <h2>Probability granularity (data quality)</h2>
+  <p class="subtle">How coarse the returned distributions are. A high "on 0.05 grid" share means the model answered in round numbers, so Brier and calibration are quantization-limited &mdash; read those scores with that ceiling in mind.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Model</th><th>distinct values</th><th>on 0.05 grid</th><th>mean distance to grid</th></tr></thead>
+    <tbody>{''.join(body)}</tbody>
+  </table></div>
+</section>"""
