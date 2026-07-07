@@ -116,6 +116,8 @@ def cmd_question_add(args: argparse.Namespace) -> dict[str, Any]:
     }
     if getattr(args, "rank_task_id", None):
         question["rank_task_id"] = args.rank_task_id
+    if getattr(args, "option_delimiter", None):
+        question["option_delimiter"] = args.option_delimiter
     option_labels = parse_option_labels(args.option_label)
     if option_labels:
         question["option_labels"] = option_labels
@@ -351,15 +353,7 @@ def cmd_answer_import(args: argparse.Namespace) -> dict[str, Any]:
         if question_name not in questions:
             issue = {"code": "unknown_question", "line": line, "question": question_name}
         elif "answer" in row and row.get("answer") is not None:
-            valid_options = questions[question_name].get("question_options", [])
-            if valid_options and row["answer"] not in valid_options:
-                issue = {
-                    "code": "invalid_answer_option",
-                    "line": line,
-                    "question": question_name,
-                    "answer": row["answer"],
-                    "valid_options": valid_options,
-                }
+            issue = answer_option_issue(questions[question_name], question_name, row["answer"], line)
         elif not row.get("missing_code"):
             issue = {
                 "code": "invalid_input",

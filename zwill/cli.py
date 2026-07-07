@@ -551,6 +551,55 @@ def ensure_implicit_respondent(sdir: Path, respondent_id: str) -> None:
     append_jsonl(sdir / "respondents.jsonl", {"respondent_id": respondent_id, "weight": 1.0, "metadata": {}})
 
 
+DEFAULT_CHECKBOX_DELIMITER = "|"
+
+
+def checkbox_selection_tokens(answer_value: Any, delimiter: str | None = None) -> list[str]:
+    """Split a multi-select answer string into its individual selected labels."""
+    delimiter = delimiter or DEFAULT_CHECKBOX_DELIMITER
+    return [token.strip() for token in str(answer_value).split(delimiter) if token.strip()]
+
+
+def answer_option_issue(
+    question: dict[str, Any], question_name: Any, answer_value: Any, line: int | None = None
+) -> dict[str, Any] | None:
+    """Validate a non-missing answer against a question's option universe.
+
+    For a `checkbox` (multi-select) question the answer is split on the question's
+    `option_delimiter` (default `|`) and every selected token must be a known
+    option. For other questions the answer must equal one option. Returns an issue
+    dict when invalid, else None. Questions with no `question_options` are not
+    validated.
+    """
+    valid_options = question.get("question_options") or []
+    if not valid_options:
+        return None
+    if question.get("question_type") == "checkbox":
+        delimiter = question.get("option_delimiter") or DEFAULT_CHECKBOX_DELIMITER
+        tokens = checkbox_selection_tokens(answer_value, delimiter)
+        invalid = [token for token in tokens if token not in valid_options]
+        if tokens and not invalid:
+            return None
+        return {
+            "code": "invalid_answer_option",
+            "line": line,
+            "question": question_name,
+            "answer": answer_value,
+            "invalid_selections": invalid,
+            "valid_options": valid_options,
+            "option_delimiter": delimiter,
+        }
+    if answer_value in valid_options:
+        return None
+    return {
+        "code": "invalid_answer_option",
+        "line": line,
+        "question": question_name,
+        "answer": answer_value,
+        "valid_options": valid_options,
+    }
+
+
 def validate_answer(sdir: Path, answer: dict[str, Any], line: int | None = None) -> dict[str, Any] | None:
     questions = questions_by_name(sdir)
     question_name = answer.get("question")
@@ -561,15 +610,7 @@ def validate_answer(sdir: Path, answer: dict[str, Any], line: int | None = None)
             "question": question_name,
         }
     if "answer" in answer and answer.get("answer") is not None:
-        valid_options = questions[question_name].get("question_options", [])
-        if valid_options and answer["answer"] not in valid_options:
-            return {
-                "code": "invalid_answer_option",
-                "line": line,
-                "question": question_name,
-                "answer": answer["answer"],
-                "valid_options": valid_options,
-            }
+        return answer_option_issue(questions[question_name], question_name, answer["answer"], line)
     elif not answer.get("missing_code"):
         return {
             "code": "invalid_input",

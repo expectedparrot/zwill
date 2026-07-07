@@ -866,6 +866,40 @@ def test_agent_material_import_quarantines_invalid_rows_and_normalizes_tags(tmp_
     assert {issue["code"] for issue in issues if issue.get("type") == "agent_material"} == {"invalid_input", "unknown_respondent"}
 
 
+def test_checkbox_answer_import_validates_each_selection(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    run_cli("init")
+    run_cli("survey", "create", "--name", "demo")
+    questions = tmp_path / "questions.jsonl"
+    write_jsonl(
+        questions,
+        [
+            {
+                "question_name": "q_channels",
+                "question_type": "checkbox",
+                "question_text": "Which channels do you use?",
+                "question_options": ["Email", "Phone", "In-person"],
+                "option_delimiter": "|",
+            }
+        ],
+    )
+    run_cli("question", "import", "--survey", "demo", "--path", str(questions))
+    answers = tmp_path / "answers.jsonl"
+    write_jsonl(
+        answers,
+        [
+            {"respondent_id": "r1", "question": "q_channels", "answer": "Email|Phone"},
+            {"respondent_id": "r2", "question": "q_channels", "answer": "Email|Fax"},
+        ],
+    )
+    result = cli.cmd_answer_import(argparse.Namespace(survey="demo", path=str(answers)))
+    assert result["data"]["imported_count"] == 1
+    assert result["data"]["quarantined_count"] == 1
+    issues = cli.read_jsonl(zwill_survey_path(tmp_path) / "quarantine.jsonl")
+    checkbox_issue = next(issue for issue in issues if issue.get("question") == "q_channels")
+    assert checkbox_issue["invalid_selections"] == ["Fax"]
+
+
 def test_agent_material_import_duplicate_material_id_replaces_row(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()

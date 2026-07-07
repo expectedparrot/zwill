@@ -89,8 +89,19 @@ explicit id. See `RANK_SPEC.md` for the full rank flow.
 ## Multi-select / checkbox questions
 
 If a question let respondents pick several options, import it with
-`question_type: "checkbox"`, put the full option universe in `question_options`,
-and store each respondent's selection as a delimited string in `answer`. Because
-option text often contains commas, choose a delimiter that doesn't appear in the
-labels (e.g. ` | `) and be consistent. (First-class checkbox validation is
-tracked separately.)
+`question_type: "checkbox"` and put the full option universe in
+`question_options`. Store each respondent's selection as a delimited string in
+`answer` (e.g. `"Email|Phone"`). Answer import splits on the question's
+`option_delimiter` (default `|`) and validates **each selected token** against
+`question_options`, quarantining a row that selects an unknown option.
+
+Because option text often contains commas, pick a delimiter that does not appear
+in the labels and set it on the question row:
+
+```json
+{"question_name": "q7_channels", "question_type": "checkbox", "question_text": "Which channels do you use?", "question_options": ["Email", "Phone", "In-person"], "option_delimiter": "|"}
+{"respondent_id": "R017", "question": "q7_channels", "answer": "Email|Phone"}
+```
+
+Checkbox questions serve as context; they are not eligible as scored twin/one-shot
+targets (only `multiple_choice` questions are).
