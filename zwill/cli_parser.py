@@ -323,6 +323,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--n-boot", type=int, default=1000, help="Bootstrap resamples.")
     p.add_argument("--ci", type=float, default=0.95, help="Confidence level (0-1).")
     p.add_argument("--seed", type=int, default=0, help="Random seed for baseline and bootstrap.")
+    p.add_argument("--env-path", help="Explicit .env file to load (for the baseline's embedding key). Defaults to the nearest .env above the current directory.")
     p.set_defaults(func=cmd_twin_validate)
 
     twin_results = subparsers.add_parser("twin-results").add_subparsers(dest="twin_results_command", required=True)

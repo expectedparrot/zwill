@@ -2324,6 +2324,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        # Load the nearest .env once, before any command runs, so every command
+        # that makes model/embedding calls (edsl-run, twin-validate, the
+        # conditional baseline, ...) sees the same keys. Individual commands may
+        # still report their own `loaded_env`; load_local_env is idempotent
+        # because it never overwrites a key already present in os.environ.
+        env_path = Path(args.env_path) if getattr(args, "env_path", None) else None
+        load_local_env(env_path)
         result = args.func(args)
         if getattr(args, "table_output", False) or getattr(args, "raw_output", False):
             return 0
