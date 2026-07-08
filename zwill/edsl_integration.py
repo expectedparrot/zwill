@@ -953,10 +953,21 @@ def build_edsl_rank_utility_twin_job_dict(survey_name: str, args: argparse.Names
                 )
             )
     if not scenarios:
+        # A top-N / MaxDiff battery ("choose the 3 most important") never ranks
+        # every item, so without --allow-missing-actual every respondent is
+        # skipped. Point the user at the flag rather than leaving a dead end.
+        hint = None
+        if skipped_missing and not getattr(args, "allow_missing_actual", False):
+            hint = (
+                "Every respondent is missing an actual rank for some items. If this is a partial "
+                "ranking (top-N / MaxDiff), pass --allow-missing-actual to score each respondent on "
+                "the items they did rank (also pass it to `twin-results import`)."
+            )
         raise ZwillError(
             "invalid_input",
             "No rank utility twin scenarios could be built.",
             context={"skipped_missing": skipped_missing[:10], "skipped_count": len(skipped_missing)},
+            hint=hint,
         )
     model_params = parse_model_params(args)
     job = Jobs(

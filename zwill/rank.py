@@ -395,12 +395,15 @@ def pairwise_order_accuracy(actual: dict[str, int], predicted: dict[str, int], i
 
 
 def top_k_overlap(actual: dict[str, int], predicted: dict[str, int], item_ids: list[str], k: int = 3) -> float | None:
-    if not item_ids:
+    # With k or fewer items every item is trivially in the top-k, so the overlap
+    # is vacuously 1.0 and carries no signal -- e.g. a top-N/MaxDiff battery
+    # scored on only the items a respondent ranked. Report it as N/A instead of a
+    # misleading perfect score.
+    if not item_ids or len(item_ids) <= k:
         return None
-    k = min(k, len(item_ids))
     actual_top = {item for item in item_ids if actual[item] <= k}
     predicted_top = {item for item in item_ids if predicted[item] <= k}
-    return len(actual_top & predicted_top) / k if k else None
+    return len(actual_top & predicted_top) / k
 
 
 def rank_metrics(actual: dict[str, int], scores: dict[str, float], item_ids: list[str]) -> dict[str, Any]:
