@@ -1163,6 +1163,36 @@ def test_agent_material_cli_path_list_filters_and_show(tmp_path: Path, monkeypat
     assert shown["data"]["material"]["source"]["path"] == str(body_path)
 
 
+def test_agent_list_export_includes_respondent_metadata_as_traits(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    run_cli("init")
+    run_cli("survey", "create", "--name", "demo")
+    run_cli(
+        "question", "add", "--survey", "demo", "--question-name", "q1", "--question-type", "multiple_choice",
+        "--question-text", "Pick one", "--question-option", "yes", "--question-option", "no",
+    )
+    run_cli(
+        "respondent", "add", "--survey", "demo", "--respondent-id", "r1",
+        "--metadata", "party=Republican", "--metadata", "age=65+",
+    )
+    run_cli("answer", "add", "--survey", "demo", "--respondent-id", "r1", "--question", "q1", "--answer", "yes")
+    run_cli("commit", "--survey", "demo")
+    monkeypatch.setattr(cli, "load_edsl_classes", lambda: (FakeAgent, FakeAgentList, object, object))
+
+    # default: covariate metadata is included as agent traits alongside the answers
+    default = cli.build_edsl_agent_list_dict("demo", default_agent_list_export_args())
+    traits = default["agent_list"][0]["traits"]
+    assert traits["party"] == "Republican" and traits["age"] == "65+"
+    assert traits["q1"] == "yes"
+    assert default["zwill"]["include_metadata_context"] is True
+
+    # --exclude-metadata-context drops the covariates, leaving answers only
+    excluded = cli.build_edsl_agent_list_dict(
+        "demo", default_agent_list_export_args(exclude_metadata_context=True)
+    )
+    assert set(excluded["agent_list"][0]["traits"]) == {"q1"}
+
+
 def test_agent_list_export_includes_agent_material_only_when_requested(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()

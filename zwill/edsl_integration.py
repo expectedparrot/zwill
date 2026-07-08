@@ -423,6 +423,8 @@ def model_label(service_name: str | None, model_name: str | None) -> str:
 
 
 def build_edsl_agent_list_dict(survey_name: str, args: argparse.Namespace) -> dict[str, Any]:
+    from .twin_jobs import uncoded_metadata_keys
+
     sdir = require_survey(survey_name)
     questions = read_jsonl(sdir / "questions.jsonl")
     selected = selected_question_names(args, questions)
@@ -433,14 +435,38 @@ def build_edsl_agent_list_dict(survey_name: str, args: argparse.Namespace) -> di
         if question["question_name"] in selected_set
     }
 
-    respondent_ids = [row["respondent_id"] for row in read_jsonl(sdir / "respondents.jsonl")]
+    respondent_rows = read_jsonl(sdir / "respondents.jsonl")
+    respondent_ids = [row["respondent_id"] for row in respondent_rows]
     if not respondent_ids:
         respondent_ids = sorted({row["respondent_id"] for row in read_jsonl(sdir / "answers.jsonl")})
     if args.limit is not None:
         respondent_ids = respondent_ids[: args.limit]
 
+    # Respondent metadata (panel covariates like age/party/region) is included as
+    # agent traits by default -- the same signal the twin-probability job carries as
+    # a "Respondent profile". Exclude wholesale or by key for parity with that flow.
+    include_metadata = not getattr(args, "exclude_metadata_context", False)
+    excluded_metadata_keys = set(getattr(args, "exclude_metadata_key", None) or [])
+    metadata_by_respondent: dict[str, dict[str, Any]] = {}
+    if include_metadata:
+        for row in respondent_rows:
+            metadata = row.get("metadata")
+            if isinstance(metadata, dict):
+                metadata_by_respondent[row["respondent_id"]] = {
+                    key: value
+                    for key, value in metadata.items()
+                    if key not in excluded_metadata_keys and str(value).strip() != "" and key not in selected_set
+                }
+    # Label metadata traits in the shared codebook (the key humanized as its text).
+    for metadata in metadata_by_respondent.values():
+        for key in metadata:
+            codebook.setdefault(key, str(key).replace("_", " "))
+
     traits_by_respondent = {
-        respondent_id: {question_name: None for question_name in selected}
+        respondent_id: {
+            **metadata_by_respondent.get(respondent_id, {}),
+            **{question_name: None for question_name in selected},
+        }
         for respondent_id in respondent_ids
     }
     for answer in read_jsonl(sdir / "answers.jsonl"):
@@ -498,6 +524,10 @@ def build_edsl_agent_list_dict(survey_name: str, args: argparse.Namespace) -> di
         "max_agent_material_chars": max_chars,
         "traits_presentation_template_source": traits_template_source,
         "agent_count": len(respondent_ids),
+        "include_metadata_context": include_metadata,
+        "uncoded_metadata_keys": (
+            uncoded_metadata_keys(metadata_by_respondent, excluded_metadata_keys) if include_metadata else []
+        ),
     }
     return data
 
