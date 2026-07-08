@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .cli import *  # noqa: F403
+from .costs import results_cost_summary
 
 
 def _cli():
@@ -86,6 +87,7 @@ def cmd_probability_results_import(args: argparse.Namespace) -> dict[str, Any]:
             "extracted_count": len(extracted),
             "issue_count": len(issues),
             "issues": issues,
+            "cost": results_cost_summary(results),
         },
         next_steps=[f"zwill prob-results report --survey {args.survey} --job-id {job_id}"],
     )

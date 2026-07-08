@@ -39,6 +39,7 @@ zwill = [
     "skills/*/SKILL.md",
     "skills/*/agents/openai.yaml",
     "assets/*.css",
+    "guides/*.md",
 ]
 
 [tool.ruff]

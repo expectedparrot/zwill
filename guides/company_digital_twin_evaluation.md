@@ -294,6 +294,36 @@ The right threshold depends on the use case. For exploratory research or priorit
 
 ## Step 9: Produce A Final Readout
 
+### The one-command validation (recommended)
+
+Once one or more twin jobs are imported, `zwill twin-validate` runs the whole
+rigorous flow in a single gated step and writes a self-contained bundle:
+
+```bash
+zwill twin-validate \
+  --survey customer_validation \
+  --jobs <twin_job_id_1>,<twin_job_id_2> \
+  --out validation_bundle
+```
+
+This runs, in order:
+
+1. the **context leakage audit** over the held-out targets;
+2. the **conditional baseline**, fit on the *same respondents* the twin jobs
+   scored (so every model is compared on equal footing — needs `OPENAI_API_KEY`
+   for embeddings; pass `--skip-baseline` to omit it);
+3. **bootstrap confidence intervals** on each model's scores and on the paired
+   twin-minus-baseline deltas; and
+4. the **HTML validation report**, which embeds the skill scores, the bootstrap
+   panel, probability-granularity check, correlation-attenuation verdict, and the
+   baseline appendix.
+
+The bundle directory contains `report.html`, `bootstrap.json`,
+`leakage_audit.json`, and a `manifest.json`. The individual commands below remain
+available when you want to run or re-run a single step.
+
+### The report catalog
+
 Use the report catalog to see what is available:
 
 ```bash

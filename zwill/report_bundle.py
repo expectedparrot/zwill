@@ -3,6 +3,79 @@ from __future__ import annotations
 from .cli import *  # noqa: F403
 
 
+def cmd_report_generate_interpretations(args: argparse.Namespace) -> dict[str, Any]:
+    """Run the full export -> edsl-run -> import -> render chain for the report's
+    generated interpretations (the one-shot analysis and/or the twin executive
+    summary), so the final report gate can be satisfied with one command instead
+    of eight."""
+    from .cli_parser import build_parser
+
+    parser = build_parser()
+
+    def run_sub(argv: list[str]) -> dict[str, Any]:
+        sub_args = parser.parse_args(argv)
+        result = sub_args.func(sub_args)
+        if isinstance(result, dict) and result.get("status") not in (None, "ok"):
+            raise ZwillError(
+                "subcommand_failed",
+                f"Step failed: zwill {' '.join(argv[:2])}.",
+                context={"argv": argv, "result": result},
+            )
+        return result if isinstance(result, dict) else {}
+
+    survey = args.survey
+    if not getattr(args, "job_id", None) and not getattr(args, "probability_job_id", None):
+        raise ZwillError(
+            "invalid_input",
+            "Pass --job-id (twin executive summary) and/or --probability-job-id (one-shot analysis).",
+        )
+    require_survey(survey)
+    out_dir = Path(args.path) if getattr(args, "path", None) else Path(f"{survey}_report")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    env_args = ["--env-path", args.env_path] if getattr(args, "env_path", None) else []
+    steps: dict[str, Any] = {}
+
+    if getattr(args, "probability_job_id", None):
+        html = str(out_dir / "one-shot-marginals.html")
+        export = run_sub(
+            ["prob-results", "analysis-export", "--survey", survey, "--job-id", args.probability_job_id, "--path", html]
+        )
+        report_id = export["data"]["report_id"]
+        job_path = export["data"]["job_path"]
+        results_path = str(default_practitioner_report_paths(report_id)["dir"] / "results.json.gz")
+        run_sub(["edsl-run", "--job", job_path, "--path", results_path, *env_args])
+        run_sub(["prob-results", "analysis-import", "--report-id", report_id, "--path", results_path])
+        rendered = run_sub(["prob-results", "analysis-render", "--report-id", report_id, "--path", html])
+        steps["one_shot_analysis"] = {"report_id": report_id, "path": rendered["data"]["path"]}
+
+    if getattr(args, "job_id", None):
+        html = str(out_dir / "executive-summary.html")
+        export = run_sub(
+            [
+                "twin-results", "executive-summary-export", "--survey", survey, "--job-id", args.job_id,
+                "--path", html, "--permutations", str(args.permutations), "--seed", str(args.seed),
+            ]
+        )
+        report_id = export["data"]["report_id"]
+        job_path = export["data"]["job_path"]
+        results_path = str(default_practitioner_report_paths(report_id)["dir"] / "results.json.gz")
+        run_sub(["edsl-run", "--job", job_path, "--path", results_path, *env_args])
+        run_sub(["twin-results", "executive-summary-import", "--report-id", report_id, "--path", results_path])
+        rendered = run_sub(["twin-results", "executive-summary-render", "--report-id", report_id, "--path", html])
+        steps["executive_summary"] = {"report_id": report_id, "path": rendered["data"]["path"]}
+
+    return envelope(
+        "zwill report generate-interpretations",
+        "ok",
+        {"survey": survey, "output_dir": str(out_dir), "steps": steps},
+        next_steps=[
+            f"zwill report render --survey {survey} --path {out_dir} --final"
+            + (f" --job-id {args.job_id}" if getattr(args, "job_id", None) else "")
+            + (f" --probability-job-id {args.probability_job_id}" if getattr(args, "probability_job_id", None) else "")
+        ],
+    )
+
+
 def report_catalog_entry(
     *,
     report_id: str,
@@ -76,7 +149,7 @@ def build_report_catalog(survey: str) -> dict[str, Any]:
             if score > best_pair_score:
                 best_pair_score = score
                 comparison_pair = [left, right]
-    compare_jobs = ",".join(comparison_pair) if len(comparison_pair) >= 2 else "<job1>,<job2>"
+    compare_jobs = ",".join(sorted(comparison_pair)) if len(comparison_pair) >= 2 else "<job1>,<job2>"
     experiment_jobs = ",".join(recorded_experiment_jobs[:2]) if len(recorded_experiment_jobs) >= 2 else "<recorded_job1>,<recorded_job2>"
     executive_summary_path = Path("artifacts") / f"{base}_executive_summary.html"
     if not executive_summary_path.exists():

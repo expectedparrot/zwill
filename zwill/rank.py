@@ -48,55 +48,147 @@ def split_rank_item_text(question_text: str) -> tuple[str, str] | None:
     return stem, item
 
 
+# Rank-ish wording used by the fallback heuristic (numeric 1..N options plus one
+# of these phrases in the stem). Kept as a small, explicit, survey-agnostic list
+# -- prefer declaring `rank_task_id` on the rows to avoid the heuristic entirely.
+RANK_STEM_PHRASES = (
+    "rank",
+    "ranking",
+    "most appealing",
+    "least appealing",
+    "how appealing",
+    "in order of",
+    "order these",
+    "order the following",
+)
+
+
+def stem_looks_like_rank(stem: str) -> bool:
+    stem_lower = stem.lower()
+    return any(phrase in stem_lower for phrase in RANK_STEM_PHRASES)
+
+
+def _rank_item_label(question: dict[str, Any], split_label: str | None) -> str:
+    declared = question.get("rank_item_label")
+    if declared:
+        return str(declared)
+    if split_label:
+        return split_label
+    return str(question.get("question_text") or question.get("question_name") or "")
+
+
+def _build_rank_task(task_id: str, stem: str, rows: list[dict[str, Any]], direction: str) -> dict[str, Any]:
+    rows = sorted(rows, key=lambda row: natural_item_sort_key(row.get("question_name")))
+    items = [
+        {
+            "item_id": row["question_name"],
+            "label": row["_rank_item_label"],
+            "source_question_text": row.get("question_text"),
+        }
+        for row in rows
+    ]
+    return {
+        "rank_task_id": task_id,
+        "rank_task_text": stem,
+        "rank_direction": direction,
+        "items": items,
+        "source_question_names": [item["item_id"] for item in items],
+        "item_count": len(items),
+    }
+
+
 def detect_rank_tasks(questions: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    # Merge two grouping signals into a single task keyed by a canonical id:
+    #  1. Explicit `rank_task_id` on the rows (robust, recommended).
+    #  2. Heuristic fallback: numeric 1..N options AND rank-ish stem wording (no
+    #     survey-specific column-name regex).
+    # Both run over ALL questions so a battery is grouped consistently even while
+    # it is only partially annotated (e.g. items added one at a time), and items
+    # explicitly claimed under one id never leak into a heuristic group.
+    merged: dict[str, dict[str, Any]] = {}
+    claimed: dict[str, str] = {}  # question_name -> explicit task_id
+
+    def bucket_for(task_id: str, stem: str, direction: str) -> dict[str, Any]:
+        entry = merged.setdefault(task_id, {"items": {}, "stem": stem, "direction": direction})
+        if stem and not entry["stem"]:
+            entry["stem"] = stem
+        return entry
+
+    # 1. Explicit declarations.
+    explicit_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for question in questions:
-        options = question.get("question_options") or []
-        if not is_numeric_rank_options(options):
+        declared = str(question.get("rank_task_id") or "").strip()
+        if declared:
+            explicit_groups[declared].append(question)
+    for declared, group in explicit_groups.items():
+        task_id = rank_task_slug(declared)
+        for question in group:
+            split = split_rank_item_text(str(question.get("question_text") or ""))
+            _, split_label = split if split else (None, None)
+            row = dict(question)
+            row["_rank_item_label"] = _rank_item_label(question, split_label)
+            stem = str(question.get("rank_task_text") or (split[0] if split else "")) or declared
+            direction = str(question.get("rank_direction") or "1_is_best")
+            entry = bucket_for(task_id, stem, direction)
+            entry["items"].setdefault(row["question_name"], row)
+            claimed[str(row["question_name"])] = task_id
+
+    # 2. Heuristic groups by stem, over all questions.
+    heuristic_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for question in questions:
+        if not is_numeric_rank_options(question.get("question_options") or []):
             continue
         split = split_rank_item_text(str(question.get("question_text") or ""))
         if not split:
             continue
         stem, item_label = split
-        stem_lower = stem.lower()
-        source_name = str(question.get("question_name") or "")
-        looks_like_rank = (
-            "rank" in stem_lower
-            or "most appealing" in stem_lower
-            or re.search(r"q0?(11|21)_.*_\d+$", source_name.lower()) is not None
-        )
-        if not looks_like_rank:
+        if not stem_looks_like_rank(stem):
             continue
         row = dict(question)
-        row["_rank_stem"] = stem
         row["_rank_item_label"] = item_label
-        groups[stem].append(row)
+        heuristic_groups[stem].append(row)
+    for stem, group in heuristic_groups.items():
+        task_id = rank_task_slug(common_rank_task_id(group, stem))
+        entry = bucket_for(task_id, stem, "1_is_best")
+        for row in group:
+            name = str(row["question_name"])
+            # An item explicitly claimed under a different id stays with its
+            # explicit task; don't duplicate it into a heuristic group.
+            if claimed.get(name, task_id) != task_id:
+                continue
+            entry["items"].setdefault(name, row)
 
     tasks = []
-    for stem, rows in groups.items():
+    for task_id, entry in merged.items():
+        rows = list(entry["items"].values())
         if len(rows) < 2:
             continue
-        rows = sorted(rows, key=lambda row: natural_item_sort_key(row.get("question_name")))
-        task_id = rank_task_slug(common_rank_task_id(rows, stem))
-        items = [
-            {
-                "item_id": row["question_name"],
-                "label": row["_rank_item_label"],
-                "source_question_text": row.get("question_text"),
-            }
-            for row in rows
-        ]
-        tasks.append(
-            {
-                "rank_task_id": task_id,
-                "rank_task_text": stem,
-                "rank_direction": "1_is_best",
-                "items": items,
-                "source_question_names": [item["item_id"] for item in items],
-                "item_count": len(items),
-            }
-        )
+        tasks.append(_build_rank_task(task_id, entry["stem"] or task_id, rows, entry["direction"]))
     return sorted(tasks, key=lambda task: task["rank_task_id"])
+
+
+def potential_undetected_rank_batteries(
+    questions: list[dict[str, Any]], tasks: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Groups of numeric-option, item-shaped questions (`q<n>_<mid>_<k>`) that the
+    heuristic did NOT group into a battery -- likely a missed rank battery the user
+    should declare with an explicit `rank_task_id`."""
+    grouped_items = {name for task in tasks for name in task.get("source_question_names", [])}
+    by_prefix: dict[str, list[str]] = defaultdict(list)
+    for question in questions:
+        name = str(question.get("question_name") or "")
+        if name in grouped_items:
+            continue
+        if not is_numeric_rank_options(question.get("question_options") or []):
+            continue
+        match = re.match(r"^(q\d+_.+)_\d+$", name, flags=re.IGNORECASE)
+        if match:
+            by_prefix[match.group(1)].append(name)
+    return [
+        {"suspected_prefix": prefix, "question_names": sorted(names, key=natural_item_sort_key)}
+        for prefix, names in by_prefix.items()
+        if len(names) >= 2
+    ]
 
 
 def annotate_rank_items(questions: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:

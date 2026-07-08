@@ -115,6 +115,43 @@ def openai_embedder(
     return embed
 
 
+# ---------------------------------------------------------------------------
+# Expected Parrot / EDSL embedder (remote by default, so it needs only an
+# EXPECTED_PARROT_API_KEY -- no direct OpenAI key). Lazy-imported so importing
+# this module never requires edsl.
+# ---------------------------------------------------------------------------
+def edsl_embedder(
+    *,
+    model: str = DEFAULT_EMBEDDING_MODEL,
+    service_name: str = "openai",
+    dimensions: int | None = 512,
+    remote: bool = True,
+    batch_size: int = 256,
+) -> Embedder:
+    def embed(texts: list[str]) -> list[list[float]]:
+        try:
+            from edsl.embeddings import EmbeddingModel
+        except ImportError as exc:  # pragma: no cover - exercised only without edsl
+            raise RuntimeError(
+                "The 'edsl' package is required to embed via Expected Parrot. "
+                "Install it, or pass a custom embedder / use --embedder openai."
+            ) from exc
+        embedding_model = EmbeddingModel(
+            model,
+            service_name=service_name,
+            dimensions=dimensions,
+            remote=remote,
+        )
+        vectors: list[list[float]] = []
+        for start in range(0, len(texts), batch_size):
+            chunk = texts[start : start + batch_size]
+            result = embedding_model.embed(list(chunk))
+            vectors.extend(list(vector) for vector in result.embeddings)
+        return vectors
+
+    return embed
+
+
 def embedding_index(texts: list[str], embedder: Embedder) -> dict[str, list[float]]:
     """Embed each unique text exactly once and return a text -> vector map."""
     unique = sorted({text for text in texts if text})

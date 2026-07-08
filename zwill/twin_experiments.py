@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .cli import *  # noqa: F403
+from .twin import normalize_name_list
 
 
 def twin_experiments_path(sdir: Path) -> Path:
@@ -191,7 +192,11 @@ def twin_export_namespace_from_plan(config: dict[str, Any], *, survey: str, plan
         exclude_context_question=list_or_none(config.get("exclude_context_question")),
         leakage_exclusion=list_or_none(config.get("leakage_exclusion")),
         context_question_count=config.get("context_question_count"),
-        include_survey_context=False,
+        # Honor the plan's setting (from `defaults` or an approach's
+        # `construction`) rather than always dropping survey context. Plan-driven
+        # validation runs default to including context.md grounding; set
+        # `include_survey_context: false` in the plan to opt out.
+        include_survey_context=bool(config.get("include_survey_context", True)),
         include_agent_material=bool(config.get("include_agent_material", False)),
         agent_material_kind=list_or_none(config.get("agent_material_kind")),
         agent_material_tag=list_or_none(config.get("agent_material_tag")),
@@ -222,22 +227,118 @@ def normalize_plan_heldout_questions(plan: dict[str, Any]) -> list[str]:
     return values
 
 
-def estimate_plan_prediction_count(plan: dict[str, Any]) -> int | None:
-    heldout_count = len(normalize_plan_heldout_questions(plan))
-    arms = plan.get("arms") or plan.get("approaches") or []
-    arm_count = len(arms) if isinstance(arms, list) and arms else 1
+def plan_value(plan: dict[str, Any], key: str, default: Any = None) -> Any:
+    """Read a plan setting from the top level, falling back to `defaults`."""
+    if plan.get(key) is not None:
+        return plan[key]
     defaults = plan.get("defaults") if isinstance(plan.get("defaults"), dict) else {}
-    sample = plan.get("sample_respondents", defaults.get("sample_respondents"))
+    return defaults.get(key, default)
+
+
+def plan_model_count(plan: dict[str, Any]) -> int:
+    defaults = plan.get("defaults") if isinstance(plan.get("defaults"), dict) else {}
     models = plan.get("models", plan.get("model", defaults.get("models", defaults.get("model"))))
     if isinstance(models, str):
-        model_count = len([item for item in models.split(",") if item.strip()])
-    elif isinstance(models, list):
-        model_count = len(models)
+        return len([item for item in models.split(",") if item.strip()]) or 1
+    if isinstance(models, list):
+        return len(models) or 1
+    return 1
+
+
+def plan_selected_respondent_ids(sdir: Path, plan: dict[str, Any]) -> list[str]:
+    """Respondents the plan selects before random sampling / missingness."""
+    respondents = [row["respondent_id"] for row in read_jsonl(sdir / "respondents.jsonl")]
+    if not respondents:
+        respondents = sorted({row["respondent_id"] for row in read_jsonl(sdir / "answers.jsonl")})
+    explicit: list[str] = list(list_or_none(plan_value(plan, "respondent")) or [])
+    respondents_csv = plan_value(plan, "respondents")
+    if respondents_csv:
+        explicit.extend(value.strip() for value in str(respondents_csv).split(",") if value.strip())
+    if explicit:
+        wanted = set(explicit)
+        selected = [respondent_id for respondent_id in respondents if respondent_id in wanted]
     else:
-        model_count = 1
-    if not heldout_count or sample is None:
+        selected = respondents
+    limit = plan_value(plan, "limit_respondents")
+    if limit is not None:
+        selected = selected[: int(limit)]
+    return selected
+
+
+def refined_scenario_count(sdir: Path, plan: dict[str, Any], heldout: list[str]) -> int | None:
+    """Count scenarios from actual per-held-out fill, respecting complete_cases.
+
+    Returns None (so the caller falls back to the naive product) when the survey
+    data isn't available or a random sub-sample makes the exact count unknowable.
+    """
+    try:
+        selected = plan_selected_respondent_ids(sdir, plan)
+    except (FileNotFoundError, KeyError):
+        return None
+    available = len(selected)
+    if available == 0:
+        return None
+    sample = plan_value(plan, "sample_respondents")
+    # A random sub-sample can't be counted exactly without replaying the RNG;
+    # only refine when every selected respondent is used.
+    if sample is not None and int(sample) < available:
+        return None
+    answer_by_respondent: dict[str, dict[str, str]] = {}
+    for answer in read_jsonl(sdir / "answers.jsonl"):
+        if answer.get("answer") is None:
+            continue
+        answer_by_respondent.setdefault(answer["respondent_id"], {})[answer["question"]] = answer["answer"]
+    if plan_value(plan, "complete_cases"):
+        heldout_set = set(heldout)
+        selected = [
+            respondent_id
+            for respondent_id in selected
+            if heldout_set.issubset(answer_by_respondent.get(respondent_id, {}))
+        ]
+    total = 0
+    for name in heldout:
+        total += sum(1 for respondent_id in selected if name in answer_by_respondent.get(respondent_id, {}))
+    return total
+
+
+def estimate_plan_prediction_count(plan: dict[str, Any], sdir: Path | None = None) -> int | None:
+    heldout = normalize_plan_heldout_questions(plan)
+    heldout_count = len(heldout)
+    if not heldout_count:
+        return None
+    arms = plan.get("arms") or plan.get("approaches") or []
+    arm_count = len(arms) if isinstance(arms, list) and arms else 1
+    model_count = plan_model_count(plan)
+    # When survey data is available, estimate from actual per-held-out fill
+    # (respecting complete_cases) instead of the naive sample x heldout product,
+    # so branch/missingness doesn't manufacture false "counts differ" alarms.
+    if sdir is not None:
+        refined = refined_scenario_count(sdir, plan, heldout)
+        if refined is not None:
+            return refined * arm_count * model_count
+    sample = plan_value(plan, "sample_respondents")
+    if sample is None:
         return None
     return int(sample) * heldout_count * arm_count * model_count
+
+
+def sample_exceeds_population_warning(sdir: Path, plan: dict[str, Any]) -> dict[str, Any] | None:
+    sample = plan_value(plan, "sample_respondents")
+    if sample is None:
+        return None
+    try:
+        available = len(plan_selected_respondent_ids(sdir, plan))
+    except (FileNotFoundError, KeyError):
+        return None
+    if available and int(sample) > available:
+        return {
+            "code": "sample_exceeds_population",
+            "message": (
+                f"sample_respondents={int(sample)} exceeds the {available} available "
+                "respondents; every respondent will be used and the extra sample size has no effect."
+            ),
+        }
+    return None
 
 
 def edsl_job_prediction_count(job_dict: dict[str, Any]) -> int:
@@ -293,7 +394,9 @@ def approved_plan_metadata(path: str | None) -> dict[str, Any] | None:
         "plan_path": str(plan_path),
         "approval": plan_approval_record(plan),
         "heldout_questions": normalize_plan_heldout_questions(plan),
-        "prediction_count_estimate": estimate_plan_prediction_count(plan),
+        "prediction_count_estimate": plan.get("prediction_count_estimate")
+        if plan.get("prediction_count_estimate") is not None
+        else estimate_plan_prediction_count(plan),
     }
 
 
@@ -315,12 +418,75 @@ def plan_id_from_config(plan: dict[str, Any], plan_path: Path) -> str:
     return twin_approach_id(str(plan.get("plan_id") or plan.get("name") or hashlib.sha256(raw.encode()).hexdigest()[:12]))
 
 
+VERBOSE_OUTPUT_CAP_HINT = "google:gemini-2.5-pro:maxOutputTokens=8192"
+
+
+def _construction_model_specs(construction: dict[str, Any]) -> list[str]:
+    models = construction.get("models")
+    if models is None:
+        models = construction.get("model")
+    return normalize_name_list(models)
+
+
+def verbose_model_output_cap_warning(construction: dict[str, Any]) -> dict[str, Any] | None:
+    """Warn when a Gemini/thinking model is exported without an output-token cap.
+
+    Provider defaults (e.g. Gemini's 2048 `maxOutputTokens`) can be exhausted by
+    reasoning tokens and truncate the probability JSON into malformed rows. There
+    is no way to know the cap is missing until rows fail to parse, so surface it
+    at export time.
+    """
+    models = _construction_model_specs(construction)
+    verbose = sorted({m for m in models if "gemini" in m.lower() or m.lower().startswith("google:")})
+    if not verbose:
+        return None
+    params = normalize_name_list(construction.get("model_param"))
+    if any("maxoutputtokens" in param.lower() for param in params):
+        return None
+    return {
+        "code": "verbose_model_missing_output_cap",
+        "message": (
+            "Model(s) "
+            + ", ".join(verbose)
+            + " were exported without an explicit output-token cap; the provider default can be "
+            "exhausted by reasoning tokens and truncate the probability JSON into malformed rows. "
+            "Set a generous cap in the plan's `model_param`, e.g. " + VERBOSE_OUTPUT_CAP_HINT + "."
+        ),
+        "models": verbose,
+    }
+
+
+def unknown_plan_key_warnings(plan: dict[str, Any]) -> list[dict[str, Any]]:
+    """Flag common misspelled/ignored plan keys so silent drops become visible.
+
+    The recognized per-model parameter key is `model_param`; `model_params` is a
+    frequent mistake that is otherwise dropped without notice.
+    """
+    warnings: list[dict[str, Any]] = []
+    containers: list[tuple[str, Any]] = [("top level", plan), ("defaults", plan.get("defaults"))]
+    for arm in plan.get("arms") or plan.get("approaches") or []:
+        if isinstance(arm, dict):
+            containers.append(("an arm", arm))
+    seen: set[str] = set()
+    for name, container in containers:
+        if isinstance(container, dict) and "model_params" in container and name not in seen:
+            seen.add(name)
+            warnings.append(
+                {
+                    "code": "unknown_plan_key",
+                    "message": (
+                        f"Ignored unrecognized plan key `model_params` ({name}); the recognized key is "
+                        "`model_param` (a list of `service:model:key=value` strings)."
+                    ),
+                }
+            )
+    return warnings
+
+
 def cmd_twin_experiment_init_plan(args: argparse.Namespace) -> dict[str, Any]:
     sdir = require_survey(args.survey)
     questions = questions_by_name(sdir)
-    heldout = list_or_none(args.heldout_question) or []
-    if args.heldout_questions:
-        heldout.extend(name.strip() for name in args.heldout_questions.split(",") if name.strip())
+    heldout = normalize_name_list(args.heldout_question) + normalize_name_list(args.heldout_questions)
     if not heldout:
         mc_questions = [
             name
@@ -336,6 +502,12 @@ def cmd_twin_experiment_init_plan(args: argparse.Namespace) -> dict[str, Any]:
     approaches = [twin_approach_id(value) for value in (args.approach_id or [])]
     if not approaches:
         approaches = ["baseline"]
+    context_names = normalize_name_list(getattr(args, "context_question", None)) + normalize_name_list(
+        getattr(args, "context_questions", None)
+    )
+    unknown_context = [name for name in context_names if name not in questions]
+    if unknown_context:
+        raise ZwillError("invalid_input", "Unknown context questions.", context={"unknown_questions": unknown_context})
     plan = {
         "plan_id": args.plan_id,
         "survey": args.survey,
@@ -345,8 +517,14 @@ def cmd_twin_experiment_init_plan(args: argparse.Namespace) -> dict[str, Any]:
             "sample_respondents": args.sample_respondents,
             "seed": args.seed,
             "complete_cases": True,
+            "stratify_actual": True if getattr(args, "stratify_actual", False) else None,
             "context_question_count": args.context_question_count,
+            "context_questions": getattr(args, "context_questions", None),
+            "context_question": list_or_none(getattr(args, "context_question", None)),
+            "exclude_context_question": list_or_none(getattr(args, "exclude_context_question", None)),
+            "leakage_exclusion": list_or_none(getattr(args, "leakage_exclusion", None)),
             "model": list_or_none(args.model) or ["openai:gpt-5.5"],
+            "model_param": list_or_none(getattr(args, "model_param", None)),
         },
         "arms": [{"approach_id": approach_id} for approach_id in approaches],
         "approval": {
@@ -355,16 +533,24 @@ def cmd_twin_experiment_init_plan(args: argparse.Namespace) -> dict[str, Any]:
             "required_before": ["twin-experiment export-plan", "twin-study run", "twin-study export-holdout", "edsl-export --target twin-probability-job"],
         },
     }
-    estimate = estimate_plan_prediction_count(plan)
+    estimate = estimate_plan_prediction_count(plan, sdir)
     if estimate is not None:
         plan["prediction_count_estimate"] = estimate
     plan["defaults"] = {key: value for key, value in plan["defaults"].items() if value is not None}
     path = Path(args.path or f"{args.plan_id}.json")
     write_json(path, plan)
+    warnings: list[dict[str, Any]] = []
+    sample_warning = sample_exceeds_population_warning(sdir, plan)
+    if sample_warning:
+        warnings.append(sample_warning)
+    cap_warning = verbose_model_output_cap_warning(plan.get("defaults") or {})
+    if cap_warning:
+        warnings.append(cap_warning)
     return envelope(
         "zwill twin-experiment init-plan",
         "ok",
         {"path": str(path), "plan": plan},
+        warnings=warnings or None,
         next_steps=[f"zwill twin-experiment approve --path {path}", f"zwill twin-experiment export-plan --path {path}"],
     )
 
@@ -373,8 +559,7 @@ def cmd_twin_experiment_approve(args: argparse.Namespace) -> dict[str, Any]:
     plan_path = Path(args.path)
     plan = load_object_file(plan_path, kind="Twin experiment plan")
     survey = args.survey or plan.get("survey")
-    if survey:
-        require_survey(str(survey))
+    sdir = require_survey(str(survey)) if survey else None
     approval = {
         "approved": True,
         "status": "approved",
@@ -389,10 +574,17 @@ def cmd_twin_experiment_approve(args: argparse.Namespace) -> dict[str, Any]:
         approval["estimated_time"] = args.estimated_time
     plan["approval"] = approval
     plan["approved"] = True
-    estimate = estimate_plan_prediction_count(plan)
-    if estimate is not None:
-        plan["prediction_count_estimate"] = estimate
+    # Record the naive estimate separately and only fill in
+    # prediction_count_estimate when the user hasn't set one, so an accurate
+    # user-provided estimate is never clobbered by the naive product.
+    naive_estimate = estimate_plan_prediction_count(plan, sdir)
+    if naive_estimate is not None:
+        plan["prediction_count_estimate_naive"] = naive_estimate
+        if plan.get("prediction_count_estimate") is None:
+            plan["prediction_count_estimate"] = naive_estimate
+    estimate = plan.get("prediction_count_estimate")
     write_json(plan_path, plan)
+    warning = sample_exceeds_population_warning(sdir, plan) if sdir else None
     return envelope(
         "zwill twin-experiment approve",
         "ok",
@@ -403,6 +595,7 @@ def cmd_twin_experiment_approve(args: argparse.Namespace) -> dict[str, Any]:
             "approval": approval,
             "prediction_count_estimate": estimate,
         },
+        warnings=[warning] if warning else None,
         next_steps=[f"zwill twin-experiment export-plan --path {plan_path}"],
     )
 
@@ -425,7 +618,9 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
     output_dir = Path(args.output_dir) if args.output_dir else digital_twin_jobs_dir(sdir) / "plans" / plan_id
     output_dir.mkdir(parents=True, exist_ok=True)
     approval = plan_approval_record(plan)
-    approved_estimate = estimate_plan_prediction_count(plan)
+    approved_estimate = plan.get("prediction_count_estimate")
+    if approved_estimate is None:
+        approved_estimate = estimate_plan_prediction_count(plan, sdir)
 
     registered = {item["approach_id"]: item for item in read_twin_approaches(sdir)}
     defaults = dict(plan.get("defaults") or {})
@@ -440,6 +635,8 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
 
     exported = []
     experiment_records = []
+    warnings: list[dict[str, Any]] = list(unknown_plan_key_warnings(plan))
+    seen_cap_warnings: set[str] = set()
     for index, arm in enumerate(arms, start=1):
         if isinstance(arm, str):
             arm = {"approach_id": arm}
@@ -448,10 +645,11 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
         approach = None
         if arm.get("approach_id"):
             approach = registered.get(twin_approach_id(str(arm["approach_id"])))
-            if not approach and not arm.get("name"):
-                raise ZwillError("not_found", f"Twin approach not found: {arm['approach_id']}.")
-        inline = normalize_twin_approach_record(arm) if not approach else None
-        source_approach = approach or inline or normalize_twin_approach_record(arm)
+        # An arm naming an unregistered approach_id is treated as an inline
+        # approach definition rather than an error. init-plan emits bare
+        # {"approach_id": ...} arms, so a freshly initialized plan exports
+        # without a separate `twin-approach` registration step.
+        source_approach = approach or normalize_twin_approach_record(arm)
         construction = merge_plan_dicts(
             defaults,
             plan_heldout,
@@ -459,6 +657,12 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
             arm.get("construction") if isinstance(arm.get("construction"), dict) else None,
             {key: arm[key] for key in TWIN_APPROACH_CONSTRUCTION_KEYS if key in arm},
         )
+        cap_warning = verbose_model_output_cap_warning(construction)
+        if cap_warning:
+            cap_key = ",".join(cap_warning["models"])
+            if cap_key not in seen_cap_warnings:
+                seen_cap_warnings.add(cap_key)
+                warnings.append(cap_warning)
         export_args = twin_export_namespace_from_plan(construction, survey=str(survey), plan_dir=plan_path.parent)
         job_dict = build_edsl_digital_twin_job_dict(str(survey), export_args)
         job_dict["zwill"]["approved_validation_plan"] = {
@@ -542,6 +746,7 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
         "zwill twin-experiment export-plan",
         "ok",
         {"manifest_path": str(manifest_path), **manifest},
+        warnings=warnings or None,
         next_steps=[
             (
                 f"zwill twin-experiment approve --path {plan_path}"
@@ -553,6 +758,100 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
             f"zwill twin-results import --survey {survey} --path <results.json.gz>",
             f"zwill twin-experiment compare --survey {survey} --metric {manifest['primary_metric']}",
         ],
+    )
+
+
+def cmd_twin_experiment_validate(args: argparse.Namespace) -> dict[str, Any]:
+    """Lint a plan file before approve/export: resolve questions, models, and
+    counts, and surface problems/warnings without writing any jobs."""
+    plan_path = Path(args.path)
+    plan = load_object_file(plan_path, kind="Twin experiment plan")
+    survey = args.survey or plan.get("survey")
+    if not survey:
+        raise ZwillError("invalid_input", "Twin experiment plan needs a survey, or pass --survey.")
+    sdir = require_survey(str(survey))
+    plan_id = args.plan_id or plan_id_from_config(plan, plan_path)
+
+    warnings: list[dict[str, Any]] = list(unknown_plan_key_warnings(plan))
+    problems: list[dict[str, Any]] = []
+
+    arms = plan.get("arms") or plan.get("approaches")
+    if not isinstance(arms, list) or not arms:
+        problems.append({"code": "invalid_input", "message": "Plan needs a non-empty arms or approaches list."})
+        arms = []
+
+    registered = {item["approach_id"]: item for item in read_twin_approaches(sdir)}
+    defaults = dict(plan.get("defaults") or {})
+    plan_heldout = {key: plan[key] for key in ["heldout_question", "heldout_questions"] if key in plan}
+
+    exported_prediction_count = 0
+    seen_cap: set[str] = set()
+    arm_reports: list[dict[str, Any]] = []
+    for index, arm in enumerate(arms, start=1):
+        if isinstance(arm, str):
+            arm = {"approach_id": arm}
+        if not isinstance(arm, dict):
+            problems.append({"code": "invalid_input", "message": f"Arm {index} must be a string or object."})
+            continue
+        approach = registered.get(twin_approach_id(str(arm["approach_id"]))) if arm.get("approach_id") else None
+        source_approach = approach or normalize_twin_approach_record(arm)
+        construction = merge_plan_dicts(
+            defaults,
+            plan_heldout,
+            source_approach.get("construction", {}),
+            arm.get("construction") if isinstance(arm.get("construction"), dict) else None,
+            {key: arm[key] for key in TWIN_APPROACH_CONSTRUCTION_KEYS if key in arm},
+        )
+        cap_warning = verbose_model_output_cap_warning(construction)
+        if cap_warning:
+            cap_key = ",".join(cap_warning["models"])
+            if cap_key not in seen_cap:
+                seen_cap.add(cap_key)
+                warnings.append(cap_warning)
+        try:
+            export_args = twin_export_namespace_from_plan(construction, survey=str(survey), plan_dir=plan_path.parent)
+            job_dict = build_edsl_digital_twin_job_dict(str(survey), export_args)
+        except ZwillError as exc:
+            problems.append(
+                {"arm": source_approach.get("approach_id"), "code": exc.code, "message": exc.message}
+            )
+            continue
+        count = edsl_job_prediction_count(job_dict)
+        exported_prediction_count += count
+        arm_reports.append({"approach_id": source_approach.get("approach_id"), "prediction_count": count})
+
+    sample_warning = sample_exceeds_population_warning(sdir, plan)
+    if sample_warning:
+        warnings.append(sample_warning)
+
+    approved_estimate = plan.get("prediction_count_estimate")
+    if approved_estimate is None:
+        approved_estimate = estimate_plan_prediction_count(plan, sdir)
+    valid = not problems
+    count_check = prediction_count_check(approved_estimate, exported_prediction_count) if valid else None
+
+    if valid and not is_plan_approved(plan):
+        next_steps = [f"zwill twin-experiment approve --path {plan_path}"]
+    elif valid:
+        next_steps = [f"zwill twin-experiment export-plan --path {plan_path}"]
+    else:
+        next_steps = ["Fix the reported problems, then re-run validate."]
+    return envelope(
+        "zwill twin-experiment validate",
+        "ok" if valid else "error",
+        {
+            "plan_id": plan_id,
+            "survey": str(survey),
+            "valid": valid,
+            "approved": is_plan_approved(plan),
+            "arms": arm_reports,
+            "prediction_count_estimate": approved_estimate,
+            "prediction_count_exported": exported_prediction_count if valid else None,
+            "export_count_check": count_check,
+            "problems": problems,
+        },
+        warnings=warnings or None,
+        next_steps=next_steps,
     )
 
 
@@ -1298,9 +1597,7 @@ def twin_experiment_response_changes(
 def selected_twin_experiments(args: argparse.Namespace, sdir: Path) -> list[dict[str, Any]]:
     experiments = read_twin_experiments(sdir)
     selected_ids = args.experiment_id or []
-    selected_jobs = args.job_id or []
-    if args.jobs:
-        selected_jobs.extend(job_id.strip() for job_id in args.jobs.split(",") if job_id.strip())
+    selected_jobs = list(args.job_id or []) + normalize_name_list(args.jobs)
     if selected_ids:
         experiments = [item for item in experiments if item.get("experiment_id") in selected_ids]
     if selected_jobs:

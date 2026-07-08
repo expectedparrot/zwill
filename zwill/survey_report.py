@@ -73,14 +73,29 @@ def compute_draft_marginals(
     respondents: list[dict[str, Any]],
     answers: list[dict[str, Any]],
 ) -> dict[str, dict[str, dict[str, float | int]]]:
+    # Lazy import: cli imports survey_report, so importing cli at module load
+    # would be circular. Reusing the canonical splitter avoids delimiter drift.
+    from .cli import DEFAULT_CHECKBOX_DELIMITER, checkbox_selection_tokens
+
     respondents_by_id = {row["respondent_id"]: row for row in respondents}
+    question_by_name = {str(question["question_name"]): question for question in questions}
     counts: dict[str, Counter[str]] = defaultdict(Counter)
     weighted_counts: dict[str, Counter[str]] = defaultdict(Counter)
     for answer in answers:
-        value = answer_value(answer)
+        qname = str(answer.get("question"))
+        question = question_by_name.get(qname, {})
+        raw = answer.get("answer")
         weight = float(respondents_by_id.get(answer.get("respondent_id"), {}).get("weight", 1.0))
-        counts[str(answer.get("question"))][value] += 1
-        weighted_counts[str(answer.get("question"))][value] += weight
+        if raw is None:
+            selected = ["__missing__"]
+        elif question.get("question_type") == "checkbox":
+            delimiter = question.get("option_delimiter") or DEFAULT_CHECKBOX_DELIMITER
+            selected = checkbox_selection_tokens(raw, delimiter) or ["__missing__"]
+        else:
+            selected = [answer_value(answer)]
+        for value in selected:
+            counts[qname][value] += 1
+            weighted_counts[qname][value] += weight
     marginals: dict[str, dict[str, dict[str, float | int]]] = {}
     for question in questions:
         qname = str(question["question_name"])

@@ -7,6 +7,30 @@ from pathlib import Path
 from typing import Any
 
 
+def normalize_name_list(value: Any) -> list[str]:
+    """Coerce a name selector into a clean list of names.
+
+    Accepts ``None``, a comma-separated string, or a list/tuple of names (each
+    item may itself be a comma-separated string). Whitespace is stripped and
+    empty entries dropped. This lets plan-driven exports pass either a JSON
+    list or a comma-separated string for fields like ``context_questions`` /
+    ``heldout_questions`` without the downstream selectors crashing on a
+    ``list.split`` call.
+    """
+    if value is None:
+        return []
+    items = list(value) if isinstance(value, (list, tuple)) else [value]
+    names: list[str] = []
+    for item in items:
+        if item is None:
+            continue
+        for name in str(item).split(","):
+            stripped = name.strip()
+            if stripped:
+                names.append(stripped)
+    return names
+
+
 def digital_twin_jobs_dir(sdir: Path) -> Path:
     return sdir / "digital_twin_jobs"
 
@@ -104,12 +128,24 @@ def select_context_questions(
     selected_questions: list[str],
     heldout_question: str,
     count: int | None,
+    priority_by_question: dict[str, float] | None = None,
 ) -> list[str]:
+    """Choose which of a respondent's answered questions to show as context.
+
+    Candidates keep the order of `selected_questions` (i.e. questions.jsonl
+    order), so column ordering decides what a count-limited twin sees. Pass
+    `priority_by_question` (from a question's `context_priority` field) to pull
+    high-priority questions to the front before the count cut; ties keep the
+    positional order (a stable sort), so behavior is unchanged when no priorities
+    are set.
+    """
     candidates = [
         question_name
         for question_name in selected_questions
         if question_name != heldout_question and question_name in respondent_answers
     ]
+    if priority_by_question:
+        candidates.sort(key=lambda name: -float(priority_by_question.get(name, 0.0)))
     if count is not None:
         candidates = candidates[:count]
     return candidates
@@ -117,6 +153,21 @@ def select_context_questions(
 
 def one_hot_metrics(options: list[str], actual_answer: str, predicted: dict[str, float]) -> dict[str, float | int | None]:
     epsilon = 1e-12
+    if not options:
+        # Nothing to score against (e.g. a malformed row with no options). Return
+        # unscoreable metrics rather than dividing by zero so the import can
+        # quarantine the row instead of crashing the whole job.
+        return {
+            "probability_actual": 0.0,
+            "uniform_probability_actual": None,
+            "negative_log_likelihood": None,
+            "uniform_negative_log_likelihood": None,
+            "brier": None,
+            "uniform_brier": None,
+            "brier_improvement": None,
+            "top1_correct": 0,
+            "actual_rank": None,
+        }
     actual_values = [1.0 if option == actual_answer else 0.0 for option in options]
     predicted_values = [float(predicted.get(option, 0.0)) for option in options]
     uniform_values = [1.0 / len(options) for _ in options]

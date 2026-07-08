@@ -114,6 +114,10 @@ def cmd_question_add(args: argparse.Namespace) -> dict[str, Any]:
         "role": args.role,
         "registered_at": utc_now(),
     }
+    if getattr(args, "rank_task_id", None):
+        question["rank_task_id"] = args.rank_task_id
+    if getattr(args, "option_delimiter", None):
+        question["option_delimiter"] = args.option_delimiter
     option_labels = parse_option_labels(args.option_label)
     if option_labels:
         question["option_labels"] = option_labels
@@ -135,6 +139,20 @@ def cmd_question_import(args: argparse.Namespace) -> dict[str, Any]:
         imported.append(row["question_name"])
     annotated, rank_tasks = annotate_rank_items(list(existing.values()))
     rewrite_jsonl(sdir / "questions.jsonl", annotated)
+    warnings = []
+    suspected = potential_undetected_rank_batteries(annotated, rank_tasks)
+    if suspected:
+        warnings.append(
+            {
+                "code": "possible_undetected_rank_battery",
+                "message": (
+                    f"{len(suspected)} group(s) of numbered numeric-option questions were not "
+                    "grouped into a rank battery. If these are ranking/MaxDiff batteries, add a "
+                    "shared `rank_task_id` to their rows so they are detected reliably."
+                ),
+                "suspected_batteries": suspected,
+            }
+        )
     return envelope(
         "zwill question import",
         "ok",
@@ -145,6 +163,7 @@ def cmd_question_import(args: argparse.Namespace) -> dict[str, Any]:
             "rank_task_count": len(rank_tasks),
             "rank_tasks": rank_tasks,
         },
+        warnings=warnings,
     )
 
 
@@ -334,15 +353,7 @@ def cmd_answer_import(args: argparse.Namespace) -> dict[str, Any]:
         if question_name not in questions:
             issue = {"code": "unknown_question", "line": line, "question": question_name}
         elif "answer" in row and row.get("answer") is not None:
-            valid_options = questions[question_name].get("question_options", [])
-            if valid_options and row["answer"] not in valid_options:
-                issue = {
-                    "code": "invalid_answer_option",
-                    "line": line,
-                    "question": question_name,
-                    "answer": row["answer"],
-                    "valid_options": valid_options,
-                }
+            issue = answer_option_issue(questions[question_name], question_name, row["answer"], line)
         elif not row.get("missing_code"):
             issue = {
                 "code": "invalid_input",
@@ -401,15 +412,28 @@ def compute_marginals(sdir: Path) -> dict[str, Any]:
     questions = read_jsonl(sdir / "questions.jsonl")
     respondents = respondents_by_id(sdir)
     answers = read_jsonl(sdir / "answers.jsonl")
+    question_by_name = {question["question_name"]: question for question in questions}
     marginals: dict[str, dict[str, dict[str, float | int]]] = {}
     counts: dict[str, Counter] = defaultdict(Counter)
     weighted_counts: dict[str, Counter] = defaultdict(Counter)
     for answer in answers:
+        qname = answer["question"]
+        question = question_by_name.get(qname, {})
         value = answer.get("answer")
-        key = "__missing__" if value is None else value
         weight = float(respondents.get(answer["respondent_id"], {}).get("weight", 1.0))
-        counts[answer["question"]][key] += 1
-        weighted_counts[answer["question"]][key] += weight
+        if value is None:
+            selected = ["__missing__"]
+        elif question.get("question_type") == "checkbox":
+            # A multi-select answer contributes to every option it selected, so
+            # split it on the question's delimiter instead of counting the whole
+            # "A|B" string as one (undeclared) key that then gets dropped.
+            delimiter = question.get("option_delimiter") or DEFAULT_CHECKBOX_DELIMITER
+            selected = checkbox_selection_tokens(value, delimiter) or ["__missing__"]
+        else:
+            selected = [value]
+        for key in selected:
+            counts[qname][key] += 1
+            weighted_counts[qname][key] += weight
     for question in questions:
         qname = question["question_name"]
         keys = list(question.get("question_options", []))

@@ -1,25 +1,51 @@
 from __future__ import annotations
 
 from .cli import *  # noqa: F403
+from .twin import normalize_name_list
 from .twin_baseline import (
     DEFAULT_EMBEDDING_MODEL,
     MODEL_LABEL,
     Embedder,
     baseline_job_id,
     build_conditional_baseline_predictions,
+    edsl_embedder,
     openai_embedder,
 )
 
 
+def resolve_baseline_embedder(args: Any, embedding_model: str) -> Embedder:
+    """Pick the embedding backend for the conditional baseline.
+
+    `--embedder auto` (the default) uses a direct OpenAI key when one is present,
+    otherwise routes embeddings through Expected Parrot (remote EDSL), which needs
+    only an EXPECTED_PARROT_API_KEY. `openai` and `edsl`/`expected-parrot` force a
+    backend. This lets the gated `--require-baseline` validation run for users who
+    only have Expected Parrot credentials.
+    """
+    choice = (getattr(args, "embedder", None) or "auto").lower()
+    if choice in {"edsl", "expected-parrot", "ep", "remote"}:
+        return edsl_embedder(model=embedding_model)
+    if choice == "openai":
+        return openai_embedder(model=embedding_model)
+    # auto
+    if os.environ.get("OPENAI_API_KEY"):
+        return openai_embedder(model=embedding_model)
+    if os.environ.get("EXPECTED_PARROT_API_KEY"):
+        return edsl_embedder(model=embedding_model)
+    raise ZwillError(
+        "missing_dependency",
+        "No embedding credentials found for the conditional baseline.",
+        hint=(
+            "Set OPENAI_API_KEY for direct OpenAI embeddings, or "
+            "EXPECTED_PARROT_API_KEY to route embeddings through Expected Parrot "
+            "(--embedder edsl). Or pass --skip-baseline."
+        ),
+    )
+
+
 def selected_baseline_heldout_questions(args: Any, questions: list[dict[str, Any]]) -> list[str]:
-    values: list[str] = []
-    heldout_question = getattr(args, "heldout_question", None)
-    if isinstance(heldout_question, list):
-        values.extend(heldout_question)
-    elif heldout_question:
-        values.append(heldout_question)
-    if getattr(args, "heldout_questions", None):
-        values.extend(name.strip() for name in args.heldout_questions.split(",") if name.strip())
+    values = normalize_name_list(getattr(args, "heldout_question", None))
+    values += normalize_name_list(getattr(args, "heldout_questions", None))
     if not values:
         raise ZwillError("invalid_input", "--heldout-question is required for the conditional baseline.")
     available = {question["question_name"] for question in questions}
@@ -53,18 +79,25 @@ def cmd_twin_baseline_run(args: argparse.Namespace, *, embedder: Embedder | None
 
     heldout_questions = selected_baseline_heldout_questions(args, questions)
 
-    respondent_ids = [row["respondent_id"] for row in respondents] or sorted(answers_by_respondent)
-    if getattr(args, "sample_respondents", None):
-        rng = random.Random(getattr(args, "seed", None))
-        pool = [rid for rid in respondent_ids if answers_by_respondent.get(rid)]
-        rng.shuffle(pool)
-        respondent_ids = sorted(pool[: args.sample_respondents])
+    restrict = getattr(args, "restrict_respondent_ids", None)
+    if restrict:
+        # Score the baseline on exactly these respondents (e.g. a twin job's set),
+        # so a unified report compares every model on the same people.
+        restrict_set = {str(rid) for rid in restrict}
+        respondent_ids = sorted(rid for rid in answers_by_respondent if str(rid) in restrict_set)
+    else:
+        respondent_ids = [row["respondent_id"] for row in respondents] or sorted(answers_by_respondent)
+        if getattr(args, "sample_respondents", None):
+            rng = random.Random(getattr(args, "seed", None))
+            pool = [rid for rid in respondent_ids if answers_by_respondent.get(rid)]
+            rng.shuffle(pool)
+            respondent_ids = sorted(pool[: args.sample_respondents])
 
     truth_path = sdir / "committed" / "truth_marginals.json"
     truth = read_json(truth_path, {}) if truth_path.exists() else {}
 
     embedding_model = getattr(args, "embedding_model", None) or DEFAULT_EMBEDDING_MODEL
-    active_embedder = embedder or openai_embedder(model=embedding_model)
+    active_embedder = embedder or resolve_baseline_embedder(args, embedding_model)
 
     job_id = args.job_id or baseline_job_id(args.survey, heldout_questions, respondent_ids, embedding_model)
     jdir = digital_twin_jobs_dir(sdir) / job_id

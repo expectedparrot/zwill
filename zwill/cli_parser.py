@@ -6,8 +6,31 @@ REPORT_MODEL_PARAM_DEFAULT = ["max_tokens=16000", "reasoning_effort=low"]
 LONG_REPORT_MODEL_PARAM_DEFAULT = ["max_tokens=24000", "reasoning_effort=low"]
 
 
+COMMAND_OVERVIEW = """\
+command groups (run `zwill <command> --help` for subcommands):
+
+  getting started   init, status, guide, next
+  survey data       survey, raw, question, respondent, answer, agent-material,
+                    quarantine, commit, table, context
+  inspection        report, prob-results
+  model jobs        edsl-export, edsl-run, workflow
+  digital twins     twin-study, twin-experiment, twin-approach, twin-baseline,
+                    twin-validate, twin-results, twin-benchmark
+  agents            agent-list, agent-study
+  misc              skills
+
+New here? Run `zwill guide` for the end-to-end walkthrough, then `zwill next`
+after each stage. Import file formats: `zwill guide show import-format`.
+"""
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="zwill")
+    parser = argparse.ArgumentParser(
+        prog="zwill",
+        description="Build survey datasets and validated digital-twin reports.",
+        epilog=COMMAND_OVERVIEW,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     p = subparsers.add_parser("init")
@@ -56,6 +79,18 @@ def build_parser() -> argparse.ArgumentParser:
     add_report_build_args(p)
     p.add_argument("--final", action="store_true", help="Fail unless generated executive analysis is available.")
     p.set_defaults(func=cmd_report_render)
+    p = report.add_parser(
+        "generate-interpretations",
+        help="Run export -> edsl-run -> import -> render for the required generated interpretations (one-shot analysis and/or twin executive summary) in one command.",
+    )
+    p.add_argument("--survey", required=True)
+    p.add_argument("--job-id", help="Twin job id whose executive summary interpretation to generate.")
+    p.add_argument("--probability-job-id", help="One-shot probability job id whose analysis interpretation to generate.")
+    p.add_argument("--path", help="Report output directory for the rendered HTML pages. Defaults to <survey>_report/.")
+    p.add_argument("--env-path", help="Explicit .env file for the edsl-run model calls.")
+    p.add_argument("--permutations", type=int, default=DEFAULT_REPORT_PERMUTATIONS, help="Permutation simulations for the executive-summary chance tests.")
+    p.add_argument("--seed", type=int, default=20260701, help="Random seed for simulation diagnostics.")
+    p.set_defaults(func=cmd_report_generate_interpretations)
 
     project = subparsers.add_parser("project").add_subparsers(dest="project_command", required=True)
     p = project.add_parser("create", help="Create a project under .zwill/projects/.")
@@ -122,7 +157,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--context-question", action="append", help="Question name to use as twin context. Repeatable.")
     p.add_argument("--context-questions", help="Comma-separated question names to use as twin context.")
     p.add_argument("--exclude-context-question", action="append", help="Question name to exclude from twin context. Repeatable.")
-    p.add_argument("--leakage-exclusion", action="append", help="Target-specific context exclusion as heldout_question:context_question. Repeatable.")
+    p.add_argument("--leakage-exclusion", action="append", help="Target-specific context exclusion as heldout_question:<context_question | rank_task_id | glob*>. Repeatable.")
     p.add_argument("--context-question-count", type=int, help="Maximum number of context questions per respondent.")
     p.add_argument("--include-survey-context", action="store_true", help="Include survey context markdown in exported EDSL Agent instructions.")
     p.add_argument("--include-agent-material", action="store_true", help="Include non-survey agent construction material in agent-list or twin job exports.")
@@ -140,6 +175,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--traits-presentation-template", help="Jinja template for presenting AgentList traits in EDSL prompts.")
     p.add_argument("--traits-presentation-template-path", help="Path to a Jinja template for presenting AgentList traits in EDSL prompts.")
     p.add_argument("--no-default-traits-presentation-template", action="store_true", help="Use EDSL's default Agent trait presentation instead of zwill's survey-answer template.")
+    p.add_argument("--quiet", action="store_true", help="Suppress stdout (the job is still written to --path). Useful when scripting.")
     p.set_defaults(func=cmd_edsl_export, raw_output=True)
 
     agent_list = subparsers.add_parser("agent-list").add_subparsers(dest="agent_list_command", required=True)
@@ -162,6 +198,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--models", help="Comma-separated EDSL models. Entries may be service:model.")
     p.add_argument("--service-name", help="EDSL service_name for unqualified models.")
     p.add_argument("--model-param", action="append", help="Model parameter. Use key=value or service:model:key=value. Repeatable.")
+    p.add_argument("--quiet", action="store_true", help="Suppress stdout (the job is still written to --path). Useful when scripting.")
     p.set_defaults(func=cmd_agent_study_export, raw_output=True)
     p = agent_study.add_parser("import", help="Import serialized EDSL Results from an agent-study job.")
     p.add_argument("--path", required=True)
@@ -296,12 +333,37 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--heldout-questions", help="Comma-separated held-out target questions.")
     p.add_argument("--sample-respondents", type=int, help="Optional random respondent sample size (debugging).")
     p.add_argument("--seed", type=int, help="Seed for --sample-respondents.")
-    p.add_argument("--embedding-model", default="text-embedding-3-small", help="OpenAI embedding model.")
+    p.add_argument("--embedding-model", default="text-embedding-3-small", help="Embedding model name.")
+    p.add_argument("--embedder", choices=["auto", "openai", "edsl"], default="auto", help="Embedding backend: 'auto' uses OpenAI when OPENAI_API_KEY is set, else routes through Expected Parrot; 'edsl' forces Expected Parrot (needs only EXPECTED_PARROT_API_KEY).")
     p.add_argument("--l2", type=float, default=1.0, help="L2 regularization strength for the logistic model.")
     p.add_argument("--job-id", help="Override the derived baseline job id.")
     p.add_argument("--replace", action="store_true", help="Overwrite existing predictions for this job id.")
     p.add_argument("--path", help="Also write the prediction rows as JSONL to this path.")
     p.set_defaults(func=cmd_twin_baseline_run)
+
+    p = subparsers.add_parser(
+        "twin-validate",
+        help="Run the full twin validation flow (leakage audit + conditional baseline + bootstrap CIs + HTML report) for one or more twin jobs.",
+    )
+    p.add_argument("--survey", required=True)
+    p.add_argument("--job-id", action="append", help="Imported twin job id to validate. Repeatable.")
+    p.add_argument("--jobs", help="Comma-separated twin job ids to validate.")
+    p.add_argument("--out", required=True, help="Output bundle directory for the report and diagnostics.")
+    p.add_argument("--view", choices=["summary", "full"], default="full", help="HTML report view.")
+    p.add_argument("--skip-baseline", action="store_true", help="Do not fit the conditional baseline.")
+    p.add_argument("--require-baseline", action="store_true", help="Fail (rather than warn) if the baseline cannot run.")
+    p.add_argument("--skip-leakage-audit", action="store_true", help="Do not run the context leakage audit.")
+    p.add_argument("--skip-bootstrap", action="store_true", help="Do not compute bootstrap confidence intervals.")
+    p.add_argument("--embedding-model", default="text-embedding-3-small", help="Embedding model for the baseline.")
+    p.add_argument("--embedder", choices=["auto", "openai", "edsl"], default="auto", help="Embedding backend for the baseline: 'auto' uses OpenAI when OPENAI_API_KEY is set, else routes through Expected Parrot; 'edsl' forces Expected Parrot (needs only EXPECTED_PARROT_API_KEY).")
+    p.add_argument("--l2", type=float, default=1.0, help="L2 regularization strength for the baseline logistic model.")
+    p.add_argument("--leakage-threshold", type=float, default=0.7, help="Cramer's V threshold for flagging leakage.")
+    p.add_argument("--min-pair-rows", type=int, default=30, help="Minimum co-answered respondents for a leakage pair.")
+    p.add_argument("--n-boot", type=int, default=1000, help="Bootstrap resamples.")
+    p.add_argument("--ci", type=float, default=0.95, help="Confidence level (0-1).")
+    p.add_argument("--seed", type=int, default=0, help="Random seed for baseline and bootstrap.")
+    p.add_argument("--env-path", help="Explicit .env file to load (for the baseline's embedding key). Defaults to the nearest .env above the current directory.")
+    p.set_defaults(func=cmd_twin_validate)
 
     twin_results = subparsers.add_parser("twin-results").add_subparsers(dest="twin_results_command", required=True)
     p = twin_results.add_parser("import")
@@ -309,8 +371,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--path", required=True)
     p.add_argument("--job-id")
     p.add_argument("--replace", action="store_true")
+    p.add_argument("--merge", action="store_true", help="Upsert rows into an existing job (by respondent/held-out/model) instead of replacing it. Use to re-import recovered rows from twin-results retry-malformed without losing the rows that already scored.")
     p.add_argument("--allow-missing-actual", action="store_true", help="Import true holdout predictions whose scenarios omit actual_answer.")
     p.set_defaults(func=cmd_twin_results_import)
+    p = twin_results.add_parser(
+        "retry-malformed",
+        help="Build a retry job containing only the scenarios whose model rows were dropped as malformed, so a couple of provider hiccups don't force a full re-run.",
+    )
+    p.add_argument("--survey", required=True)
+    p.add_argument("--job-id", required=True, help="Imported twin job id whose malformed rows to retry.")
+    p.add_argument("--job", required=True, help="The original exported EDSL job file that produced this job's results.")
+    p.add_argument("--path", help="Where to write the retry job. Defaults to the job dir's retry.edsl.json.")
+    p.set_defaults(func=cmd_twin_results_retry_malformed)
     p = twin_results.add_parser("export", help="Export stored digital twin predictions to CSV.")
     p.add_argument("--survey", required=True)
     p.add_argument("--job-id", action="append", help="Job id to export. Repeatable.")
@@ -502,7 +574,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--context-question", action="append", help="Question name to use as context. Repeatable.")
     p.add_argument("--context-questions", help="Comma-separated context question names.")
     p.add_argument("--exclude-context-question", action="append", help="Question name to exclude from context. Repeatable.")
-    p.add_argument("--leakage-exclusion", action="append", help="Target-specific context exclusion as heldout_question:context_question. Repeatable.")
+    p.add_argument("--leakage-exclusion", action="append", help="Target-specific context exclusion as heldout_question:<context_question | rank_task_id | glob*>. Repeatable.")
     p.add_argument("--context-question-count", type=int, help="Maximum number of context questions per respondent.")
     p.add_argument("--include-agent-material", action="store_true", help="Include non-survey agent construction material in twin prompts.")
     p.add_argument("--agent-material-kind", action="append", help="Only include agent material of this kind. Repeatable or comma-separated.")
@@ -559,7 +631,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--context-question", action="append", help="Question name to use as context. Repeatable.")
     p.add_argument("--context-questions", help="Comma-separated context question names.")
     p.add_argument("--exclude-context-question", action="append", help="Question name to exclude from context. Repeatable.")
-    p.add_argument("--leakage-exclusion", action="append", help="Target-specific context exclusion as heldout_question:context_question. Repeatable.")
+    p.add_argument("--leakage-exclusion", action="append", help="Target-specific context exclusion as heldout_question:<context_question | rank_task_id | glob*>. Repeatable.")
     p.add_argument("--context-question-count", type=int, help="Maximum number of context questions per respondent. Omit to use all available selected context answers.")
     p.add_argument("--include-agent-material", action="store_true", help="Include non-survey agent construction material in twin prompts.")
     p.add_argument("--agent-material-kind", action="append", help="Only include agent material of this kind. Repeatable or comma-separated.")
@@ -740,8 +812,23 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--approach-id", action="append", help="Approach id to include as a plan arm. Repeatable.")
     p.add_argument("--sample-respondents", type=int)
     p.add_argument("--seed", type=int, default=123)
+    p.add_argument("--stratify-actual", action="store_true", help="Stratify the respondent sample by the held-out answer.")
     p.add_argument("--context-question-count", type=int, default=5)
+    p.add_argument("--context-question", action="append", help="Context question to include (repeatable).")
+    p.add_argument("--context-questions", help="Comma-separated context questions to include.")
+    p.add_argument("--exclude-context-question", action="append", help="Context question to exclude (repeatable).")
+    p.add_argument(
+        "--leakage-exclusion",
+        action="append",
+        help="Target-specific context exclusion as heldout:<context|rank_task_id|glob> (repeatable).",
+    )
     p.add_argument("--model", action="append")
+    p.add_argument(
+        "--model-param",
+        action="append",
+        help="Per-model parameter as service:model:key=value (repeatable), e.g. "
+        "google:gemini-2.5-pro:maxOutputTokens=8192. Written to the plan's defaults.model_param.",
+    )
     p.add_argument("--primary-metric", choices=sorted(TWIN_EXPERIMENT_METRICS), default="nll")
     p.set_defaults(func=cmd_twin_experiment_init_plan)
     p = twin_experiment.add_parser("approve", help="Mark a reviewed twin experiment plan as approved for export/run.")
@@ -759,6 +846,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--plan-id", help="Override the plan id.")
     p.add_argument("--allow-unapproved", action="store_true", help="Explicitly export a draft/unapproved plan for debugging.")
     p.set_defaults(func=cmd_twin_experiment_export_plan)
+    p = twin_experiment.add_parser(
+        "validate", help="Lint a plan file (resolve questions/models/counts) before approve/export."
+    )
+    p.add_argument("--path", required=True, help="JSON/YAML experiment plan.")
+    p.add_argument("--survey", help="Override survey in the plan.")
+    p.add_argument("--plan-id", help="Override the plan id.")
+    p.set_defaults(func=cmd_twin_experiment_validate)
     p = twin_experiment.add_parser("plan-status", help="Show exported/imported status for a twin experiment plan.")
     p.add_argument("--survey", required=True)
     p.add_argument("--plan-id", required=True)
@@ -963,6 +1057,27 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--format", choices=["text", "json"], default="text")
     p.set_defaults(func=cmd_skills_path, raw_output=True)
 
+    guide = subparsers.add_parser(
+        "guide",
+        help="Print the zwill agent workflow guide (or `guide list` / `guide show <name>`).",
+    )
+    guide_sub = guide.add_subparsers(dest="guide_command")
+    p = guide_sub.add_parser("show", help="Print a bundled guide by name.")
+    p.add_argument("name", nargs="?", help="Guide name; omit for the agent workflow.")
+    p.set_defaults(func=cmd_guide_show, raw_output=True)
+    p = guide_sub.add_parser("list", help="List the bundled guides.")
+    p.add_argument("--format", choices=["table", "json"], default="table")
+    p.set_defaults(func=cmd_guide_list, table_output=True)
+    # Bare `zwill guide` prints the default walkthrough.
+    guide.set_defaults(func=cmd_guide_show, raw_output=True, name=None, guide_command=None)
+
+    p = subparsers.add_parser(
+        "next",
+        help="Show which pipeline stage you are in and the exact command to run next.",
+    )
+    p.add_argument("--survey", help="Survey to report the stage for (defaults to the only/first survey).")
+    p.set_defaults(func=cmd_next)
+
     context = subparsers.add_parser("context").add_subparsers(dest="context_command", required=True)
     for command_name, func in [("add", cmd_context_add), ("set", cmd_context_set)]:
         p = context.add_parser(command_name)
@@ -1009,12 +1124,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--question-option", action="append")
     p.add_argument("--option-label", action="append")
     p.add_argument("--role", default="survey_item")
+    p.add_argument("--rank-task-id", help="Declare this question as an item of the named rank battery (groups items reliably instead of relying on the wording heuristic).")
+    p.add_argument("--option-delimiter", help="For checkbox (multi-select) questions: the delimiter separating selected options in an answer (default '|'). Choose one that does not appear in the option labels.")
     p.add_argument("--source-raw")
     p.add_argument("--source-note")
     p.set_defaults(func=cmd_question_add)
-    p = question.add_parser("import")
+    p = question.add_parser(
+        "import",
+        help="Import questions from a JSONL file (see `zwill guide show import-format`).",
+        description="Import questions from a JSONL file. Each row needs at least question_name, question_type, and question_text; multiple_choice questions also need question_options. Full schema: `zwill guide show import-format`.",
+    )
     p.add_argument("--survey", required=True)
-    p.add_argument("--path", required=True)
+    p.add_argument("--path", required=True, help="JSONL file, one question object per line.")
     p.set_defaults(func=cmd_question_import)
 
     respondent = subparsers.add_parser("respondent").add_subparsers(dest="respondent_command", required=True)
@@ -1026,9 +1147,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--source-raw")
     p.add_argument("--source-note")
     p.set_defaults(func=cmd_respondent_add)
-    p = respondent.add_parser("import")
+    p = respondent.add_parser(
+        "import",
+        help="Import respondents from a JSONL file (see `zwill guide show import-format`).",
+        description="Import respondents from a JSONL file. Each row needs respondent_id; weight/metadata/source are optional. Answer import auto-creates unseen respondents. Full schema: `zwill guide show import-format`.",
+    )
     p.add_argument("--survey", required=True)
-    p.add_argument("--path", required=True)
+    p.add_argument("--path", required=True, help="JSONL file, one respondent object per line.")
     p.set_defaults(func=cmd_respondent_import)
 
     agent_material = subparsers.add_parser("agent-material").add_subparsers(dest="agent_material_command", required=True)
@@ -1070,9 +1195,13 @@ def build_parser() -> argparse.ArgumentParser:
     group.add_argument("--answer")
     group.add_argument("--missing-code")
     p.set_defaults(func=cmd_answer_add)
-    p = answer.add_parser("import")
+    p = answer.add_parser(
+        "import",
+        help="Import answers from a JSONL file (see `zwill guide show import-format`).",
+        description="Import answers from a JSONL file. Each row needs respondent_id, question, and either answer or missing_code. When the question has question_options, answer must be one of them or the row is quarantined. Full schema: `zwill guide show import-format`.",
+    )
     p.add_argument("--survey", required=True)
-    p.add_argument("--path", required=True)
+    p.add_argument("--path", required=True, help="JSONL file, one answer object per line.")
     p.set_defaults(func=cmd_answer_import)
 
     quarantine = subparsers.add_parser("quarantine").add_subparsers(dest="quarantine_command", required=True)

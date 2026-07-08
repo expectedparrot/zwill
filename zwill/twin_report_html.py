@@ -222,7 +222,9 @@ def render_twin_report_html(
     attenuation_banner_section = correlation_attenuation_banner_html((diagnostics or {}).get("joint_structure"))
     bootstrap_ci_section = bootstrap_ci_section_html(rows)
     conditional_baseline_appendix = (
-        conditional_baseline_appendix_html() if has_conditional_baseline(model_names) else ""
+        conditional_baseline_appendix_html()
+        if has_conditional_baseline([str(row.get("model_label")) for row in rows])
+        else ""
     )
     context_counts = sorted({len(row.get("observed_answers", [])) for row in rows})
     actual_counts: dict[str, int] = {}
@@ -372,14 +374,22 @@ def render_twin_report_html(
         )
 
     diagnostics = diagnostics or {}
+
+    def signed_cell(value: Any) -> str:
+        # A model/question without a committed marginal yields None here; render a
+        # blank cell rather than crashing on None comparison/formatting.
+        if value is None:
+            return '<td class="numeric"></td>'
+        return f'<td class="numeric {"good" if value >= 0 else "bad"}">{value:+.3f}</td>'
+
     baseline_rows = []
     for model, values in diagnostics.get("baseline_comparison", {}).items():
         baseline_rows.append(
             "<tr>"
             f"<td>{escape_html(model)}</td>"
-            f"<td class=\"numeric {'good' if values.get('p_actual_vs_empirical', 0) >= 0 else 'bad'}\">{values.get('p_actual_vs_empirical'):+.3f}</td>"
-            f"<td class=\"numeric {'good' if values.get('nll_vs_empirical', 0) >= 0 else 'bad'}\">{values.get('nll_vs_empirical'):+.3f}</td>"
-            f"<td class=\"numeric {'good' if values.get('brier_vs_empirical', 0) >= 0 else 'bad'}\">{values.get('brier_vs_empirical'):+.3f}</td>"
+            f"{signed_cell(values.get('p_actual_vs_empirical'))}"
+            f"{signed_cell(values.get('nll_vs_empirical'))}"
+            f"{signed_cell(values.get('brier_vs_empirical'))}"
             "</tr>"
         )
     empirical_win_rows = "".join(
@@ -878,7 +888,9 @@ def render_twin_summary_report_html(
     attenuation_banner_section = correlation_attenuation_banner_html((diagnostics or {}).get("joint_structure"))
     bootstrap_ci_section = bootstrap_ci_section_html(rows)
     conditional_baseline_appendix = (
-        conditional_baseline_appendix_html() if has_conditional_baseline(model_names) else ""
+        conditional_baseline_appendix_html()
+        if has_conditional_baseline([str(row.get("model_label")) for row in rows])
+        else ""
     )
     import_health = (health or {}).get("import", {})
     job_label = (health or {}).get("job_id") or ", ".join(str(job) for job in (health or {}).get("job_ids", [])[:4])

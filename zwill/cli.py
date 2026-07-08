@@ -45,6 +45,7 @@ from .rank import (
     build_rank_report,
     detect_rank_tasks,
     extract_rank_payload,
+    potential_undetected_rank_batteries,
     rank_job_id_from_job,
     rank_job_id_from_results,
     rank_metrics,
@@ -178,6 +179,21 @@ def cmd_skills_list(args: argparse.Namespace) -> dict[str, Any]:
         print_json(envelope("zwill skills list", "ok", {"skills": rows}))
     return envelope("zwill skills list", "ok", {"skills": rows})
 
+
+def cmd_guide_show(*args, **kwargs):
+    from .guide_commands import cmd_guide_show as impl
+
+    return impl(*args, **kwargs)
+
+def cmd_guide_list(*args, **kwargs):
+    from .guide_commands import cmd_guide_list as impl
+
+    return impl(*args, **kwargs)
+
+def cmd_next(*args, **kwargs):
+    from .guide_commands import cmd_next as impl
+
+    return impl(*args, **kwargs)
 
 def cmd_skills_path(args: argparse.Namespace) -> dict[str, Any]:
     path = installed_skill_path(args.name)
@@ -403,10 +419,33 @@ def find_local_env(start: Path | None = None) -> Path | None:
     return None
 
 
+# Credential env vars zwill / EDSL may rely on. `load_local_env` reports which of
+# these are present (names only, never values) so callers can tell whether a key
+# is available regardless of whether it came from the .env or the ambient
+# environment. `loaded_keys` alone is misleading: it only lists keys the .env
+# newly injected, so it reads empty when the keys are already exported.
+CREDENTIAL_ENV_KEYS = (
+    "EXPECTED_PARROT_API_KEY",
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GOOGLE_API_KEY",
+    "GEMINI_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "MISTRAL_API_KEY",
+    "TOGETHER_API_KEY",
+    "GROQ_API_KEY",
+    "AZURE_OPENAI_API_KEY",
+)
+
+
+def present_credential_env_keys() -> list[str]:
+    return [key for key in CREDENTIAL_ENV_KEYS if os.environ.get(key)]
+
+
 def load_local_env(path: Path | None = None) -> dict[str, Any]:
     path = path or find_local_env()
     if path is None:
-        return {"path": None, "loaded_keys": []}
+        return {"path": None, "loaded_keys": [], "present_keys": present_credential_env_keys()}
     try:
         from dotenv import dotenv_values
     except ImportError as exc:
@@ -421,7 +460,7 @@ def load_local_env(path: Path | None = None) -> dict[str, Any]:
             continue
         os.environ[key] = str(value)
         loaded.append(key)
-    return {"path": str(path), "loaded_keys": loaded}
+    return {"path": str(path), "loaded_keys": loaded, "present_keys": present_credential_env_keys()}
 
 
 def questions_by_name(sdir: Path) -> dict[str, dict[str, Any]]:
@@ -535,6 +574,59 @@ def ensure_implicit_respondent(sdir: Path, respondent_id: str) -> None:
     append_jsonl(sdir / "respondents.jsonl", {"respondent_id": respondent_id, "weight": 1.0, "metadata": {}})
 
 
+DEFAULT_CHECKBOX_DELIMITER = "|"
+
+
+def checkbox_selection_tokens(answer_value: Any, delimiter: str | None = None) -> list[str]:
+    """Split a multi-select answer string into its individual selected labels."""
+    delimiter = delimiter or DEFAULT_CHECKBOX_DELIMITER
+    return [token.strip() for token in str(answer_value).split(delimiter) if token.strip()]
+
+
+def answer_option_issue(
+    question: dict[str, Any], question_name: Any, answer_value: Any, line: int | None = None
+) -> dict[str, Any] | None:
+    """Validate a non-missing answer against a question's option universe.
+
+    For a `checkbox` (multi-select) question the answer is split on the question's
+    `option_delimiter` (default `|`) and every selected token must be a known
+    option. For other questions the answer must equal one option. Returns an issue
+    dict when invalid, else None. Questions with no `question_options` are not
+    validated.
+    """
+    valid_options = question.get("question_options") or []
+    if not valid_options:
+        return None
+    if question.get("question_type") == "checkbox":
+        delimiter = question.get("option_delimiter") or DEFAULT_CHECKBOX_DELIMITER
+        tokens = checkbox_selection_tokens(answer_value, delimiter)
+        invalid = [token for token in tokens if token not in valid_options]
+        if tokens and not invalid:
+            return None
+        return {
+            "code": "invalid_answer_option",
+            "line": line,
+            "question": question_name,
+            "answer": answer_value,
+            "invalid_selections": invalid,
+            "valid_options": valid_options,
+            "option_delimiter": delimiter,
+        }
+    # Stringify and strip for the comparison, consistent with how checkbox
+    # tokens are matched (str(...).split(...).strip()), so an incidental trailing
+    # space or a numeric answer (e.g. 2 vs option "2") isn't quarantined.
+    normalized = str(answer_value).strip()
+    if normalized in valid_options:
+        return None
+    return {
+        "code": "invalid_answer_option",
+        "line": line,
+        "question": question_name,
+        "answer": answer_value,
+        "valid_options": valid_options,
+    }
+
+
 def validate_answer(sdir: Path, answer: dict[str, Any], line: int | None = None) -> dict[str, Any] | None:
     questions = questions_by_name(sdir)
     question_name = answer.get("question")
@@ -545,15 +637,7 @@ def validate_answer(sdir: Path, answer: dict[str, Any], line: int | None = None)
             "question": question_name,
         }
     if "answer" in answer and answer.get("answer") is not None:
-        valid_options = questions[question_name].get("question_options", [])
-        if valid_options and answer["answer"] not in valid_options:
-            return {
-                "code": "invalid_answer_option",
-                "line": line,
-                "question": question_name,
-                "answer": answer["answer"],
-                "valid_options": valid_options,
-            }
+        return answer_option_issue(questions[question_name], question_name, answer["answer"], line)
     elif not answer.get("missing_code"):
         return {
             "code": "invalid_input",
@@ -590,7 +674,11 @@ def cmd_init(_: argparse.Namespace) -> dict[str, Any]:
             "active_project": active_project_id(),
             "project_path": str(pdir),
         },
-        next_steps=["zwill survey create --name <survey>"],
+        next_steps=[
+            "zwill guide   # end-to-end walkthrough",
+            "zwill next    # what to run next at any point",
+            "zwill survey create --name <survey>",
+        ],
     )
 
 
@@ -709,7 +797,17 @@ def cmd_survey_report(args: argparse.Namespace) -> dict[str, Any] | None:
     if args.format == "json":
         output = json.dumps(payload, indent=2)
         if args.path:
+            # The file holds the raw report payload (survey/summary/questions/...);
+            # stdout carries a parseable envelope pointing at it, so scripts get a
+            # consistent {command,status,data,...} shape on stdout.
             Path(args.path).write_text(output + "\n")
+            print_json(
+                envelope(
+                    "zwill survey report",
+                    "ok",
+                    {"survey": args.survey, "format": "json", "path": str(args.path), **payload["summary"]},
+                )
+            )
         else:
             print(output)
         return None
@@ -717,6 +815,15 @@ def cmd_survey_report(args: argparse.Namespace) -> dict[str, Any] | None:
         output = render_survey_report_html(payload)
         if args.path:
             Path(args.path).write_text(output)
+            # Mirror the json/csv branches: the file holds the rendered report and
+            # stdout carries a parseable {command,status,data,...} envelope.
+            print_json(
+                envelope(
+                    "zwill survey report",
+                    "ok",
+                    {"survey": args.survey, "format": "html", "path": str(args.path), **payload["summary"]},
+                )
+            )
         else:
             print(output)
         return None
@@ -858,6 +965,11 @@ def cmd_report_analyze(*args, **kwargs):
 
 def cmd_report_render(*args, **kwargs):
     from .report_bundle import cmd_report_render as impl
+
+    return impl(*args, **kwargs)
+
+def cmd_report_generate_interpretations(*args, **kwargs):
+    from .report_bundle import cmd_report_generate_interpretations as impl
 
     return impl(*args, **kwargs)
 
@@ -1341,6 +1453,11 @@ def cmd_twin_results_import(*args, **kwargs):
 
     return impl(*args, **kwargs)
 
+def cmd_twin_results_retry_malformed(*args, **kwargs):
+    from .result_commands import cmd_twin_results_retry_malformed as impl
+
+    return impl(*args, **kwargs)
+
 def cmd_rank_results_import(*args, **kwargs):
     from .result_commands import cmd_rank_results_import as impl
 
@@ -1398,6 +1515,11 @@ def cmd_twin_results_bootstrap(*args, **kwargs):
 
 def cmd_twin_results_leakage_audit(*args, **kwargs):
     from .twin_result_commands import cmd_twin_results_leakage_audit as impl
+
+    return impl(*args, **kwargs)
+
+def cmd_twin_validate(*args, **kwargs):
+    from .twin_validation_workflow import cmd_twin_validate as impl
 
     return impl(*args, **kwargs)
 
@@ -1832,6 +1954,11 @@ def cmd_twin_experiment_approve(*args, **kwargs):
 
 def cmd_twin_experiment_export_plan(*args, **kwargs):
     from .twin_experiments import cmd_twin_experiment_export_plan as impl
+
+    return impl(*args, **kwargs)
+
+def cmd_twin_experiment_validate(*args, **kwargs):
+    from .twin_experiments import cmd_twin_experiment_validate as impl
 
     return impl(*args, **kwargs)
 
@@ -2300,6 +2427,13 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        # Load the nearest .env once, before any command runs, so every command
+        # that makes model/embedding calls (edsl-run, twin-validate, the
+        # conditional baseline, ...) sees the same keys. Individual commands may
+        # still report their own `loaded_env`; load_local_env is idempotent
+        # because it never overwrites a key already present in os.environ.
+        env_path = Path(args.env_path) if getattr(args, "env_path", None) else None
+        load_local_env(env_path)
         result = args.func(args)
         if getattr(args, "table_output", False) or getattr(args, "raw_output", False):
             return 0

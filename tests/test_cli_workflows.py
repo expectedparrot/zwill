@@ -388,6 +388,78 @@ def create_tiny_binary_survey() -> None:
     run_cli("commit", "--survey", "demo")
 
 
+def _twin_results_dict(job_id: str, rows: list[tuple[str, str, str]]) -> dict:
+    # rows: (respondent_id, actual_answer, response_probabilities_json_or_bad)
+    return {
+        "edsl_class_name": "Results",
+        "zwill": {"digital_twin_job_id": job_id},
+        "data": [
+            {
+                "scenario": {
+                    "respondent_id": rid,
+                    "heldout_question_name": "q1",
+                    "heldout_question_text": "Pick one",
+                    "heldout_options": ["yes", "no"],
+                    "actual_answer": actual,
+                },
+                "model": {"model": "gpt-5.5", "inference_service": "openai", "parameters": {}},
+                "answer": {"response_probabilities": probs},
+            }
+            for rid, actual, probs in rows
+        ],
+    }
+
+
+def test_twin_results_retry_malformed_recovers_dropped_rows(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    create_tiny_binary_survey()
+    job_id = "twinjob"
+
+    # First import: r1 good, r2 malformed -> one dropped row.
+    results = _twin_results_dict(
+        job_id,
+        [("r1", "yes", '{"probabilities":[0.7,0.3],"notes":"ok"}'), ("r2", "no", "not json")],
+    )
+    results_path = tmp_path / "results.json.gz"
+    with gzip.open(results_path, "wt") as f:
+        json.dump(results, f)
+    imported = cli.cmd_twin_results_import(
+        argparse.Namespace(survey="demo", path=str(results_path), job_id=job_id, replace=False, merge=False, allow_missing_actual=False)
+    )
+    assert imported["data"]["extracted_count"] == 1
+    assert imported["data"]["issue_count"] == 1
+
+    # Original job with both scenarios; retry-malformed keeps only the failed one.
+    job = {
+        "edsl_class_name": "Jobs",
+        "zwill": {"digital_twin_job_id": job_id},
+        "scenarios": [
+            {"respondent_id": "r1", "heldout_question_name": "q1"},
+            {"respondent_id": "r2", "heldout_question_name": "q1"},
+        ],
+    }
+    job_path = tmp_path / "twin.edsl.json"
+    job_path.write_text(json.dumps(job))
+    retry = cli.cmd_twin_results_retry_malformed(
+        argparse.Namespace(survey="demo", job_id=job_id, job=str(job_path), path=str(tmp_path / "retry.edsl.json"))
+    )
+    assert retry["data"]["retry_scenario_count"] == 1
+    retry_job = json.loads((tmp_path / "retry.edsl.json").read_text())
+    assert [s["respondent_id"] for s in retry_job["scenarios"]] == ["r2"]
+
+    # Re-run recovers r2; merge import keeps r1 and adds r2 (issue count clears).
+    retry_results = _twin_results_dict(job_id, [("r2", "no", '{"probabilities":[0.2,0.8],"notes":"ok"}')])
+    retry_results_path = tmp_path / "retry_results.json.gz"
+    with gzip.open(retry_results_path, "wt") as f:
+        json.dump(retry_results, f)
+    merged = cli.cmd_twin_results_import(
+        argparse.Namespace(survey="demo", path=str(retry_results_path), job_id=job_id, replace=False, merge=True, allow_missing_actual=False)
+    )
+    assert merged["data"]["issue_count"] == 0
+    rows = [r for r in cli.read_jsonl(cli.digital_twin_predictions_path(zwill_survey_path(tmp_path))) if r["job_id"] == job_id]
+    assert sorted(r["respondent_id"] for r in rows) == ["r1", "r2"]
+
+
 def test_agent_material_is_stored_and_kept_out_of_table_and_marginals(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()
@@ -488,6 +560,66 @@ def test_survey_report_command_writes_json_html_and_csv(tmp_path: Path, monkeypa
     assert "survey-report-data" in html_path.read_text()
     assert (tmp_path / "survey_report_questions.csv").exists()
     assert (tmp_path / "survey_report_options.csv").exists()
+
+
+def test_survey_report_html_emits_json_envelope_on_stdout(tmp_path: Path, monkeypatch, capsys) -> None:
+    # `--format html --path` must emit a parseable stdout envelope like json/csv do.
+    monkeypatch.chdir(tmp_path)
+    create_tiny_binary_survey()
+    run_cli("commit", "--survey", "demo")
+    html_path = tmp_path / "r.html"
+    capsys.readouterr()  # discard setup output
+    run_cli("survey", "report", "--survey", "demo", "--format", "html", "--path", str(html_path))
+    env = json.loads(capsys.readouterr().out)
+    assert env["status"] == "ok"
+    assert env["data"]["format"] == "html"
+    assert env["data"]["path"] == str(html_path)
+    assert env["data"]["survey"] == "demo"
+
+
+def test_load_local_env_reports_present_credential_keys(tmp_path: Path, monkeypatch) -> None:
+    # loaded_keys only lists keys the .env newly injected, so it reads empty when a
+    # key is already in the environment; present_keys must still report it.
+    monkeypatch.setenv("OPENAI_API_KEY", "already-set")
+    env_file = tmp_path / ".env"
+    env_file.write_text("OPENAI_API_KEY=from-file\n")
+    result = cli.load_local_env(env_file)
+    assert result["loaded_keys"] == []  # already in env -> not re-injected
+    assert "OPENAI_API_KEY" in result["present_keys"]  # but reported present
+
+
+def test_results_cost_summary_aggregates_cost_and_tokens() -> None:
+    from zwill.costs import results_cost_summary
+
+    results = {
+        "data": [
+            {"model": {"model": "gpt-5.5"}, "raw_model_response": {"q_cost": 0.01, "q_input_tokens": 100, "q_output_tokens": 20}},
+            {
+                "model": {"model": "gpt-5.5"},
+                "raw_model_response": {"q_cost": 0.03, "q_input_tokens": 50, "q_output_tokens": 10, "q_thinking_tokens": 5},
+            },
+            {"model": {"model": "gemini-2.5-pro"}, "raw_model_response": {"q_cost": 0.10, "q_input_tokens": 200, "q_output_tokens": 40}},
+        ]
+    }
+    summary = results_cost_summary(results)
+    assert summary["cost_data_available"] is True
+    assert summary["call_count"] == 3
+    assert round(summary["total_usd"], 2) == 0.14
+    by_model = {row["model"]: row for row in summary["by_model"]}
+    assert round(by_model["gpt-5.5"]["cost_usd"], 2) == 0.04
+    assert by_model["gpt-5.5"]["call_count"] == 2
+    assert by_model["gpt-5.5"]["input_tokens"] == 150
+    assert by_model["gpt-5.5"]["thinking_tokens"] == 5
+    assert by_model["gemini-2.5-pro"]["cost_usd"] == 0.1
+
+    # Graceful degradation when cost fields are absent.
+    assert results_cost_summary({})["cost_data_available"] is False
+    assert results_cost_summary({"data": []})["call_count"] == 0
+
+    # The pre-run estimator must never crash on an object lacking estimate_job_cost.
+    from zwill.costs import estimate_job_cost_summary
+
+    assert estimate_job_cost_summary(object())["available"] is False
 
 
 def test_report_catalog_lists_readiness_and_commands(tmp_path: Path, monkeypatch) -> None:
@@ -866,6 +998,97 @@ def test_agent_material_import_quarantines_invalid_rows_and_normalizes_tags(tmp_
     assert {issue["code"] for issue in issues if issue.get("type") == "agent_material"} == {"invalid_input", "unknown_respondent"}
 
 
+def test_checkbox_marginals_split_multiselect_by_delimiter(tmp_path: Path, monkeypatch) -> None:
+    # A multi-select answer "Email|Phone" must count toward BOTH Email and Phone,
+    # in the draft marginals (survey report) and the committed truth marginals.
+    monkeypatch.chdir(tmp_path)
+    run_cli("init")
+    run_cli("survey", "create", "--name", "demo")
+    run_cli(
+        "question", "add", "--survey", "demo", "--question-name", "ch", "--question-type", "checkbox",
+        "--question-text", "Which?", "--question-option", "Email", "--question-option", "Phone",
+        "--question-option", "Fax", "--option-delimiter", "|",
+    )
+    for respondent_id in ("r1", "r2"):
+        run_cli("respondent", "add", "--survey", "demo", "--respondent-id", respondent_id)
+    run_cli("answer", "add", "--survey", "demo", "--respondent-id", "r1", "--question", "ch", "--answer", "Email|Phone")
+    run_cli("answer", "add", "--survey", "demo", "--respondent-id", "r2", "--question", "ch", "--answer", "Email")
+
+    sdir = zwill_project_path(tmp_path) / "surveys" / "demo"
+    from zwill.jsonlio import read_jsonl
+    from zwill.survey_report import compute_draft_marginals
+
+    draft = compute_draft_marginals(
+        read_jsonl(sdir / "questions.jsonl"),
+        read_jsonl(sdir / "respondents.jsonl"),
+        read_jsonl(sdir / "answers.jsonl"),
+    )
+    assert draft["ch"]["Email"]["count"] == 2
+    assert draft["ch"]["Phone"]["count"] == 1
+    assert draft["ch"]["Fax"]["count"] == 0
+
+    run_cli("commit", "--survey", "demo")
+    truth = json.loads((sdir / "committed" / "truth_marginals.json").read_text())["marginals"]["ch"]
+    assert truth["Email"]["count"] == 2
+    assert truth["Phone"]["count"] == 1
+    assert truth["Fax"]["count"] == 0
+
+
+def test_answer_option_validation_strips_whitespace_consistently() -> None:
+    # Checkbox tokens are stripped before matching; single-choice answers must be
+    # consistent so incidental whitespace in an export does not silently
+    # quarantine an otherwise valid answer.
+    from zwill.cli import answer_option_issue
+
+    single = {"question_type": "multiple_choice", "question_options": ["Yes", "No"]}
+    checkbox = {"question_type": "checkbox", "question_options": ["Yes", "No"], "option_delimiter": "|"}
+    assert answer_option_issue(checkbox, "q", "Yes | No") is None
+    assert answer_option_issue(single, "q", "Yes ") is None
+    assert answer_option_issue(single, "q", " No") is None
+    # numeric answers match string-number options, consistent with checkbox
+    numeric = {"question_type": "multiple_choice", "question_options": ["1", "2", "3"]}
+    numeric_checkbox = {"question_type": "checkbox", "question_options": ["1", "2", "3"], "option_delimiter": "|"}
+    assert answer_option_issue(numeric, "q", 2) is None
+    assert answer_option_issue(numeric_checkbox, "q", 2) is None
+    # genuinely invalid answers are still flagged
+    assert answer_option_issue(single, "q", "Maybe") is not None
+    assert answer_option_issue(numeric, "q", 9) is not None
+
+
+def test_checkbox_answer_import_validates_each_selection(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    run_cli("init")
+    run_cli("survey", "create", "--name", "demo")
+    questions = tmp_path / "questions.jsonl"
+    write_jsonl(
+        questions,
+        [
+            {
+                "question_name": "q_channels",
+                "question_type": "checkbox",
+                "question_text": "Which channels do you use?",
+                "question_options": ["Email", "Phone", "In-person"],
+                "option_delimiter": "|",
+            }
+        ],
+    )
+    run_cli("question", "import", "--survey", "demo", "--path", str(questions))
+    answers = tmp_path / "answers.jsonl"
+    write_jsonl(
+        answers,
+        [
+            {"respondent_id": "r1", "question": "q_channels", "answer": "Email|Phone"},
+            {"respondent_id": "r2", "question": "q_channels", "answer": "Email|Fax"},
+        ],
+    )
+    result = cli.cmd_answer_import(argparse.Namespace(survey="demo", path=str(answers)))
+    assert result["data"]["imported_count"] == 1
+    assert result["data"]["quarantined_count"] == 1
+    issues = cli.read_jsonl(zwill_survey_path(tmp_path) / "quarantine.jsonl")
+    checkbox_issue = next(issue for issue in issues if issue.get("question") == "q_channels")
+    assert checkbox_issue["invalid_selections"] == ["Fax"]
+
+
 def test_agent_material_import_duplicate_material_id_replaces_row(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()
@@ -1103,9 +1326,13 @@ def test_edsl_export_agent_list_through_parser_writes_selected_traits_and_instru
         str(path),
     )
 
-    output = json.loads(capsys.readouterr().out)
+    stdout_payload = json.loads(capsys.readouterr().out)
     written = json.loads(path.read_text())
-    assert output == written
+    # With --path, stdout is a clean envelope (metadata) and the file holds the job.
+    assert stdout_payload["command"] == "zwill edsl-export"
+    assert stdout_payload["status"] == "ok"
+    assert stdout_payload["data"]["path"] == str(path)
+    output = written
     assert output["zwill"]["selected_questions"] == ["q1"]
     r1 = next(agent for agent in output["agent_list"] if agent["name"] == "r1")
     assert set(r1["traits"]) == {"q1"}
@@ -1399,9 +1626,11 @@ def test_agent_study_export_accepts_question_path_and_parser_args(tmp_path: Path
         str(job_path),
     )
 
-    output = json.loads(capsys.readouterr().out)
+    stdout_payload = json.loads(capsys.readouterr().out)
     written = json.loads(job_path.read_text())
-    assert output["zwill"]["question_name"] == "new_question"
+    assert stdout_payload["command"] == "zwill agent-study export"
+    assert stdout_payload["data"]["path"] == str(job_path)
+    assert written["zwill"]["question_name"] == "new_question"
     assert written["survey"]["questions"][0]["question_options"] == ["Yes", "No"]
     assert written["models"][0]["parameters"]["temperature"] == 0
 
@@ -1657,6 +1886,218 @@ def test_twin_job_export_agent_material_changes_scenarios(tmp_path: Path, monkey
     assert "favorite color is blue" in with_material["scenarios"][0]["agent_material_text"]
     assert with_material["zwill"]["include_agent_material"] is True
     assert with_material["zwill"]["digital_twin_job_id"] != without_material["zwill"]["digital_twin_job_id"]
+
+
+def test_normalize_name_list_accepts_str_and_list() -> None:
+    from zwill.twin import normalize_name_list
+
+    assert normalize_name_list(None) == []
+    assert normalize_name_list("") == []
+    assert normalize_name_list([]) == []
+    assert normalize_name_list("a, b ,c") == ["a", "b", "c"]
+    assert normalize_name_list(["a", "b"]) == ["a", "b"]
+    # list items may themselves be comma-separated
+    assert normalize_name_list(["a,b", " c "]) == ["a", "b", "c"]
+
+
+def test_twin_job_export_accepts_list_context_and_heldout_questions(tmp_path: Path, monkeypatch) -> None:
+    # Regression (issue #32): plan-driven exports may pass context_questions /
+    # heldout_questions as JSON lists rather than comma-separated strings. These
+    # must not crash with "'list' object has no attribute 'split'".
+    monkeypatch.chdir(tmp_path)
+    create_tiny_binary_survey()
+    monkeypatch.setattr(
+        cli,
+        "load_edsl_job_classes",
+        lambda: (FakeJobs, FakeModel, FakeModelList, FakeQuestionFreeText, FakeScenario, FakeScenarioList, FakeSurvey),
+    )
+    args = default_twin_export_args(
+        heldout_question=None,
+        heldout_questions=["q1"],  # list form (previously latent crash)
+        context_question=None,
+        context_questions=["q2"],  # list form (the reported crash)
+        respondent=None,
+        respondents=["r1"],  # list form (same latent crash in respondent_selection)
+        context_question_count=8,
+    )
+    job = cli.build_edsl_digital_twin_job_dict("demo", args)
+    assert [scenario["respondent_id"] for scenario in job["scenarios"]] == ["r1"]
+    scenario = job["scenarios"][0]
+    assert scenario["heldout_question_name"] == "q1"
+    observed = scenario["observed_answers_text"]
+    assert "q2" in observed  # context resolved from the list
+    assert "q1" not in observed  # held-out target not leaked into context
+
+
+def test_model_and_baseline_selectors_accept_list_args() -> None:
+    # Same list-vs-CSV robustness as the plan selectors (issue #32), for the
+    # model and conditional-baseline selectors.
+    from zwill.edsl_integration import parse_model_specs
+    from zwill.twin_baseline_commands import selected_baseline_heldout_questions
+
+    specs = parse_model_specs(argparse.Namespace(model=None, models=["openai:gpt-5.5", "google:gemini-2.5-pro"]))
+    assert len(specs) == 2
+
+    questions = [{"question_name": "q1"}, {"question_name": "q2"}]
+    got = selected_baseline_heldout_questions(
+        argparse.Namespace(heldout_question=None, heldout_questions=["q1", "q2"]), questions
+    )
+    assert got == ["q1", "q2"]
+
+
+def test_twin_plan_helpers_flag_ignored_key_and_missing_output_cap() -> None:
+    from zwill.twin_experiments import unknown_plan_key_warnings, verbose_model_output_cap_warning
+
+    # `model_params` (plural) is a common misspelling of `model_param` and is
+    # otherwise silently dropped.
+    plan = {"defaults": {"model_params": ["x"], "model": ["google:gemini-2.5-pro"]}}
+    assert any(w["code"] == "unknown_plan_key" for w in unknown_plan_key_warnings(plan))
+    assert unknown_plan_key_warnings({"defaults": {"model_param": ["x"]}}) == []
+
+    # OpenAI-only export needs no cap warning.
+    assert verbose_model_output_cap_warning({"model": ["openai:gpt-5.5"]}) is None
+    # Gemini without a cap warns; with a cap it does not.
+    warning = verbose_model_output_cap_warning({"model": ["google:gemini-2.5-pro"]})
+    assert warning is not None and warning["code"] == "verbose_model_missing_output_cap"
+    assert (
+        verbose_model_output_cap_warning(
+            {"model": ["google:gemini-2.5-pro"], "model_param": ["google:gemini-2.5-pro:maxOutputTokens=8192"]}
+        )
+        is None
+    )
+
+
+def test_init_plan_warns_on_missing_output_cap_and_records_model_param(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    create_tiny_binary_survey()
+
+    def _init(plan_id: str, model_param):
+        return cli.cmd_twin_experiment_init_plan(
+            argparse.Namespace(
+                survey="demo",
+                plan_id=plan_id,
+                path=str(tmp_path / f"{plan_id}.json"),
+                heldout_question=["q1"],
+                heldout_questions=None,
+                approach_id=["baseline"],
+                sample_respondents=2,
+                seed=1,
+                context_question_count=1,
+                model=["google:gemini-2.5-pro"],
+                model_param=model_param,
+                primary_metric="nll",
+            )
+        )
+
+    without_cap = _init("nocap", None)
+    assert "verbose_model_missing_output_cap" in [w["code"] for w in (without_cap.get("warnings") or [])]
+
+    with_cap = _init("withcap", ["google:gemini-2.5-pro:maxOutputTokens=8192"])
+    assert "verbose_model_missing_output_cap" not in [w["code"] for w in (with_cap.get("warnings") or [])]
+    plan = json.loads((tmp_path / "withcap.json").read_text())
+    assert plan["defaults"]["model_param"] == ["google:gemini-2.5-pro:maxOutputTokens=8192"]
+
+
+def test_init_plan_authors_context_and_leakage_fields(tmp_path: Path, monkeypatch) -> None:
+    from zwill.errors import ZwillError
+
+    monkeypatch.chdir(tmp_path)
+    create_tiny_binary_survey()
+
+    def _init(plan_id: str, context_questions):
+        return cli.cmd_twin_experiment_init_plan(
+            argparse.Namespace(
+                survey="demo",
+                plan_id=plan_id,
+                path=str(tmp_path / f"{plan_id}.json"),
+                heldout_question=["q1"],
+                heldout_questions=None,
+                approach_id=["baseline"],
+                sample_respondents=1,
+                seed=1,
+                stratify_actual=True,
+                context_question_count=5,
+                context_question=None,
+                context_questions=context_questions,
+                exclude_context_question=None,
+                leakage_exclusion=["q1:q2"],
+                model=["openai:gpt-5.5"],
+                model_param=None,
+                primary_metric="nll",
+            )
+        )
+
+    result = _init("full", "q2")
+    defaults = result["data"]["plan"]["defaults"]
+    assert defaults["context_questions"] == "q2"
+    assert defaults["leakage_exclusion"] == ["q1:q2"]
+    assert defaults["stratify_actual"] is True
+
+    # Unknown context question is rejected at authoring time.
+    with pytest.raises(ZwillError):
+        _init("bad", "nope")
+
+
+def test_twin_experiment_validate_lints_plan(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    create_tiny_binary_survey()
+    monkeypatch.setattr(
+        cli,
+        "load_edsl_job_classes",
+        lambda: (FakeJobs, FakeModel, FakeModelList, FakeQuestionFreeText, FakeScenario, FakeScenarioList, FakeSurvey),
+    )
+
+    def _write(name: str, plan: dict) -> Path:
+        path = tmp_path / name
+        path.write_text(json.dumps(plan))
+        return path
+
+    def _validate(path: Path) -> dict:
+        return cli.cmd_twin_experiment_validate(argparse.Namespace(path=str(path), survey=None, plan_id=None))
+
+    good = _validate(
+        _write(
+            "good.json",
+            {
+                "plan_id": "g",
+                "survey": "demo",
+                "heldout_questions": ["q1"],
+                "defaults": {"model": ["openai:gpt-5.5"], "context_questions": ["q2"], "sample_respondents": 1},
+                "arms": [{"approach_id": "baseline"}],
+            },
+        )
+    )
+    assert good["status"] == "ok" and good["data"]["valid"] is True
+    assert good["data"]["prediction_count_exported"] >= 1
+
+    bad = _validate(
+        _write(
+            "bad.json",
+            {
+                "plan_id": "b",
+                "survey": "demo",
+                "heldout_questions": ["nope"],  # unknown question
+                "defaults": {"model": ["openai:gpt-5.5"], "context_questions": ["q2"]},
+                "arms": [{"approach_id": "baseline"}],
+            },
+        )
+    )
+    assert bad["status"] == "error" and bad["data"]["valid"] is False
+    assert bad["data"]["problems"]
+
+    warn = _validate(
+        _write(
+            "warn.json",
+            {
+                "plan_id": "w",
+                "survey": "demo",
+                "heldout_questions": ["q1"],
+                "defaults": {"model": ["openai:gpt-5.5"], "context_questions": ["q2"], "model_params": ["x"]},
+                "arms": [{"approach_id": "baseline"}],
+            },
+        )
+    )
+    assert "unknown_plan_key" in [w["code"] for w in (warn.get("warnings") or [])]
 
 
 def test_twin_job_export_includes_supplemental_twin_material(tmp_path: Path, monkeypatch) -> None:

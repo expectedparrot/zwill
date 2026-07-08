@@ -10,7 +10,7 @@ from typing import Any, Callable
 
 from .errors import ZwillError
 from .jsonlio import read_jsonl
-from .twin import digital_twin_job_id_from_job, select_context_questions
+from .twin import digital_twin_job_id_from_job, normalize_name_list, select_context_questions
 
 
 @dataclass(frozen=True)
@@ -80,14 +80,8 @@ def expand_question_text_fields(
 
 
 def selected_heldout_question_names(args: Any, questions: list[dict[str, Any]]) -> list[str]:
-    values: list[str] = []
-    heldout_question = getattr(args, "heldout_question", None)
-    if isinstance(heldout_question, list):
-        values.extend(heldout_question)
-    elif heldout_question:
-        values.append(heldout_question)
-    if getattr(args, "heldout_questions", None):
-        values.extend(name.strip() for name in args.heldout_questions.split(",") if name.strip())
+    values = normalize_name_list(getattr(args, "heldout_question", None))
+    values += normalize_name_list(getattr(args, "heldout_questions", None))
     if not values:
         raise ZwillError("invalid_input", "--heldout-question is required for twin-probability-job exports.")
     available = [question["question_name"] for question in questions]
@@ -228,11 +222,8 @@ def extra_heldout_question_specs(args: Any) -> list[dict[str, Any]]:
     if getattr(args, "question_specs", None):
         specs.extend(read_question_specs(Path(args.question_specs)))
     if getattr(args, "question_specs_workbook", None):
-        requested = set()
-        for value in getattr(args, "heldout_question", None) or []:
-            requested.add(str(value))
-        if getattr(args, "heldout_questions", None):
-            requested.update(item.strip() for item in str(args.heldout_questions).split(",") if item.strip())
+        requested = set(normalize_name_list(getattr(args, "heldout_question", None)))
+        requested.update(normalize_name_list(getattr(args, "heldout_questions", None)))
         specs.extend(
             read_question_specs_from_workbook(
                 Path(args.question_specs_workbook),
@@ -265,6 +256,45 @@ def target_specific_leakage_exclusions(args: Any) -> dict[str, set[str]]:
             raise ZwillError("invalid_input", "Leakage exclusions require both target and question.", context={"value": value})
         exclusions[target].add(question)
     return exclusions
+
+
+def resolve_leakage_exclusion_patterns(
+    raw_exclusions: dict[str, set[str]],
+    known_question_names: set[str],
+    rank_task_items: dict[str, list[str]],
+) -> dict[str, set[str]]:
+    """Expand each exclusion pattern into concrete context question names.
+
+    A pattern may be an exact question name, a `rank_task_id` (expands to every
+    item in that battery), or a shell-style glob (`prefix*`) matched against the
+    known question names. Every pattern must resolve to at least one question.
+    """
+    import fnmatch
+
+    resolved: dict[str, set[str]] = defaultdict(set)
+    unmatched: list[str] = []
+    for target, patterns in raw_exclusions.items():
+        for pattern in patterns:
+            if pattern in rank_task_items:
+                resolved[target].update(rank_task_items[pattern])
+            elif pattern in known_question_names:
+                resolved[target].add(pattern)
+            elif any(char in pattern for char in "*?[]"):
+                matches = {name for name in known_question_names if fnmatch.fnmatchcase(name, pattern)}
+                if matches:
+                    resolved[target].update(matches)
+                else:
+                    unmatched.append(f"{target}:{pattern}")
+            else:
+                unmatched.append(f"{target}:{pattern}")
+    if unmatched:
+        raise ZwillError(
+            "invalid_input",
+            "Leakage exclusions reference unknown context questions, rank tasks, or globs.",
+            context={"unmatched": sorted(unmatched)},
+            hint="Use target:<question>, target:<rank_task_id>, or a glob like target:q13_message_*.",
+        )
+    return resolved
 
 
 def balanced_by_actual(
@@ -425,6 +455,11 @@ def build_edsl_digital_twin_job_dict(survey_name: str, args: Any, deps: DigitalT
         existing_names = {question["question_name"] for question in questions}
         questions.extend([spec for spec in extra_specs if spec["question_name"] not in existing_names])
     question_by_name = {question["question_name"]: question for question in questions}
+    context_priority_by_question = {
+        str(question["question_name"]): float(question["context_priority"])
+        for question in questions
+        if question.get("context_priority") is not None
+    }
     if args.balance_actual and args.stratify_actual:
         raise ZwillError("invalid_input", "Use only one of --balance-actual or --stratify-actual.")
     heldout_names = selected_heldout_question_names(args, questions)
@@ -446,8 +481,8 @@ def build_edsl_digital_twin_job_dict(survey_name: str, args: Any, deps: DigitalT
     context_args.questions = args.context_questions
     context_args.exclude_question = args.exclude_context_question or []
     context_question_names = deps.selected_question_names(context_args, questions)
-    leakage_exclusions = target_specific_leakage_exclusions(args)
-    unknown_exclusion_targets = sorted(set(leakage_exclusions) - set(heldout_names))
+    raw_leakage_exclusions = target_specific_leakage_exclusions(args)
+    unknown_exclusion_targets = sorted(set(raw_leakage_exclusions) - set(heldout_names))
     if unknown_exclusion_targets:
         raise ZwillError(
             "invalid_input",
@@ -455,18 +490,16 @@ def build_edsl_digital_twin_job_dict(survey_name: str, args: Any, deps: DigitalT
             context={"unknown_targets": unknown_exclusion_targets, "heldout_questions": heldout_names},
         )
     known_question_names = {question["question_name"] for question in questions}
-    unknown_exclusion_questions = sorted(
-        question_name
-        for excluded in leakage_exclusions.values()
-        for question_name in excluded
-        if question_name not in known_question_names
+    # Map each rank_task_id -> its item question names, so a whole battery can be
+    # excluded with one `target:<rank_task_id>` flag.
+    rank_task_items: dict[str, list[str]] = defaultdict(list)
+    for question in questions:
+        task_id = str(question.get("rank_task_id") or "")
+        if task_id:
+            rank_task_items[task_id].append(str(question["question_name"]))
+    leakage_exclusions = resolve_leakage_exclusion_patterns(
+        raw_leakage_exclusions, known_question_names, dict(rank_task_items)
     )
-    if unknown_exclusion_questions:
-        raise ZwillError(
-            "invalid_input",
-            "Leakage exclusions reference unknown context questions.",
-            context={"unknown_questions": unknown_exclusion_questions},
-        )
     all_respondent_ids = [row["respondent_id"] for row in read_jsonl(sdir / "respondents.jsonl")]
     if not all_respondent_ids:
         all_respondent_ids = sorted({row["respondent_id"] for row in read_jsonl(sdir / "answers.jsonl")})
@@ -536,6 +569,7 @@ def build_edsl_digital_twin_job_dict(survey_name: str, args: Any, deps: DigitalT
                 target_context_question_names,
                 heldout_name,
                 args.context_question_count,
+                context_priority_by_question,
             )
             observed_answers = [
                 {

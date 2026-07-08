@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from .cli import *  # noqa: F403
+from .costs import estimate_job_cost_summary, results_cost_summary
+from .twin import normalize_name_list
 
 
 def _cli():
@@ -136,15 +138,10 @@ def build_edsl_survey_dict(survey_name: str) -> dict[str, Any]:
 
 def selected_question_names(args: argparse.Namespace, questions: list[dict[str, Any]]) -> list[str]:
     available = [question["question_name"] for question in questions]
-    selected: list[str]
-    if args.question or args.questions:
-        selected = []
-        for question_name in args.question or []:
-            selected.append(question_name)
-        if args.questions:
-            selected.extend(name.strip() for name in args.questions.split(",") if name.strip())
-    else:
-        selected = available[:]
+    # Accept both a comma-separated string and a JSON list (e.g. plan-driven
+    # `context_questions`) for the singular and plural selectors.
+    requested = normalize_name_list(args.question) + normalize_name_list(args.questions)
+    selected: list[str] = requested if requested else available[:]
 
     excluded = set(args.exclude_question or [])
     selected = [name for name in selected if name not in excluded]
@@ -353,11 +350,7 @@ def option_key(index: int) -> str:
 
 
 def parse_model_specs(args: argparse.Namespace) -> list[tuple[str, str | None]]:
-    values: list[str] = []
-    for model in args.model or []:
-        values.append(model)
-    if args.models:
-        values.extend(model.strip() for model in args.models.split(",") if model.strip())
+    values = normalize_name_list(args.model) + normalize_name_list(args.models)
     if not values:
         values = ["gpt-5.5"]
 
@@ -675,14 +668,28 @@ def build_edsl_agent_study_job_dict(args: argparse.Namespace) -> dict[str, Any]:
     return data
 
 
-def cmd_agent_study_export(args: argparse.Namespace) -> None:
-    export_dict = build_edsl_agent_study_job_dict(args)
-    output = json.dumps(export_dict, indent=2)
+def emit_raw_export(command: str, args: argparse.Namespace, output: str, data: dict[str, Any]) -> None:
+    """Shared output contract for raw JSON-job exports.
+
+    With --path the file is the artifact and stdout carries a clean, parseable
+    envelope (metadata, not a second copy of the whole job). Without --path,
+    stdout is the artifact (pipe-friendly). --quiet suppresses stdout entirely.
+    """
+    quiet = getattr(args, "quiet", False)
     if args.path:
         path = Path(args.path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(output + "\n")
-    print(output)
+        if not quiet:
+            print_json(envelope(command, "ok", {"path": str(path), **data}))
+    elif not quiet:
+        print(output)
+
+
+def cmd_agent_study_export(args: argparse.Namespace) -> None:
+    export_dict = build_edsl_agent_study_job_dict(args)
+    output = json.dumps(export_dict, indent=2)
+    emit_raw_export("zwill agent-study export", args, output, {})
 
 
 
@@ -704,15 +711,12 @@ def build_edsl_probability_job_dict(survey_name: str, args: argparse.Namespace) 
 
 
 def respondent_selection(args: argparse.Namespace, all_respondent_ids: list[str]) -> list[str]:
-    selected: list[str]
-    if getattr(args, "respondent", None) or getattr(args, "respondents", None):
-        selected = []
-        for respondent_id in args.respondent or []:
-            selected.append(respondent_id)
-        if args.respondents:
-            selected.extend(value.strip() for value in args.respondents.split(",") if value.strip())
-    else:
-        selected = all_respondent_ids[:]
+    # Accept both a comma-separated string and a JSON list (e.g. plan-driven
+    # `respondents`) for the singular and plural selectors.
+    requested = normalize_name_list(getattr(args, "respondent", None)) + normalize_name_list(
+        getattr(args, "respondents", None)
+    )
+    selected: list[str] = requested if requested else all_respondent_ids[:]
     unknown = [respondent_id for respondent_id in selected if respondent_id not in all_respondent_ids]
     if unknown:
         raise ZwillError(
@@ -845,6 +849,11 @@ def build_edsl_rank_utility_twin_job_dict(survey_name: str, args: argparse.Names
     context_question_names = selected_question_names(context_args, questions)
     all_rank_item_names = {name for task in selected_tasks for name in task.get("source_question_names", [])}
     context_question_names = [name for name in context_question_names if name not in all_rank_item_names]
+    context_priority_by_question = {
+        str(question["question_name"]): float(question["context_priority"])
+        for question in questions
+        if question.get("context_priority") is not None
+    }
 
     all_respondent_ids = [row["respondent_id"] for row in read_jsonl(sdir / "respondents.jsonl")]
     if not all_respondent_ids:
@@ -888,7 +897,9 @@ def build_edsl_rank_utility_twin_job_dict(survey_name: str, args: argparse.Names
                 skipped_missing.append({"respondent_id": respondent_id, "rank_task_id": task["rank_task_id"], "missing_items": missing_items})
                 continue
             target_context = [name for name in context_question_names if name not in task_item_ids]
-            selected_context = select_context_questions(respondent_answers, target_context, "", args.context_question_count)
+            selected_context = select_context_questions(
+                respondent_answers, target_context, "", args.context_question_count, context_priority_by_question
+            )
             observed_answers = [
                 {
                     "question_name": question_name,
@@ -1042,6 +1053,7 @@ def cmd_edsl_run(args: argparse.Namespace) -> dict[str, Any]:
                 "job_path": str(job_path),
                 "results_path": str(output_path),
                 "dry_run": True,
+                "estimated_cost": estimate_job_cost_summary(job),
                 "scenario_count": len(job.scenarios),
                 "model_count": len(job.models),
                 "question_count": len(job.survey.questions),
@@ -1069,6 +1081,7 @@ def cmd_edsl_run(args: argparse.Namespace) -> dict[str, Any]:
             "job_path": str(job_path),
             "results_path": str(output_path),
             "result_count": len(results_dict.get("data", [])),
+            "cost": results_cost_summary(results_dict),
             "probability_job_id": results_dict.get("zwill", {}).get("probability_job_id"),
             "digital_twin_job_id": results_dict.get("zwill", {}).get("digital_twin_job_id"),
             "rank_utility_twin_job_id": results_dict.get("zwill", {}).get("rank_utility_twin_job_id"),
@@ -1113,8 +1126,18 @@ def cmd_edsl_export(args: argparse.Namespace) -> None:
         if approved_plan:
             export_dict.setdefault("zwill", {})["approved_validation_plan"] = approved_plan
     output = json.dumps(export_dict, indent=2)
-    if args.path:
-        path = Path(args.path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(output + "\n")
-    print(output)
+    zwill_meta = export_dict.get("zwill") if isinstance(export_dict.get("zwill"), dict) else {}
+    scenario_count = zwill_meta.get("scenario_count")
+    if scenario_count is None:
+        scenario_count = len(export_dict.get("scenarios", []) or []) or None
+    emit_raw_export(
+        "zwill edsl-export",
+        args,
+        output,
+        {
+            "target": args.target,
+            "survey": args.survey,
+            "scenario_count": scenario_count,
+            "model_count": len(export_dict.get("models", []) or []) or None,
+        },
+    )
