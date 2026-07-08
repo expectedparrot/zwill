@@ -338,6 +338,10 @@ def render_html(
     question_rows = "".join(f"<tr><td><code>{escape(row['question'])}</code></td><td>{escape(row['text'])}</td></tr>" for row in questions)
     pairwise_accuracy = pairwise["summary"].get("pairwise_order_accuracy", 0.0)
     mean_spearman = spearman_detail["summary"].get("mean_spearman", 0.0)
+    # Pairwise/Spearman are option-ordering metrics: they only apply when held-out
+    # questions have multiple orderable options. For single-select (e.g. binary)
+    # surveys there are no ordered pairs, so report N/A rather than a misleading 0%.
+    has_ordering_data = int(pairwise["summary"].get("total_ordered_option_pairs", 0) or 0) > 0
     question_count = int(metrics.get("question_count", 0.0))
     individual_p = individual.get("p_value_mean_p_actual")
     individual_signal_text = (
@@ -350,6 +354,20 @@ def render_html(
         if question_count < 10
         else "These rank-order statistics are based on a broader held-out question set."
     )
+    if has_ordering_data:
+        ranking_why = f"Twins order option pairs correctly about {pairwise_accuracy:.0%} of the time versus 50% by chance. {ranking_caveat}"
+        ranking_readout = (
+            f"When using twins to rank concepts or answer options, this validation suggests they put option pairs in the "
+            f"right order about {pairwise_accuracy:.0%} of the time, versus 50% by chance. {ranking_caveat}"
+        )
+        spearman_sentence = f"Mean Spearman rank correlation is {mean_spearman:.2f}."
+    else:
+        ranking_why = "This survey's held-out questions are single-select, so option-ordering accuracy does not apply and was not evaluated."
+        ranking_readout = (
+            "This survey's held-out questions are single-select, so option-ordering (pairwise and Spearman rank) metrics "
+            "do not apply and were not evaluated."
+        )
+        spearman_sentence = ""
     empirical_lift_block = ""
     if empirical_lift_svg and empirical_lift:
         empirical_lift_block = f"""<h3>Lift Versus Empirical Marginal Oracle</h3><p>Mean lift versus the empirical marginal oracle is {empirical_lift['mean_lift']:.2f}x. This stricter comparison is only available because the held-out target was observed in the validation data; it is not available for future unanswered questions.</p><img src="{escape(empirical_lift_svg.name)}" alt="Histogram of lift over empirical marginal probability assigned to the actual answer." style="width:100%;max-width:980px;height:auto;border:1px solid var(--line);border-radius:8px;background:white;margin-top:8px">"""
@@ -400,12 +418,12 @@ td.num{{text-align:right;font-variant-numeric:tabular-nums}}
 <main class="wrap"><section class="grid">
 {executive_body}
 <div class="panel span-4 metric"><div class="value">{metrics['row_count']:,.0f}</div><div class="label">Validation rows</div></div><div class="panel span-4 metric"><div class="value">{metrics['question_count']:,.0f}</div><div class="label">Held-out questions</div></div><div class="panel span-4 metric"><div class="value">{lift['share_above_1']:.0%}</div><div class="label">Rows above uniform</div></div>
-<div class="panel span-12"><h2>Decision Guidance</h2><table><thead><tr><th>Decision use</th><th>Recommendation</th><th>Why</th></tr></thead><tbody><tr><td>Exploratory concept screening</td><td><strong>Use cautiously</strong></td><td>The validation shows lift over uniform guessing, but {individual_signal_text.lower()}</td></tr><tr><td>Ranking options or messages</td><td><strong>Preliminary directional use</strong></td><td>Twins order option pairs correctly about {pairwise_accuracy:.0%} of the time versus 50% by chance. {ranking_caveat}</td></tr><tr><td>Exact market sizing, targeting, or public claims</td><td><strong>Do not use alone</strong></td><td>Held-out validation supports aggregate/directional signal, not precise standalone estimates or individual-level action.</td></tr></tbody></table></div>
+<div class="panel span-12"><h2>Decision Guidance</h2><table><thead><tr><th>Decision use</th><th>Recommendation</th><th>Why</th></tr></thead><tbody><tr><td>Exploratory concept screening</td><td><strong>Use cautiously</strong></td><td>The validation shows lift over uniform guessing, but {individual_signal_text.lower()}</td></tr><tr><td>Ranking options or messages</td><td><strong>Preliminary directional use</strong></td><td>{ranking_why}</td></tr><tr><td>Exact market sizing, targeting, or public claims</td><td><strong>Do not use alone</strong></td><td>Held-out validation supports aggregate/directional signal, not precise standalone estimates or individual-level action.</td></tr></tbody></table></div>
 <div class="panel span-12"><h2>What Was Held Out?</h2><p>The validation held out observed answers and predicted them from the remaining respondent context. Unless a run report records more specific exclusions, treat the context policy as all available observed answers except the current held-out target.</p><table><thead><tr><th>Question</th><th>Held-out target</th></tr></thead><tbody>{question_rows}</tbody></table></div>
 <div class="panel span-12"><h2>Main Evidence</h2><table><thead><tr><th>Metric</th><th class="num">Twin</th><th class="num">Uniform over options</th></tr></thead><tbody><tr><td>Mean probability assigned to actual answer</td><td class="num">{metrics['mean_probability_actual']:.1%}</td><td class="num">{metrics['mean_uniform_probability_actual']:.1%}</td></tr><tr><td>Negative log likelihood</td><td class="num">{metrics['mean_negative_log_likelihood']:.3f}</td><td class="num">{metrics['mean_uniform_negative_log_likelihood']:.3f}</td></tr><tr><td>Brier score</td><td class="num">{metrics['mean_brier']:.3f}</td><td class="num">{metrics['mean_uniform_brier']:.3f}</td></tr></tbody></table></div>
 <div class="panel span-12"><h2>Accuracy Lift Distribution</h2><h3>Lift Versus Uniform</h3><p>Mean lift over uniform is {lift['mean_lift']:.2f}x, median lift is {lift['median_lift']:.2f}x, and {lift['share_above_1']:.1%} of rows are above the uniform baseline. This asks whether twins beat random guessing over answer options.</p><img src="{escape(lift_svg.name)}" alt="Histogram of lift over uniform probability assigned to the actual answer." style="width:100%;max-width:980px;height:auto;border:1px solid var(--line);border-radius:8px;background:white;margin-top:8px">{empirical_lift_block}</div>
 <div class="panel span-12"><h2>Individual Signal Beyond Marginals</h2><p>Within-question permutation keeps each prediction vector fixed and shuffles actual answers across respondents. It tests respondent-specific matching beyond question-level marginal structure; it does not test whether predictions beat uniform. A low p-value means respondent-specific matching is stronger than shuffled labels. A high p-value with good uniform lift means the model may be capturing aggregate or marginal structure rather than individual-level signal.</p><table><thead><tr><th>Statistic</th><th class="num">Observed</th><th class="num">Permutation null</th><th class="num">p-value</th></tr></thead><tbody><tr><td>Mean probability assigned to actual answer</td><td class="num">{individual['observed_mean_p_actual']:.3f}</td><td class="num">{individual['null_mean_p_actual_mean']:.3f}</td><td class="num">{individual['p_value_mean_p_actual']:.5f}</td></tr><tr><td>Mean negative log likelihood</td><td class="num">{individual['observed_mean_nll']:.3f}</td><td class="num">{individual['null_mean_nll_mean']:.3f}</td><td class="num">{individual['p_value_mean_nll']:.5f}</td></tr></tbody></table><h3>Per-question permutation results</h3><table><thead><tr><th>Question</th><th class="num">Rows</th><th class="num">Observed p(actual)</th><th class="num">Null p(actual)</th><th class="num">p-value</th></tr></thead><tbody>{per_question_rows}</tbody></table></div>
-<div class="panel span-12"><h2>Marginal Rank Order</h2><p><strong>Plain-English readout:</strong> When using twins to rank concepts or answer options, this validation suggests they put option pairs in the right order about {pairwise_accuracy:.0%} of the time, versus 50% by chance. {ranking_caveat}</p><img src="{escape(pairwise_svg.name)}" alt="Bar chart showing pairwise option ordering accuracy by validation question." style="width:100%;max-width:980px;height:auto;border:1px solid var(--line);border-radius:8px;background:white;margin-top:8px"><p>Mean Spearman rank correlation is {mean_spearman:.2f}.</p></div>
+<div class="panel span-12"><h2>Marginal Rank Order</h2><p><strong>Plain-English readout:</strong> {ranking_readout}</p><img src="{escape(pairwise_svg.name)}" alt="Bar chart showing pairwise option ordering accuracy by validation question." style="width:100%;max-width:980px;height:auto;border:1px solid var(--line);border-radius:8px;background:white;margin-top:8px"><p>{spearman_sentence}</p></div>
 <div class="panel span-12"><h2>Operating Recommendation</h2><ul><li>Use twins to shortlist, rank, and stress-test concepts before fielding real research.</li><li>For consequential decisions, field a small validation survey on finalist concepts and compare against twin predictions.</li><li>Track performance by question family over time.</li></ul></div>
 </section></main></body></html>
 """
@@ -498,7 +516,11 @@ def build_executive_summary(
             f"Validation rows: {len(rows):,}\n\n"
             f"Mean p(actual): {metrics['mean_probability_actual']:.3f} vs uniform {metrics['mean_uniform_probability_actual']:.3f}.\n\n"
             f"Individual signal beyond marginals permutation p-value: {individual['p_value_mean_p_actual']:.5f}.\n\n"
-            f"Pairwise option ordering accuracy: {pairwise['summary']['pairwise_order_accuracy']:.1%}.\n"
+            + (
+                f"Pairwise option ordering accuracy: {pairwise['summary']['pairwise_order_accuracy']:.1%}.\n"
+                if int(pairwise["summary"].get("total_ordered_option_pairs", 0) or 0) > 0
+                else "Pairwise option ordering accuracy: not applicable (held-out questions are single-select).\n"
+            )
         )
     return {
         "path": str(path),
