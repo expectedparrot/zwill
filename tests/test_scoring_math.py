@@ -199,6 +199,22 @@ def test_spearman_bounded_even_with_tied_actual_ranks() -> None:
     assert s is None or -1.0 - 1e-9 <= s <= 1.0 + 1e-9
 
 
+def test_weighted_metric_mean_uses_weights_and_skips_none() -> None:
+    from zwill.rank import weighted_metric_mean
+
+    rows = [
+        {"spearman": 1.0, "weight": 3.0},
+        {"spearman": 0.0, "weight": 1.0},
+        {"spearman": None, "weight": 5.0},  # skipped (metric absent this row)
+    ]
+    # weighted: (1.0*3 + 0.0*1) / (3 + 1) = 0.75, not the unweighted 0.5
+    assert weighted_metric_mean(rows, "spearman") == pytest.approx(0.75)
+    # missing weight defaults to 1.0
+    assert weighted_metric_mean([{"spearman": 1.0}, {"spearman": 3.0}], "spearman") == pytest.approx(2.0)
+    # all-None -> None
+    assert weighted_metric_mean([{"spearman": None}], "spearman") is None
+
+
 def test_top_k_identification_over_full_battery() -> None:
     from zwill.rank import top_k_identification
 

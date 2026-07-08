@@ -219,6 +219,11 @@ def cmd_rank_results_import(args: argparse.Namespace) -> dict[str, Any]:
     raw_dir.mkdir(parents=True, exist_ok=True)
     stored_raw = raw_dir / source.name
     shutil.copy2(source, stored_raw)
+    weight_by_respondent = {
+        str(row["respondent_id"]): float(row.get("weight", 1.0))
+        for row in read_jsonl(sdir / "respondents.jsonl")
+        if row.get("respondent_id") is not None
+    }
     imported_at = utc_now()
     extracted = []
     issues = []
@@ -258,6 +263,7 @@ def cmd_rank_results_import(args: argparse.Namespace) -> dict[str, Any]:
                 "row": index,
                 "survey": args.survey,
                 "respondent_id": scenario.get("respondent_id"),
+                "weight": weight_by_respondent.get(str(scenario.get("respondent_id")), 1.0),
                 "rank_task_id": scenario.get("rank_task_id"),
                 "rank_task_text": scenario.get("rank_task_text"),
                 "rank_direction": scenario.get("rank_direction"),
