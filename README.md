@@ -28,31 +28,28 @@ it. Start with `zwill guide` for the end-to-end walkthrough.
 
 ## Install
 
-`zwill` depends on [EDSL](https://github.com/expectedparrot/edsl), which is
-developed alongside it in a sibling checkout. `pyproject.toml` resolves `edsl`
-from `../edsl` as an editable install (see `[tool.uv.sources]`), so clone both
-repos next to each other:
-
-```
-tools/ep/
-  zwill/   # this repo
-  edsl/    # sibling EDSL checkout
-```
-
-Then, from the `zwill` directory:
+`zwill` depends on [EDSL](https://github.com/expectedparrot/edsl), which it
+installs from PyPI:
 
 ```bash
-uv pip install -e .
+pip install -e .        # from a clone of this repo
 ```
-
-If your EDSL checkout lives elsewhere, adjust the `path` under
-`[tool.uv.sources]` in `pyproject.toml`.
 
 Run tests:
 
 ```bash
-uv pip install -e ".[test]"
+pip install -e ".[test]"
 pytest -q
+```
+
+### Developing against a local EDSL
+
+If you are co-developing EDSL, install zwill first, then overlay your local EDSL
+checkout as an editable install — no changes to `pyproject.toml` needed:
+
+```bash
+pip install -e .
+pip install -e ../edsl   # or wherever your EDSL checkout lives
 ```
 
 ## Projects
