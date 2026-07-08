@@ -440,3 +440,82 @@ def build_context_leakage_diagnostics(
         "omitted_count": max(0, len(rows) - limit),
         "note": "Bias-corrected (Bergsma) Cramer's V between each target and every other question on observed answers. High values mark context that may let a twin copy the target instead of modelling the respondent. The correction prevents high-cardinality (e.g. free-text) context from firing spuriously; check the distinct-answer counts when interpreting.",
     }
+
+
+def rank_membership_leakage_diagnostics(
+    questions: list[dict[str, Any]],
+    answer_by_respondent: dict[str, dict[str, Any]],
+    rank_batteries: list[dict[str, Any]],
+    *,
+    min_pair_rows: int = 30,
+    warn_threshold: float = 0.7,
+    limit: int = 200,
+) -> dict[str, Any]:
+    """Flag context that reveals WHICH items a respondent ranked (set membership).
+
+    In a top-N / MaxDiff battery a respondent ranks only a subset of items, and
+    top-K identification is inflated if any context question predicts each item's
+    presence in that ranked subset (e.g. a "which sites did you use" checkbox that
+    determines which sites appear in a "rank the sites you used" battery). The
+    standard per-answer Cramer's V misses this: it conditions on respondents who
+    ranked the item, so membership is constant and the association is invisible.
+
+    This instead treats each item's membership -- ranked vs not-ranked over ALL
+    respondents -- as the target, and measures how strongly each context question
+    predicts it. Per (context question, battery) it reports the strongest item.
+    """
+    question_names = [str(q["question_name"]) for q in questions]
+    question_text = {str(q["question_name"]): str(q.get("question_text") or "") for q in questions}
+    all_answers = list(answer_by_respondent.values())
+
+    rows = []
+    for battery in rank_batteries:
+        items = [str(name) for name in battery.get("item_question_names", [])]
+        item_set = set(items)
+        if len(items) < 2:
+            continue
+        for context_question in question_names:
+            if context_question in item_set:
+                continue
+            best: dict[str, Any] | None = None
+            for item in items:
+                counts: Counter[tuple[str, str]] = Counter()
+                for answers in all_answers:
+                    context = answers.get(context_question)
+                    if context is None:
+                        continue
+                    membership = "ranked" if answers.get(item) is not None else "not_ranked"
+                    counts[(membership, str(context))] += 1
+                n = sum(counts.values())
+                if n < min_pair_rows:
+                    continue
+                if len({membership for (membership, _context) in counts}) < 2:
+                    continue  # item always (or never) ranked among these respondents
+                cramers_v = bias_corrected_cramers_v(counts, n)
+                if cramers_v is None:
+                    continue
+                if best is None or cramers_v > best["cramers_v"]:
+                    best = {"item": item, "cramers_v": cramers_v, "respondents": n}
+            if best is not None:
+                rows.append(
+                    {
+                        "rank_task_id": battery.get("rank_task_id"),
+                        "context_question": context_question,
+                        "context_question_text": question_text.get(context_question, ""),
+                        "strongest_item": best["item"],
+                        "cramers_v": best["cramers_v"],
+                        "respondents": best["respondents"],
+                        "warning": "possible_set_membership_leakage" if best["cramers_v"] >= warn_threshold else "",
+                    }
+                )
+    rows.sort(key=lambda item: -item["cramers_v"])
+    flagged = [row for row in rows if row["warning"]]
+    return {
+        "warn_threshold": warn_threshold,
+        "min_pair_rows": min_pair_rows,
+        "pair_count": len(rows),
+        "flagged_count": len(flagged),
+        "rows": rows[:limit],
+        "omitted_count": max(0, len(rows) - limit),
+        "note": "Bias-corrected Cramer's V between each context question and each rank item's set membership (ranked vs not-ranked, over all respondents). High values mark context that reveals which items a respondent ranked, which inflates top-K identification. Complements the per-answer audit, which cannot see this because it conditions on respondents who ranked the item.",
+    }

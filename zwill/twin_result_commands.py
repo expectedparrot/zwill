@@ -496,9 +496,12 @@ def cmd_twin_results_leakage_audit(args: argparse.Namespace) -> dict[str, Any]:
     question_name_set = set(question_names)
     resolved_targets: list[str] = []
     unknown_targets: list[str] = []
+    audited_rank_tasks: list[str] = []
     for target in targets:
         if target in rank_task_items:
             resolved_targets.extend(rank_task_items[target])
+            if target not in audited_rank_tasks:
+                audited_rank_tasks.append(target)
         elif target in question_name_set:
             resolved_targets.append(target)
         else:
@@ -515,8 +518,29 @@ def cmd_twin_results_leakage_audit(args: argparse.Namespace) -> dict[str, Any]:
         min_pair_rows=int(getattr(args, "min_pair_rows", 30) or 30),
         warn_threshold=float(getattr(args, "threshold", 0.7) or 0.7),
     )
+    # For rank batteries, also check set-membership leakage: context that reveals
+    # which items a respondent ranked. The per-answer audit above cannot see this.
+    membership = None
+    if audited_rank_tasks:
+        from .twin_diagnostics import rank_membership_leakage_diagnostics
+
+        batteries = [
+            {"rank_task_id": task_id, "item_question_names": rank_task_items[task_id]}
+            for task_id in audited_rank_tasks
+        ]
+        membership = rank_membership_leakage_diagnostics(
+            questions,
+            answer_by_respondent,
+            batteries,
+            min_pair_rows=int(getattr(args, "min_pair_rows", 30) or 30),
+            warn_threshold=float(getattr(args, "threshold", 0.7) or 0.7),
+        )
+
     if getattr(args, "path", None):
-        write_json(Path(args.path), diagnostics)
+        payload = dict(diagnostics)
+        if membership is not None:
+            payload["set_membership_leakage"] = membership
+        write_json(Path(args.path), payload)
 
     warnings = []
     if diagnostics["flagged_count"]:
@@ -541,6 +565,19 @@ def cmd_twin_results_leakage_audit(args: argparse.Namespace) -> dict[str, Any]:
                 ),
             }
         )
+    if membership and membership["flagged_count"]:
+        top = membership["rows"][0]
+        warnings.append(
+            {
+                "code": "possible_set_membership_leakage",
+                "message": (
+                    f"{membership['flagged_count']} context question(s) predict which items a respondent ranked "
+                    f"(Cramer's V >= {membership['warn_threshold']}); strongest: {top['context_question']} -> "
+                    f"membership of {top['strongest_item']} (V={top['cramers_v']:.2f}). This inflates top-K "
+                    "identification; exclude such context from the rank twin export."
+                ),
+            }
+        )
     return envelope(
         "zwill twin-results leakage-audit",
         "ok",
@@ -550,6 +587,15 @@ def cmd_twin_results_leakage_audit(args: argparse.Namespace) -> dict[str, Any]:
             "pair_count": diagnostics["pair_count"],
             "flagged_count": diagnostics["flagged_count"],
             "flagged": [row for row in diagnostics["rows"] if row["warning"]],
+            "set_membership_leakage": (
+                {
+                    "pair_count": membership["pair_count"],
+                    "flagged_count": membership["flagged_count"],
+                    "flagged": [row for row in membership["rows"] if row["warning"]],
+                }
+                if membership is not None
+                else None
+            ),
             "full_result_path": str(Path(args.path)) if getattr(args, "path", None) else None,
         },
         warnings=warnings,
