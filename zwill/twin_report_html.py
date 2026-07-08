@@ -431,11 +431,18 @@ def render_twin_report_html(
         else:
             headline, badge = "is mixed versus random chance", "warn"
         if emp_nll is None:
-            emp_txt = "The empirical-frequency baseline (always predicting the population's answer split) was not computed in this run, so beating it was not tested."
+            emp_txt = ("Random choice is the fair bar here: on a genuinely new question the twin has only the question and the "
+                       "respondent's context, not the answer split. The empirical-frequency &ldquo;always predict the population "
+                       "split&rdquo; oracle &mdash; which you would not have for a new question &mdash; is a separate reference for "
+                       "individual-level signal and was not computed in this run.")
         elif nll < emp_nll:
-            emp_txt = f"It also beats the tougher empirical-frequency baseline (its NLL {nll:.2f} vs {emp_nll:.2f}), evidence of individual-level signal."
+            emp_txt = (f"It even edges the empirical-frequency oracle (NLL {nll:.2f} vs {emp_nll:.2f}) &mdash; note that oracle "
+                       "presumes you already know the population's answer split, so treat this as a bonus individual-signal check, "
+                       "not the fair bar.")
         else:
-            emp_txt = f"It does <b>not</b> beat the tougher empirical-frequency baseline (its NLL {nll:.2f} vs {emp_nll:.2f}): about as good as just predicting the population's answer split, so little individual-level signal."
+            emp_txt = (f"It does not beat the empirical-frequency oracle (NLL {nll:.2f} vs {emp_nll:.2f}), i.e. it mostly reproduces "
+                       "the population's answer split rather than adding individual-level signal. That oracle is not the fair bar "
+                       "for a new question (you would not have the split), but it flags limited respondent-level targeting value.")
         verdict_cards.append(
             f'<div class="verdict {badge}">'
             f'<div class="verdict-head"><b>{escape_html(model)}</b> {headline}.</div>'
@@ -454,11 +461,11 @@ def render_twin_report_html(
         ("p(actual)", "Mean probability assigned to the respondent's actual answer.", "Higher is better."),
         ("NLL", "Negative log likelihood: -log(p(actual)). Penalizes confident probability on the wrong option.", "Lower is better."),
         ("Brier", "Squared error against the one-hot actual answer across options.", "Lower is better."),
-        ("Random baseline", "Uniform random choice over the available options for the held-out question.", "Compare model values to this baseline."),
+        ("Random baseline", "Uniform random choice over the available options for the held-out question. Needs only the option list, so it is the fair bar for predicting a genuinely new question.", "The bar the twin should clear."),
         (
             "Empirical marginal baseline",
-            "Observed respondent marginal distribution for this held-out question. This is useful for known survey items, but is not available for a truly new question.",
-            "A stronger oracle-style baseline than random choice.",
+            "Always predicting the observed population answer split for this question. It presumes you already know that split, which you would not for a new question, so it is an oracle, not a fair competitor.",
+            "A reference for individual-level signal (does the twin beat the population average?), not a pass/fail bar.",
         ),
         ("Delta", "Model improvement over a baseline. For p(actual), model minus baseline; for NLL and Brier, baseline minus model.", "Positive is better."),
     ]
