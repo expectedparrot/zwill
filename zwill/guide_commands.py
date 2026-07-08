@@ -32,6 +32,10 @@ GUIDES: dict[str, tuple[str, str]] = {
         "Import file formats",
         "Per-file JSONL schema for question / respondent / answer import, with examples.",
     ),
+    "rank": (
+        "Rank batteries",
+        "Import shape and validation flow for ranking / MaxDiff batteries (not covered by twin-validate).",
+    ),
 }
 DEFAULT_GUIDE = "agent-workflow"
 

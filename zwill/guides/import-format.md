@@ -84,7 +84,8 @@ explicitly by giving every item row the same `rank_task_id` (recommended), e.g.
 `q13_message_1 ... q13_message_10` all with `"rank_task_id": "top_message"`.
 Without an explicit id, zwill falls back to a heuristic (numeric `1..N` options
 plus "rank"/"most appealing" wording) that can miss batteries — so prefer the
-explicit id. See `RANK_SPEC.md` for the full rank flow.
+explicit id. Run `zwill guide show rank` for the full rank import shape and the
+separate rank-utility validation flow.
 
 ## Multi-select / checkbox questions
 
