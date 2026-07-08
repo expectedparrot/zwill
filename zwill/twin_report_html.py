@@ -272,6 +272,17 @@ def render_twin_report_html(
     heldout_texts = sorted({str(row.get("heldout_question_text")) for row in rows if row.get("heldout_question_text")})
     respondent_count = len({row.get("respondent_id") for row in rows})
     model_names = sorted({str(row.get("twin_set_label") or row.get("model_label") or row.get("model")) for row in rows})
+    if len(heldout_questions) == 1:
+        _q = escape_html(heldout_questions[0])
+        _qtext = f" (&ldquo;{escape_html(heldout_texts[0])}&rdquo;)" if len(heldout_texts) == 1 else ""
+        method_heldout = f"The question <code>{_q}</code>{_qtext}"
+    else:
+        _qs = ", ".join(f"<code>{escape_html(q)}</code>" for q in heldout_questions)
+        method_heldout = f"Each of {len(heldout_questions)} held-out questions ({_qs})"
+    if len(model_names) == 1:
+        method_models = f"an LLM (<code>{escape_html(model_names[0])}</code>)"
+    else:
+        method_models = "LLMs (" + ", ".join(f"<code>{escape_html(m)}</code>" for m in model_names) + ")"
     skill_score_section = skill_score_section_html(rows)
     granularity_section = probability_granularity_section_html(rows)
     attenuation_banner_section = correlation_attenuation_banner_html((diagnostics or {}).get("joint_structure"))
@@ -675,11 +686,16 @@ def render_twin_report_html(
     tr:last-child td {{ border-bottom:0; }}
     .respondent b {{ display:block; max-width:210px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }}
     .respondent span {{ display:block; color:var(--muted); font-size:12px; margin-top:3px; }}
-    .prob-cell {{ min-width:210px; }}
-    .prob-row {{ display:grid; grid-template-columns:minmax(90px,1fr) 54px 48px; gap:8px; align-items:center; margin-bottom:4px; }}
+    .method {{ margin:0 0 12px; max-width:760px; line-height:1.55; color:#334155; font-size:14px; }}
+    .method:last-child {{ margin-bottom:0; }}
+    .method code {{ background:#f1f5f9; padding:1px 5px; border-radius:4px; font-size:12.5px; }}
+    em.inline-actual {{ color:var(--good); font-style:normal; font-weight:700; font-size:11px; }}
+    .prob-cell {{ min-width:260px; }}
+    .prob-row {{ display:grid; grid-template-columns:minmax(0,1fr) auto auto; column-gap:12px; align-items:baseline; margin-bottom:5px; }}
     .prob-row:last-child {{ margin-bottom:0; }}
-    .prob-row b, .numeric {{ text-align:right; font-variant-numeric:tabular-nums; }}
-    .prob-row em {{ color:var(--good); font-style:normal; font-size:11px; font-weight:700; }}
+    .prob-row > span:first-child {{ min-width:0; overflow-wrap:anywhere; word-break:break-word; }}
+    .prob-row b, .numeric {{ text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }}
+    .prob-row em {{ color:var(--good); font-style:normal; font-size:11px; font-weight:700; white-space:nowrap; }}
     .marginal-grid {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:14px; }}
     .marginal-card {{ border:1px solid var(--line); border-radius:8px; padding:12px; background:#fbfcfd; }}
     .marginal-head {{ display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:8px; }}
@@ -704,7 +720,7 @@ def render_twin_report_html(
     .good {{ color:var(--good); }}
     .bad {{ color:var(--bad); }}
     @media (max-width: 860px) {{ header, main {{ padding-left:16px; padding-right:16px; }} .score-grid {{ grid-template-columns:repeat(2,1fr); }} .summary-grid {{ grid-template-columns:1fr; }} }}
-    @media (max-width: 640px) {{ main {{ padding:16px 12px 32px; }} .score-strip, .score-grid, .marginal-grid, .marginal-option, .prob-row {{ grid-template-columns:1fr; }} }}
+    @media (max-width: 640px) {{ main {{ padding:16px 12px 32px; }} .score-strip, .score-grid, .marginal-grid, .marginal-option {{ grid-template-columns:1fr; }} }}
   </style>
 </head>
 <body>
@@ -715,6 +731,25 @@ def render_twin_report_html(
     <div class="subtle">Respondent-level held-out answer predictions compared with what each respondent actually said. Error rate is the share where the model's highest-probability option was not the actual answer.</div>
   </header>
   <main>
+    <section class="summary-card">
+      <h2>What this validation did</h2>
+      <p class="method">
+        {method_heldout} was hidden from {respondent_count:,} respondent{('' if respondent_count == 1 else 's')}.
+        For each respondent a <b>digital twin</b> &mdash; {method_models} shown only that respondent's <i>other</i>
+        survey answers &mdash; was asked to predict a full <b>probability distribution</b> over the hidden
+        question's answer options. Each prediction is scored against the respondent's real answer with proper
+        scoring rules (negative log-likelihood and Brier), then compared with two reference points:
+        a uniform <b>random</b> guess and the survey's overall answer frequencies (the <b>empirical</b> baseline).
+        A twin only demonstrates individual-level signal when it beats the empirical baseline &mdash; matching it
+        just means reproducing the population average.
+      </p>
+      <p class="method">
+        <b>Reading the Respondents table below:</b> each row is one respondent and the one question held out from them.
+        <i>Actual</i> is their real answer; <i>Predicted option probabilities</i> is the twin's distribution over
+        every option (the true option is tagged <em class="inline-actual">actual</em>); <i>p(actual)</i> is the
+        probability the twin placed on the truth (higher is better); <i>NLL</i> is &minus;ln&nbsp;p(actual) (lower is better).
+      </p>
+    </section>
     <section class="summary-card">
       <h2>Study Summary</h2>
       <div class="summary-grid">
