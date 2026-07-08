@@ -163,6 +163,17 @@ def test_rank_metrics_swap_case_hand_computed() -> None:
     assert m["mean_absolute_rank_error"] == pytest.approx(0.5)
 
 
+def test_top_k_overlap_is_na_when_not_enough_items() -> None:
+    from zwill.rank import top_k_overlap
+
+    # 3 items with k=3: every item is trivially in the top-3 -> vacuous -> None
+    assert top_k_overlap({"a": 1, "b": 2, "c": 3}, {"a": 1, "b": 2, "c": 3}, ["a", "b", "c"], k=3) is None
+    # informative case: 5 items, actual top-3 {a,b,c}, predicted top-3 {a,b,d} -> 2/3
+    actual = {"a": 1, "b": 2, "c": 3, "d": 4, "e": 5}
+    predicted = {"a": 1, "b": 2, "c": 4, "d": 3, "e": 5}
+    assert top_k_overlap(actual, predicted, ["a", "b", "c", "d", "e"], k=3) == pytest.approx(2 / 3)
+
+
 def test_spearman_bounded_even_with_tied_actual_ranks() -> None:
     from zwill.rank import spearman
 
