@@ -36,6 +36,10 @@ GUIDES: dict[str, tuple[str, str]] = {
         "Rank batteries",
         "Import shape and validation flow for ranking / MaxDiff batteries (not covered by twin-validate).",
     ),
+    "prompt-pipelines": (
+        "Twin prompt pipelines",
+        "Experiment with how a twin reasons / frames evidence via ordered prompt steps, and measure it through the gate.",
+    ),
 }
 DEFAULT_GUIDE = "agent-workflow"
 

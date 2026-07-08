@@ -134,9 +134,10 @@ next command. The full path:
    `--twin-prompt-pipeline <file.json>` — an ordered pipeline of prompt steps
    (e.g. "argue why each option, note thin evidence" → "weigh and predict" as two
    piped model calls). The final step carries `{{ output_contract }}` and is
-   scored, so any pipeline stays comparable through the gate. See
-   `examples/twin_pipelines/` and `SPEC.md` for the shape; A/B a pipeline against
-   `raw` and read the NLL/ECE deltas to see if the strategy actually helps.
+   scored, so any pipeline stays comparable through the gate. Run
+   `zwill guide show prompt-pipelines` for the full mechanism (step spec, template
+   variables, the A/B experiment loop) and `examples/twin_pipelines/` for
+   ready-to-copy strategies.
    `twin-probability-job` exports require an approved plan; this one-off/debug
    form passes `--allow-unapproved`. For a validation run, drop that flag and use
    `--approved-plan <plan.json>` (see the `twin-experiment` plan flow below).
