@@ -874,6 +874,8 @@ def build_open_coding_job_dict(survey_name: str, args: argparse.Namespace) -> di
 
 
 def build_edsl_rank_utility_twin_job_dict(survey_name: str, args: argparse.Namespace) -> dict[str, Any]:
+    from .twin_jobs import uncoded_metadata_keys
+
     sdir = require_survey(survey_name)
     questions = read_jsonl(sdir / "questions.jsonl")
     question_by_name = {question["question_name"]: question for question in questions}
@@ -910,9 +912,17 @@ def build_edsl_rank_utility_twin_job_dict(survey_name: str, args: argparse.Names
         if question.get("context_priority") is not None
     }
 
-    all_respondent_ids = [row["respondent_id"] for row in read_jsonl(sdir / "respondents.jsonl")]
+    respondent_rows = read_jsonl(sdir / "respondents.jsonl")
+    all_respondent_ids = [row["respondent_id"] for row in respondent_rows]
     if not all_respondent_ids:
         all_respondent_ids = sorted({row["respondent_id"] for row in read_jsonl(sdir / "answers.jsonl")})
+    # Respondent metadata (panel covariates) is included as twin context by default,
+    # matching the multiple-choice / numeric twin jobs; exclude wholesale or by key.
+    include_metadata_context = not getattr(args, "exclude_metadata_context", False)
+    excluded_metadata_keys = set(getattr(args, "exclude_metadata_key", None) or [])
+    metadata_by_respondent = {
+        row["respondent_id"]: row["metadata"] for row in respondent_rows if isinstance(row.get("metadata"), dict)
+    }
     respondent_ids = respondent_selection(args, all_respondent_ids)
     answer_by_respondent: dict[str, dict[str, str]] = defaultdict(dict)
     for answer in read_jsonl(sdir / "answers.jsonl"):
@@ -981,6 +991,19 @@ def build_edsl_rank_utility_twin_job_dict(survey_name: str, args: argparse.Names
                         ]
                     )
                 )
+            respondent_metadata: dict[str, Any] = {}
+            if include_metadata_context:
+                respondent_metadata = {
+                    key: value
+                    for key, value in metadata_by_respondent.get(respondent_id, {}).items()
+                    if key not in excluded_metadata_keys and str(value).strip() != ""
+                }
+            metadata_block = (
+                "Respondent profile:\n" + "\n".join(f"- {key}: {value}" for key, value in respondent_metadata.items())
+                if respondent_metadata
+                else ""
+            )
+            observed_answers_text = "\n\n".join(block for block in [metadata_block, *observed_lines] if block) or "No observed answers provided."
             agent_material = select_agent_material(sdir, [respondent_id], args) if getattr(args, "include_agent_material", False) else []
             twin_material = matching_twin_material(all_twin_material, survey_name=survey_name, heldout_question=task["rank_task_id"], respondent_id=respondent_id)
             rank_items_text = "\n".join(f"{item['item_id']}: {item['label']}" for item in task["items"])
@@ -998,7 +1021,8 @@ def build_edsl_rank_utility_twin_job_dict(survey_name: str, args: argparse.Names
                         "rank_items_text": rank_items_text,
                         "actual_ranks": actual_ranks,
                         "observed_answers": observed_answers,
-                        "observed_answers_text": "\n\n".join(observed_lines) if observed_lines else "No observed answers provided.",
+                        "respondent_metadata": respondent_metadata,
+                        "observed_answers_text": observed_answers_text,
                         "agent_material": agent_material,
                         "agent_material_text": format_agent_material(agent_material, getattr(args, "max_agent_material_chars", None)),
                         "twin_material": twin_material,
@@ -1052,6 +1076,9 @@ def build_edsl_rank_utility_twin_job_dict(survey_name: str, args: argparse.Names
         "prompt_variant": prompt_variant,
         "scenario_count": len(scenarios),
         "skipped_missing_rank_item_count": len(skipped_missing),
+        "uncoded_metadata_keys": (
+            uncoded_metadata_keys(metadata_by_respondent, excluded_metadata_keys) if include_metadata_context else []
+        ),
     }
     return data
 

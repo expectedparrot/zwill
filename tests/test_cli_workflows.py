@@ -3093,6 +3093,51 @@ def test_twin_results_import_and_reports(tmp_path: Path, monkeypatch) -> None:
     assert "twin-run-report-data" in run_report_html
 
 
+def test_rank_utility_twin_includes_respondent_metadata_context(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    run_cli("init")
+    run_cli("survey", "create", "--name", "demo")
+    for question_name, item in [("q01_feat_1", "Fast shortlist"), ("q02_feat_2", "Talent guarantee")]:
+        run_cli(
+            "question", "add", "--survey", "demo", "--question-name", question_name, "--question-type",
+            "multiple_choice", "--question-text", f"Please rank each from most to least appealing - {item}",
+            "--question-option", "1", "--question-option", "2",
+        )
+    for rid, r1, r2 in [("r1", "1", "2"), ("r2", "2", "1")]:
+        run_cli(
+            "respondent", "add", "--survey", "demo", "--respondent-id", rid,
+            "--metadata", "party=Republican", "--metadata", "age=65+",
+        )
+        run_cli("answer", "add", "--survey", "demo", "--respondent-id", rid, "--question", "q01_feat_1", "--answer", r1)
+        run_cli("answer", "add", "--survey", "demo", "--respondent-id", rid, "--question", "q02_feat_2", "--answer", r2)
+    run_cli("commit", "--survey", "demo")
+
+    monkeypatch.setattr(
+        cli, "load_edsl_job_classes",
+        lambda: (FakeJobs, FakeModel, FakeModelList, FakeQuestionFreeText, FakeScenario, FakeScenarioList, FakeSurvey),
+    )
+    task_id = next(iter({row.get("rank_task_id") for row in cli.read_jsonl(zwill_survey_path(tmp_path) / "questions.jsonl") if row.get("rank_task_id")}))
+
+    def _args(**over):
+        base = dict(
+            rank_task_id=[task_id], rank_task_ids=None, heldout_question=None, heldout_questions=None,
+            context_question=None, context_questions=None, exclude_context_question=[], respondent=None,
+            respondents=None, sample_respondents=None, seed=1, limit_respondents=None, complete_cases=False,
+            allow_missing_actual=True, context_question_count=None, prompt_variant="raw", include_agent_material=False,
+            max_agent_material_chars=None, twin_material=None, max_twin_material_chars=None, model=["openai:gpt-5.5"],
+            models=None, service_name=None, model_param=None, job_question_name="rank_utility_scores",
+        )
+        base.update(over)
+        return argparse.Namespace(**base)
+
+    job = cli.build_edsl_rank_utility_twin_job_dict("demo", _args())
+    text = job["scenarios"][0]["observed_answers_text"]
+    assert "Respondent profile:" in text and "party: Republican" in text and "age: 65+" in text
+
+    excluded = cli.build_edsl_rank_utility_twin_job_dict("demo", _args(exclude_metadata_context=True))
+    assert "Respondent profile:" not in excluded["scenarios"][0]["observed_answers_text"]
+
+
 def test_rank_battery_uses_joint_rank_twin_workflow(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     run_cli("init")
