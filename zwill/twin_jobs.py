@@ -604,7 +604,10 @@ def build_edsl_digital_twin_job_dict(survey_name: str, args: Any, deps: DigitalT
                 if not getattr(args, "allow_missing_actual", False):
                     skipped_missing_heldout.append({"respondent_id": respondent_id, "heldout_question": heldout_name})
                     continue
-            target_exclusions = leakage_exclusions.get(heldout_name, set())
+            # Exclude every held-out question (not just this one) from context: in a
+            # real deployment none of the held-out answers are known, and using one
+            # held-out answer to predict another leaks (and inflates correlated batteries).
+            target_exclusions = leakage_exclusions.get(heldout_name, set()) | (set(heldout_names) - {heldout_name})
             target_context_question_names = [
                 question_name
                 for question_name in context_question_names
@@ -878,9 +881,13 @@ def build_edsl_numeric_twin_job_dict_impl(survey_name: str, args: Any, deps: Dig
                 if not getattr(args, "allow_missing_actual", False):
                     skipped.append({"respondent_id": respondent_id, "heldout_question": heldout_name})
                     continue
+            # Exclude every held-out question from context, not just this one (see the
+            # multiple-choice builder): held-out answers are unknown at deployment and
+            # leaking one into another inflates correlated batteries.
+            other_heldout = set(heldout_names) - {heldout_name}
             selected_context = select_context_questions(
                 respondent_answers,
-                [name for name in context_question_names if name != heldout_name],
+                [name for name in context_question_names if name != heldout_name and name not in other_heldout],
                 heldout_name,
                 args.context_question_count,
                 context_priority_by_question,
