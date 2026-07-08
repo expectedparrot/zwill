@@ -149,7 +149,7 @@ def build_report_catalog(survey: str) -> dict[str, Any]:
             if score > best_pair_score:
                 best_pair_score = score
                 comparison_pair = [left, right]
-    compare_jobs = ",".join(comparison_pair) if len(comparison_pair) >= 2 else "<job1>,<job2>"
+    compare_jobs = ",".join(sorted(comparison_pair)) if len(comparison_pair) >= 2 else "<job1>,<job2>"
     experiment_jobs = ",".join(recorded_experiment_jobs[:2]) if len(recorded_experiment_jobs) >= 2 else "<recorded_job1>,<recorded_job2>"
     executive_summary_path = Path("artifacts") / f"{base}_executive_summary.html"
     if not executive_summary_path.exists():

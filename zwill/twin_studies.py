@@ -23,7 +23,7 @@ def read_twin_run_manifest(sdir: Path) -> list[dict[str, Any]]:
     known = {run.get("job_id") for run in runs}
     jobs_dir = digital_twin_jobs_dir(sdir)
     if jobs_dir.exists():
-        for import_path in jobs_dir.glob("*/import.json"):
+        for import_path in sorted(jobs_dir.glob("*/import.json")):
             metadata = read_json(import_path, {})
             job_id = metadata.get("job_id") or import_path.parent.name
             if job_id in known:
@@ -41,7 +41,10 @@ def read_twin_run_manifest(sdir: Path) -> list[dict[str, Any]]:
                     "issue_count": metadata.get("issue_count"),
                 }
             )
-    return sorted(runs, key=lambda item: item.get("created_at", ""), reverse=True)
+    # Newest first, with job_id as a stable tie-break so runs sharing a
+    # created_at (or an empty one) order deterministically rather than following
+    # filesystem glob order.
+    return sorted(runs, key=lambda item: (item.get("created_at", ""), str(item.get("job_id", ""))), reverse=True)
 
 
 def twin_set_description(job_id: str, metadata: dict[str, Any], run: dict[str, Any] | None = None) -> dict[str, Any]:
