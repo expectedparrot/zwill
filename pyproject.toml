@@ -3,13 +3,12 @@ name = "zwill"
 version = "0.1.0"
 description = "Python CLI for building survey datasets."
 requires-python = ">=3.10"
-license = { text = "MIT" }
-license-files = ["LICENSE"]
+classifiers = ["License :: OSI Approved :: MIT License"]
 dependencies = [
     "python-dotenv>=1.0",
     "PyYAML>=6.0",
     "rich>=13.0",
-    "edsl",
+    "edsl>=1.0.8",
     "openai>=1.0",
     "numpy>=1.24",
 ]
@@ -24,11 +23,10 @@ dev = [
     "mypy>=1.11",
 ]
 
-# edsl is developed alongside zwill in a sibling checkout. Resolve it from the
-# local editable source rather than PyPI so `uv pip install -e .` uses the same
-# EDSL you are working on. Adjust the path if your checkout lives elsewhere.
-[tool.uv.sources]
-edsl = { path = "../edsl", editable = true }
+# edsl resolves from PyPI by default so `pip install zwill` works anywhere.
+# Contributors co-developing EDSL can point at a local checkout without editing
+# this file, e.g. `uv pip install -e ../edsl` (or `pip install -e ../edsl`) after
+# installing zwill.
 
 [project.scripts]
 zwill = "zwill.cli:main"
