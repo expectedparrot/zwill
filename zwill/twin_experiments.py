@@ -190,6 +190,8 @@ def twin_export_namespace_from_plan(config: dict[str, Any], *, survey: str, plan
         context_question=list_or_none(config.get("context_question")),
         context_questions=config.get("context_questions"),
         exclude_context_question=list_or_none(config.get("exclude_context_question")),
+        exclude_metadata_context=bool(config.get("exclude_metadata_context", False)),
+        exclude_metadata_key=list_or_none(config.get("exclude_metadata_key")),
         leakage_exclusion=list_or_none(config.get("leakage_exclusion")),
         context_question_count=config.get("context_question_count"),
         # Honor the plan's setting (from `defaults` or an approach's

@@ -159,6 +159,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--exclude-context-question", action="append", help="Question name to exclude from twin context. Repeatable.")
     p.add_argument("--leakage-exclusion", action="append", help="Target-specific context exclusion as heldout_question:<context_question | rank_task_id | glob*>. Repeatable.")
     p.add_argument("--context-question-count", type=int, help="Maximum number of context questions per respondent.")
+    p.add_argument("--exclude-metadata-context", action="store_true", help="Do not include respondent metadata (panel covariates) in twin context. Included by default.")
+    p.add_argument("--exclude-metadata-key", action="append", help="Respondent metadata key to exclude from twin context. Repeatable.")
     p.add_argument("--include-survey-context", action="store_true", help="Include survey context markdown in exported EDSL Agent instructions.")
     p.add_argument("--include-agent-material", action="store_true", help="Include non-survey agent construction material in agent-list or twin job exports.")
     p.add_argument("--agent-material-kind", action="append", help="Only include agent material of this kind. Repeatable or comma-separated.")
