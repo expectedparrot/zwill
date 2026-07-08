@@ -484,6 +484,25 @@ def mean(values: list[float | int | None]) -> float | None:
     return sum(clean) / len(clean) if clean else None
 
 
+def weighted_metric_mean(rows: list[dict[str, Any]], key: str) -> float | None:
+    """Survey-weighted mean of rows[key] (row['weight'] defaults to 1.0).
+
+    Skips rows whose metric is None (e.g. spearman on a single-item ranking).
+    With all-1.0 weights this equals the plain mean, so unweighted surveys are
+    unaffected; genuine weights make the rank metrics population estimates.
+    """
+    total_weight = 0.0
+    accumulated = 0.0
+    for row in rows:
+        value = row.get(key)
+        if value is None:
+            continue
+        weight = float(row.get("weight", 1.0) or 1.0)
+        accumulated += float(value) * weight
+        total_weight += weight
+    return accumulated / total_weight if total_weight else None
+
+
 def build_rank_report(rows: list[dict[str, Any]], job_id: str | None = None) -> dict[str, Any]:
     by_model: dict[str, list[dict[str, Any]]] = defaultdict(list)
     by_task: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -498,13 +517,13 @@ def build_rank_report(rows: list[dict[str, Any]], job_id: str | None = None) -> 
         "by_model": {
             model: {
                 "rows": len(model_rows),
-                "mean_spearman": mean([row.get("spearman") for row in model_rows]),
-                "mean_pairwise_order_accuracy": mean([row.get("pairwise_order_accuracy") for row in model_rows]),
-                "mean_top_3_overlap": mean([row.get("top_3_overlap") for row in model_rows]),
-                "mean_top_k_identification": mean([row.get("top_k_identification") for row in model_rows]),
-                "mean_top_k_identification_chance": mean([row.get("top_k_identification_chance") for row in model_rows]),
-                "mean_absolute_rank_error": mean([row.get("mean_absolute_rank_error") for row in model_rows]),
-                "top_1_hit_rate": mean([row.get("top_1_hit") for row in model_rows]),
+                "mean_spearman": weighted_metric_mean(model_rows, "spearman"),
+                "mean_pairwise_order_accuracy": weighted_metric_mean(model_rows, "pairwise_order_accuracy"),
+                "mean_top_3_overlap": weighted_metric_mean(model_rows, "top_3_overlap"),
+                "mean_top_k_identification": weighted_metric_mean(model_rows, "top_k_identification"),
+                "mean_top_k_identification_chance": weighted_metric_mean(model_rows, "top_k_identification_chance"),
+                "mean_absolute_rank_error": weighted_metric_mean(model_rows, "mean_absolute_rank_error"),
+                "top_1_hit_rate": weighted_metric_mean(model_rows, "top_1_hit"),
             }
             for model, model_rows in sorted(by_model.items())
         },
@@ -512,12 +531,12 @@ def build_rank_report(rows: list[dict[str, Any]], job_id: str | None = None) -> 
             task: {
                 "rows": len(task_rows),
                 "item_count": task_rows[0].get("item_count") if task_rows else None,
-                "mean_spearman": mean([row.get("spearman") for row in task_rows]),
-                "mean_pairwise_order_accuracy": mean([row.get("pairwise_order_accuracy") for row in task_rows]),
-                "mean_top_3_overlap": mean([row.get("top_3_overlap") for row in task_rows]),
-                "mean_top_k_identification": mean([row.get("top_k_identification") for row in task_rows]),
-                "mean_top_k_identification_chance": mean([row.get("top_k_identification_chance") for row in task_rows]),
-                "mean_absolute_rank_error": mean([row.get("mean_absolute_rank_error") for row in task_rows]),
+                "mean_spearman": weighted_metric_mean(task_rows, "spearman"),
+                "mean_pairwise_order_accuracy": weighted_metric_mean(task_rows, "pairwise_order_accuracy"),
+                "mean_top_3_overlap": weighted_metric_mean(task_rows, "top_3_overlap"),
+                "mean_top_k_identification": weighted_metric_mean(task_rows, "top_k_identification"),
+                "mean_top_k_identification_chance": weighted_metric_mean(task_rows, "top_k_identification_chance"),
+                "mean_absolute_rank_error": weighted_metric_mean(task_rows, "mean_absolute_rank_error"),
             }
             for task, task_rows in sorted(by_task.items())
         },
