@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from .reporting import EP_REPORT_CSS, copy_markdown_control, markdown_to_html, report_display_title
+from .twin_report import weighted_row_mean
 
 
 def mean(values: list[float]) -> float:
@@ -443,15 +444,22 @@ def build_executive_summary(
     path.parent.mkdir(parents=True, exist_ok=True)
     prefix = safe_prefix(path)
     base = path.parent / prefix
+    # Survey-weighted means (population estimates), matching twin-validate. With
+    # all-1.0 weights these equal the plain means, so unweighted surveys are
+    # unaffected; genuine survey weights (e.g. Pew) make these population-correct
+    # instead of silently disagreeing with the validation report.
+    def _wmean(key: str) -> float:
+        return float(weighted_row_mean(rows, key) or 0.0)
+
     metrics = {
         "row_count": float(len(rows)),
         "question_count": float(len({row.get("heldout_question") for row in rows if row.get("heldout_question")})),
-        "mean_probability_actual": mean([float(row["probability_actual"]) for row in rows]),
-        "mean_uniform_probability_actual": mean([float(row["uniform_probability_actual"]) for row in rows]),
-        "mean_negative_log_likelihood": mean([float(row["negative_log_likelihood"]) for row in rows]),
-        "mean_uniform_negative_log_likelihood": mean([float(row["uniform_negative_log_likelihood"]) for row in rows]),
-        "mean_brier": mean([float(row["brier"]) for row in rows]),
-        "mean_uniform_brier": mean([float(row["uniform_brier"]) for row in rows]),
+        "mean_probability_actual": _wmean("probability_actual"),
+        "mean_uniform_probability_actual": _wmean("uniform_probability_actual"),
+        "mean_negative_log_likelihood": _wmean("negative_log_likelihood"),
+        "mean_uniform_negative_log_likelihood": _wmean("uniform_negative_log_likelihood"),
+        "mean_brier": _wmean("brier"),
+        "mean_uniform_brier": _wmean("uniform_brier"),
     }
     questions = []
     seen = set()
