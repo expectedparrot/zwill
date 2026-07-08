@@ -333,26 +333,38 @@ def coded_question_and_answers(
     codebook: list[dict[str, str]],
     source_text: str,
     parse_answer: Any,
-) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, int]]:
+) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, int], dict[str, int]]:
     """Turn coding Results into a coded multiple_choice question + answer rows.
 
     ``parse_answer`` extracts the raw model answer string from a result row and
     returns a parsed JSON object (injected so this stays free of cli.py).
-    Returns (question_dict, answer_rows, code_distribution).
+    Returns (question_dict, answer_rows, code_distribution, meta) where meta
+    reports duplicate_respondents / disagreements from multi-row coding.
     """
     valid_codes = {theme["code"] for theme in codebook}
     label_by_code = {theme["code"]: theme["label"] for theme in codebook}
     label_by_code[UNCLASSIFIED_CODE] = UNCLASSIFIED_LABEL
 
+    # One authoritative code per respondent. A multi-model coding job (or any
+    # duplicate scenario) yields several rows per respondent; we keep the first
+    # and flag disagreements rather than writing conflicting answers.
     answer_rows: list[dict[str, Any]] = []
     distribution: Counter[str] = Counter()
+    code_by_respondent: dict[Any, str] = {}
+    duplicate_respondents = 0
+    disagreements = 0
     for row in results.get("data", []):
         scenario = row.get("scenario", {}) or {}
         respondent_id = scenario.get("respondent_id")
         if respondent_id is None:
             continue
-        parsed = parse_answer(row)
-        code = parse_coded_answer(parsed, valid_codes)
+        code = parse_coded_answer(parse_answer(row), valid_codes)
+        if respondent_id in code_by_respondent:
+            duplicate_respondents += 1
+            if code_by_respondent[respondent_id] != code:
+                disagreements += 1
+            continue
+        code_by_respondent[respondent_id] = code
         distribution[code] += 1
         answer_rows.append({"respondent_id": respondent_id, "question": coded_question_name, "answer": code})
 
@@ -369,4 +381,5 @@ def coded_question_and_answers(
         "role": "survey_item",
         "source": {"raw_id": "open_coding", "note": f"coded from free_text question {source_question}"},
     }
-    return question, answer_rows, dict(distribution)
+    meta = {"duplicate_respondents": duplicate_respondents, "disagreements": disagreements}
+    return question, answer_rows, dict(distribution), meta
