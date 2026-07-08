@@ -10,6 +10,61 @@ from .twin_baseline import conditional_baseline_appendix_html, has_conditional_b
 from .twin_bootstrap import bootstrap_ci_section_html
 from .twin_scoring import probability_granularity_section_html, skill_score_section_html
 
+_CALIBRATION_PALETTE = ["#1f6feb", "#e08600", "#8a3ffc", "#1a7f37", "#b42318"]
+
+
+def _calibration_reliability_svg(calibration_by_model: dict[str, Any]) -> str:
+    """Confidence-vs-accuracy reliability diagram for the top-choice calibration.
+
+    Each point is a confidence bin at (mean predicted confidence, empirical
+    accuracy), sized by the number of rows; the green diagonal is perfect
+    calibration. Points below it mean the model is over-confident.
+    """
+    models = [(model, bins) for model, bins in calibration_by_model.items() if any(item.get("rows") for item in bins)]
+    if not models:
+        return ""
+    width, height = 440, 400
+    left, right, top, bottom = 56, 20, 38, 50
+    plot_w, plot_h = width - left - right, height - top - bottom
+    max_rows = max((float(item.get("rows") or 0) for _model, bins in models for item in bins), default=1.0) or 1.0
+
+    def px(value: float) -> float:
+        return left + value * plot_w
+
+    def py(value: float) -> float:
+        return top + (1.0 - value) * plot_h
+
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img">',
+        '<rect width="100%" height="100%" fill="#ffffff"/>',
+        "<style>text{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;fill:#172033;font-size:12px}"
+        ".grid{stroke:#e6e9ef;stroke-width:1}.diag{stroke:#1a7f37;stroke-width:2;stroke-dasharray:6 5}</style>",
+        f'<text x="{left}" y="22" font-weight="700">Reliability: top-choice confidence vs accuracy</text>',
+    ]
+    for tick in (0.0, 0.25, 0.5, 0.75, 1.0):
+        parts.append(f'<line class="grid" x1="{px(tick):.1f}" y1="{top}" x2="{px(tick):.1f}" y2="{top + plot_h}"/>')
+        parts.append(f'<line class="grid" x1="{left}" y1="{py(tick):.1f}" x2="{left + plot_w}" y2="{py(tick):.1f}"/>')
+        parts.append(f'<text x="{px(tick):.1f}" y="{top + plot_h + 16:.1f}" text-anchor="middle" fill="#5c667a">{tick:g}</text>')
+        parts.append(f'<text x="{left - 8:.1f}" y="{py(tick) + 4:.1f}" text-anchor="end" fill="#5c667a">{tick:g}</text>')
+    parts.append(f'<line class="diag" x1="{px(0)}" y1="{py(0)}" x2="{px(1)}" y2="{py(1)}"/>')
+
+    legend_y = top + 4
+    for index, (model, bins) in enumerate(models):
+        color = _CALIBRATION_PALETTE[index % len(_CALIBRATION_PALETTE)]
+        points = [(float(item["mean_confidence"]), float(item["accuracy"]), float(item.get("rows") or 0)) for item in bins if item.get("rows") and item.get("mean_confidence") is not None and item.get("accuracy") is not None]
+        poly = " ".join(f"{px(conf):.1f},{py(acc):.1f}" for conf, acc, _ in sorted(points))
+        parts.append(f'<polyline points="{poly}" fill="none" stroke="{color}" stroke-width="1.5" opacity="0.6"/>')
+        for conf, acc, rows in points:
+            radius = 3.0 + 5.0 * (rows / max_rows) ** 0.5
+            parts.append(f'<circle cx="{px(conf):.1f}" cy="{py(acc):.1f}" r="{radius:.1f}" fill="{color}" opacity="0.75"/>')
+        parts.append(f'<rect x="{left + plot_w - 150}" y="{legend_y - 8}" width="12" height="12" fill="{color}"/>')
+        parts.append(f'<text x="{left + plot_w - 134}" y="{legend_y + 2}">{html.escape(str(model))}</text>')
+        legend_y += 18
+    parts.append(f'<text x="{left + plot_w / 2:.1f}" y="{height - 8}" text-anchor="middle" fill="#5c667a">Mean predicted confidence</text>')
+    parts.append(f'<text transform="translate(15,{top + plot_h / 2:.1f}) rotate(-90)" text-anchor="middle" fill="#5c667a">Empirical accuracy</text>')
+    parts.append("</svg>")
+    return '<div style="margin-top:14px">' + "".join(parts) + "</div>"
+
 
 def correlation_attenuation_banner_html(joint_structure: dict[str, Any]) -> str:
     """Render the correlation-attenuation verdict from joint-structure diagnostics.
@@ -408,6 +463,7 @@ def render_twin_report_html(
         "</tr>"
         for item in diagnostics.get("model_wins", [])[:10]
     )
+    calibration_reliability_svg = _calibration_reliability_svg(diagnostics.get("calibration", {}))
     calibration_rows = []
     for model, bins in diagnostics.get("calibration", {}).items():
         for item in bins:
@@ -595,11 +651,12 @@ def render_twin_report_html(
     h1 {{ margin:0 0 8px; font-size:28px; letter-spacing:0; }}
     .subtle {{ color:var(--muted); font-size:14px; }}
     main {{ padding:24px 36px 44px; max-width:1320px; margin:0 auto; }}
+    svg {{ max-width:100%; height:auto; }}
     .score-strip {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; margin-bottom:18px; }}
     .score-card, .summary-card, .table-card {{ background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px; }}
     .summary-card {{ margin-bottom:18px; }}
     .summary-card h2 {{ font-size:18px; margin:0 0 12px; }}
-    .summary-grid {{ display:grid; grid-template-columns:minmax(280px,.65fr) minmax(600px,1.35fr); gap:14px; align-items:start; }}
+    .summary-grid {{ display:grid; grid-template-columns:1fr; gap:14px; align-items:start; }}
     .score-title {{ display:flex; justify-content:space-between; gap:10px; align-items:center; font-weight:700; margin-bottom:12px; }}
     .score-title b {{ color:var(--good); background:#e7f6ed; border:1px solid #b7e0c6; border-radius:999px; padding:3px 8px; font-size:12px; }}
     .score-grid {{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }}
@@ -647,6 +704,7 @@ def render_twin_report_html(
     .good {{ color:var(--good); }}
     .bad {{ color:var(--bad); }}
     @media (max-width: 860px) {{ header, main {{ padding-left:16px; padding-right:16px; }} .score-grid {{ grid-template-columns:repeat(2,1fr); }} .summary-grid {{ grid-template-columns:1fr; }} }}
+    @media (max-width: 640px) {{ main {{ padding:16px 12px 32px; }} .score-strip, .score-grid, .marginal-grid, .marginal-option, .prob-row {{ grid-template-columns:1fr; }} }}
   </style>
 </head>
 <body>
@@ -721,6 +779,7 @@ def render_twin_report_html(
           </table>
         </div>
       </div>
+      {calibration_reliability_svg}
       <div class="summary-grid" style="margin-top:14px;">
         <div class="table-wrap">
           <table>
