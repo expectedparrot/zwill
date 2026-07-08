@@ -824,6 +824,18 @@ def build_edsl_numeric_twin_job_dict(survey_name: str, args: argparse.Namespace)
     return build_edsl_numeric_twin_job_dict_impl(survey_name, args, digital_twin_job_builder_deps())
 
 
+def build_open_codebook_job_dict(survey_name: str, args: argparse.Namespace) -> dict[str, Any]:
+    from .open_ends import build_open_codebook_job_dict_impl
+
+    return build_open_codebook_job_dict_impl(survey_name, args, digital_twin_job_builder_deps())
+
+
+def build_open_coding_job_dict(survey_name: str, args: argparse.Namespace) -> dict[str, Any]:
+    from .open_ends import build_open_coding_job_dict_impl
+
+    return build_open_coding_job_dict_impl(survey_name, args, digital_twin_job_builder_deps())
+
+
 def build_edsl_rank_utility_twin_job_dict(survey_name: str, args: argparse.Namespace) -> dict[str, Any]:
     sdir = require_survey(survey_name)
     questions = read_jsonl(sdir / "questions.jsonl")
@@ -1142,6 +1154,10 @@ def cmd_edsl_export(args: argparse.Namespace) -> None:
         export_dict = build_edsl_numeric_twin_job_dict(args.survey, args)
         if approved_plan:
             export_dict.setdefault("zwill", {})["approved_validation_plan"] = approved_plan
+    elif args.target == "open-codebook-job":
+        export_dict = build_open_codebook_job_dict(args.survey, args)
+    elif args.target == "open-coding-job":
+        export_dict = build_open_coding_job_dict(args.survey, args)
     else:
         approved_plan = require_twin_plan_approval(args, command="zwill edsl-export --target twin-probability-job")
         export_dict = build_edsl_digital_twin_job_dict(args.survey, args)
