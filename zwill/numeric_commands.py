@@ -195,4 +195,15 @@ def cmd_numeric_results_report(args: argparse.Namespace) -> dict[str, Any]:
     rows = [row for row in read_jsonl(numeric_predictions_path(sdir)) if not args.job_id or row.get("job_id") == args.job_id]
     if not rows:
         raise ZwillError("not_found", "No numeric predictions found for this survey/job.")
-    return envelope("zwill numeric-results report", "ok", {"job_id": args.job_id, **summarize_numeric_predictions(rows)})
+    summary = summarize_numeric_predictions(rows)
+    if getattr(args, "format", "json") == "html":
+        from .numeric_report import numeric_report_payload, render_numeric_report_html
+
+        payload = numeric_report_payload(rows, summary)
+        html = render_numeric_report_html(payload)
+        if getattr(args, "path", None):
+            Path(args.path).write_text(html)
+            return envelope("zwill numeric-results report", "ok", {"job_id": args.job_id, "format": "html", "path": str(args.path), "models": list(summary.get("models", {}))})
+        print(html)
+        return None  # type: ignore[return-value]
+    return envelope("zwill numeric-results report", "ok", {"job_id": args.job_id, **summary})

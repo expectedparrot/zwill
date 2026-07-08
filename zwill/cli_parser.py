@@ -298,6 +298,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = numeric_results.add_parser("report", help="Summarize numeric twin predictions (pinball/CRPS/coverage vs marginal baseline).")
     p.add_argument("--survey", required=True)
     p.add_argument("--job-id")
+    p.add_argument("--format", choices=["json", "html"], default="json")
+    p.add_argument("--path", help="Write the html report to this path.")
     p.set_defaults(func=cmd_numeric_results_report)
     p = prob_results.add_parser("report")
     p.add_argument("--survey", required=True)

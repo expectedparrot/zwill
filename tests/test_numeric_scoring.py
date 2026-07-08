@@ -114,6 +114,30 @@ def test_extract_numeric_rows_scores_and_flags_malformed() -> None:
     assert baseline[0]["quantile_values"] == baseline[1]["quantile_values"]
 
 
+def test_reliability_curve_and_html_render() -> None:
+    from zwill.numeric_report import numeric_report_payload, reliability_curve, render_numeric_report_html
+
+    levels = [0.05, 0.25, 0.5, 0.75, 0.95]
+    rows = [
+        {"model_label": "m", "weight": 1.0, "actual_value": 3, "quantile_values": [1, 2, 4, 6, 8], "heldout_question": "q"},
+        {"model_label": "m", "weight": 1.0, "actual_value": 7, "quantile_values": [1, 2, 4, 6, 8], "heldout_question": "q"},
+    ]
+    curve = reliability_curve(rows, levels)
+    # at level 0.5 the predicted quantile is 4: actual 3 <= 4 (yes), 7 <= 4 (no) -> 0.5
+    assert curve[2] == pytest.approx(0.5)
+    # a heavier weight on the covered respondent shifts the empirical coverage
+    rows[0]["weight"] = 3.0
+    assert reliability_curve(rows, levels)[2] == pytest.approx(0.75)
+
+    summary = {
+        "models": {"m": {"rows": 2, "mean_pinball": 0.5, "mean_crps": 1.0, "mean_absolute_error": 1.0, "coverage_50": 0.5, "coverage_90": 1.0}},
+        "pinball_skill_vs_marginal": {},
+        "quantile_levels": levels,
+    }
+    html = render_numeric_report_html(numeric_report_payload(rows, summary))
+    assert "Reliability (calibration) diagram" in html and "<svg" in html and "Numeric twin validation" in html
+
+
 def test_weighted_quantiles_shift_with_weight() -> None:
     # equal weights -> median around the middle
     assert weighted_quantiles([10, 20, 30, 40], [1, 1, 1, 1], [0.5]) == [20]
