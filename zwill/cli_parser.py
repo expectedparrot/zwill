@@ -1027,6 +1027,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--manifest", help="Path to write benchmark run manifest.")
     p.add_argument("--dry-run", action="store_true", help="Export jobs without running model calls.")
     p.add_argument("--replace", action="store_true", help="Replace imported twin results with matching job ids.")
+    p.add_argument("--env-path", help="Explicit .env file to load before running model calls (defaults to auto-discovery).")
     p.set_defaults(func=cmd_twin_benchmark_run)
     p = twin_benchmark.add_parser("report", help="Report a cross-survey twin benchmark.")
     group = p.add_mutually_exclusive_group(required=True)
