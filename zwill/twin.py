@@ -153,6 +153,21 @@ def select_context_questions(
 
 def one_hot_metrics(options: list[str], actual_answer: str, predicted: dict[str, float]) -> dict[str, float | int | None]:
     epsilon = 1e-12
+    if not options:
+        # Nothing to score against (e.g. a malformed row with no options). Return
+        # unscoreable metrics rather than dividing by zero so the import can
+        # quarantine the row instead of crashing the whole job.
+        return {
+            "probability_actual": 0.0,
+            "uniform_probability_actual": None,
+            "negative_log_likelihood": None,
+            "uniform_negative_log_likelihood": None,
+            "brier": None,
+            "uniform_brier": None,
+            "brier_improvement": None,
+            "top1_correct": 0,
+            "actual_rank": None,
+        }
     actual_values = [1.0 if option == actual_answer else 0.0 for option in options]
     predicted_values = [float(predicted.get(option, 0.0)) for option in options]
     uniform_values = [1.0 / len(options) for _ in options]
