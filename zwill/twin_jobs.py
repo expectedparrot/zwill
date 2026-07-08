@@ -723,3 +723,222 @@ def build_edsl_digital_twin_job_dict(survey_name: str, args: Any, deps: DigitalT
         "skipped_missing_heldout_count": len(skipped_missing_heldout),
     }
     return data
+
+
+NUMERIC_QUANTILE_LEVELS = [0.05, 0.25, 0.5, 0.75, 0.95]
+
+
+def numeric_twin_question_text() -> str:
+    return """You are acting as a digital twin for one specific survey respondent.
+
+Survey name:
+{{ survey_name }}
+
+Survey context:
+{{ survey_context }}
+
+What you know about this respondent:
+{{ observed_answers_text }}
+
+{{ agent_material_text }}
+{{ twin_material_text }}
+
+Predict how THIS respondent would answer the numeric question below. Do not give a
+single number: give your full uncertainty as a predictive distribution, expressed
+as the 5th, 25th, 50th, 75th, and 95th percentiles of the value you think they
+would give.
+
+Question:
+{{ heldout_question_text }}
+
+The answer is a number{{ numeric_bounds_text }}.
+
+Return ONLY JSON in exactly this form, with non-decreasing quantile values:
+{"quantiles": {"0.05": <p5>, "0.25": <p25>, "0.5": <median>, "0.75": <p75>, "0.95": <p95>}, "notes": "<one sentence of reasoning>"}
+"""
+
+
+def _numeric_bounds(question: dict[str, Any]) -> tuple[float | None, float | None]:
+    def _as_float(value: Any) -> float | None:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    return _as_float(question.get("numeric_min")), _as_float(question.get("numeric_max"))
+
+
+def build_edsl_numeric_twin_job_dict_impl(survey_name: str, args: Any, deps: DigitalTwinJobBuilderDeps) -> dict[str, Any]:
+    """Twin job for continuous targets: the twin predicts a quantile distribution.
+
+    Shares the context construction (answers + respondent metadata) with the
+    multiple-choice twin, but the held-out target is a numeric question and the
+    twin is asked for quantiles rather than option probabilities.
+    """
+    sdir = deps.require_survey(survey_name)
+    questions = read_jsonl(sdir / "questions.jsonl")
+    question_by_name = {question["question_name"]: question for question in questions}
+
+    heldout_names = selected_heldout_question_names(args, questions)
+    non_numeric = [name for name in heldout_names if question_by_name[name].get("question_type") != "numeric"]
+    if non_numeric:
+        raise ZwillError(
+            "invalid_input",
+            "Numeric twin export only supports held-out questions with question_type 'numeric'.",
+            context={"non_numeric_questions": non_numeric},
+            hint="Import the target with question_type 'numeric' (and optional numeric_min/numeric_max bounds).",
+        )
+
+    context_question_names = deps.selected_question_names(_context_args(args), questions)
+    context_priority_by_question = {
+        str(question["question_name"]): float(question["context_priority"])
+        for question in questions
+        if question.get("context_priority") is not None
+    }
+
+    respondent_rows = read_jsonl(sdir / "respondents.jsonl")
+    all_respondent_ids = [row["respondent_id"] for row in respondent_rows]
+    metadata_by_respondent = {row["respondent_id"]: row["metadata"] for row in respondent_rows if isinstance(row.get("metadata"), dict)}
+    respondent_ids = deps.respondent_selection(args, all_respondent_ids)
+    include_metadata_context = not getattr(args, "exclude_metadata_context", False)
+    excluded_metadata_keys = set(getattr(args, "exclude_metadata_key", None) or [])
+
+    answer_by_respondent: dict[str, dict[str, str]] = defaultdict(dict)
+    for answer in read_jsonl(sdir / "answers.jsonl"):
+        if answer.get("answer") is None:
+            continue
+        answer_by_respondent[answer["respondent_id"]][answer["question"]] = answer["answer"]
+
+    context_text = ""
+    context_file = deps.context_path(sdir)
+    if context_file.exists():
+        context_text = context_file.read_text().strip()
+    Jobs, Model, ModelList, QuestionFreeText, Scenario, ScenarioList, Survey = deps.load_edsl_job_classes()
+    twin_question = QuestionFreeText(question_name=args.job_question_name, question_text=numeric_twin_question_text())
+
+    scenarios: list[Any] = []
+    skipped: list[dict[str, Any]] = []
+    for heldout_name in heldout_names:
+        heldout = question_by_name[heldout_name]
+        low, high = _numeric_bounds(heldout)
+        bounds_text = ""
+        if low is not None and high is not None:
+            bounds_text = f" between {low:g} and {high:g}"
+        elif low is not None:
+            bounds_text = f" no less than {low:g}"
+        elif high is not None:
+            bounds_text = f" no more than {high:g}"
+        for respondent_id in respondent_ids:
+            respondent_answers = answer_by_respondent.get(respondent_id, {})
+            raw_actual = respondent_answers.get(heldout_name)
+            try:
+                actual_value = None if raw_actual is None else float(raw_actual)
+            except (TypeError, ValueError):
+                actual_value = None
+            if actual_value is None:
+                if not getattr(args, "allow_missing_actual", False):
+                    skipped.append({"respondent_id": respondent_id, "heldout_question": heldout_name})
+                    continue
+            selected_context = select_context_questions(
+                respondent_answers,
+                [name for name in context_question_names if name != heldout_name],
+                heldout_name,
+                args.context_question_count,
+                context_priority_by_question,
+            )
+            respondent_metadata: dict[str, Any] = {}
+            if include_metadata_context:
+                respondent_metadata = {
+                    key: value
+                    for key, value in metadata_by_respondent.get(respondent_id, {}).items()
+                    if key not in excluded_metadata_keys and str(value).strip() != ""
+                }
+            metadata_block = (
+                "Respondent profile:\n" + "\n".join(f"- {key}: {value}" for key, value in respondent_metadata.items())
+                if respondent_metadata
+                else ""
+            )
+            observed_lines = []
+            observed_answers = []
+            for name in selected_context:
+                observed_answers.append(
+                    {
+                        "question_name": name,
+                        "question_text": expand_question_text_fields(question_by_name[name]["question_text"], respondent_answers, question_by_name),
+                        "question_options": deps.context_question_options(question_by_name[name]),
+                        "answer": respondent_answers[name],
+                    }
+                )
+                observed_lines.append(
+                    "\n".join(
+                        [
+                            f"Question: {name}",
+                            f"Text: {observed_answers[-1]['question_text']}",
+                            "Options: " + "; ".join(observed_answers[-1]["question_options"]),
+                            f"Respondent answered: {respondent_answers[name]}",
+                        ]
+                    )
+                )
+            scenarios.append(
+                Scenario(
+                    {
+                        "survey_name": survey_name,
+                        "survey_context": context_text,
+                        "respondent_id": respondent_id,
+                        "heldout_question_name": heldout_name,
+                        "heldout_question_text": expand_question_text_fields(heldout["question_text"], respondent_answers, question_by_name),
+                        "numeric_bounds": [low, high],
+                        "numeric_bounds_text": bounds_text,
+                        "quantile_levels": NUMERIC_QUANTILE_LEVELS,
+                        "actual_value": actual_value,
+                        "agent_material": [],
+                        "agent_material_text": "No non-survey agent material.",
+                        "twin_material": [],
+                        "twin_material_text": "",
+                        "observed_answers": observed_answers,
+                        "respondent_metadata": respondent_metadata,
+                        "observed_answers_text": (
+                            "\n\n".join(block for block in [metadata_block, *observed_lines] if block) or "No observed answers provided."
+                        ),
+                    }
+                )
+            )
+
+    if not scenarios:
+        raise ZwillError(
+            "invalid_input",
+            "No numeric twin scenarios could be built.",
+            context={"skipped_missing": skipped[:10], "skipped_count": len(skipped)},
+            hint="Pass --allow-missing-actual to include respondents without a numeric answer." if skipped else None,
+        )
+
+    model_params = deps.parse_model_params(args)
+    job = Jobs(
+        survey=Survey(questions=[twin_question]),
+        scenarios=ScenarioList(scenarios),
+        models=ModelList(
+            [
+                Model(model_name=model_name, service_name=service_name, **deps.model_kwargs_for(model_name, service_name, model_params))
+                for model_name, service_name in deps.parse_model_specs(args)
+            ]
+        ),
+    )
+    data = job.to_dict()
+    data["zwill"] = {
+        "numeric_twin_job_id": digital_twin_job_id_from_job(data),
+        "heldout_questions": heldout_names,
+        "quantile_levels": NUMERIC_QUANTILE_LEVELS,
+        "sample_respondents": args.sample_respondents,
+        "seed": args.seed,
+        "scenario_count": len(scenarios),
+        "skipped_missing_count": len(skipped),
+    }
+    return data
+
+
+def _context_args(args: Any) -> Any:
+    context_args = type("ContextArgs", (), {})()
+    context_args.question = getattr(args, "context_question", None)
+    context_args.questions = getattr(args, "context_questions", None)
+    context_args.exclude_question = getattr(args, "exclude_context_question", None) or []
+    return context_args

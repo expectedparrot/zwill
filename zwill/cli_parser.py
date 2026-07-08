@@ -121,7 +121,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = subparsers.add_parser("edsl-export")
     p.add_argument("--survey", required=True)
     p.add_argument("--path")
-    p.add_argument("--target", choices=["survey", "agent-list", "probability-job", "twin-probability-job", "rank-utility-twin-job"], default="survey")
+    p.add_argument("--target", choices=["survey", "agent-list", "probability-job", "twin-probability-job", "rank-utility-twin-job", "numeric-twin-job"], default="survey")
     p.add_argument("--question", action="append", help="Question name to include. Repeatable.")
     p.add_argument("--questions", help="Comma-separated question names to include.")
     p.add_argument("--exclude-question", action="append", help="Question name to exclude. Repeatable.")
