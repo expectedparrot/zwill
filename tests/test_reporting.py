@@ -519,3 +519,27 @@ def test_executive_summary_shows_na_for_ordering_when_no_ordered_pairs() -> None
     ok_html = _render(50)
     assert "62% of the time" in ok_html
     assert "Mean Spearman rank correlation is 0.40" in ok_html
+
+
+def test_executive_summary_metrics_are_survey_weighted(tmp_path) -> None:
+    from pathlib import Path
+
+    from zwill.executive_summary import build_executive_summary
+
+    def _row(rid, p, weight):
+        return {
+            "job_id": "j", "respondent_id": rid, "heldout_question": "q1", "heldout_question_text": "Pick",
+            "actual_answer": "yes", "model_label": "openai:gpt-5.5", "option_labels": ["yes", "no"],
+            "probabilities": {"yes": p, "no": 1 - p},
+            "probability_actual": p, "uniform_probability_actual": 0.5,
+            "negative_log_likelihood": 0.4, "uniform_negative_log_likelihood": 0.69,
+            "brier": 0.2, "uniform_brier": 0.5, "weight": weight,
+        }
+
+    # heavy weight on the low-p respondent should pull the weighted mean below 0.7
+    rows = [_row("r1", 0.9, 1.0), _row("r2", 0.5, 3.0)]
+    result = build_executive_summary(
+        rows, survey="demo", path=Path(tmp_path) / "exec.html", markdown_path=None, simulations=10, seed=1
+    )
+    # weighted: (0.9*1 + 0.5*3)/4 = 0.6 ; unweighted would be 0.7
+    assert abs(result["metrics"]["mean_probability_actual"] - 0.6) < 1e-9  # not the unweighted 0.7
