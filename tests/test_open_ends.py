@@ -77,7 +77,7 @@ def test_coded_question_and_answers_builds_mc_question() -> None:
         raw = next(v for v in row["answer"].values())
         return json.loads(raw)
 
-    question, rows, dist = coded_question_and_answers(
+    question, rows, dist, meta = coded_question_and_answers(
         results,
         source_question="q_open",
         coded_question_name="q_open_coded",
@@ -92,6 +92,40 @@ def test_coded_question_and_answers_builds_mc_question() -> None:
     assert question["option_labels"]["optimistic"] == "Optimistic"
     assert len(rows) == 3 and all(r["question"] == "q_open_coded" for r in rows)
     assert dist == {"optimistic": 1, "chaotic": 1, UNCLASSIFIED_CODE: 1}
+    assert meta == {"duplicate_respondents": 0, "disagreements": 0}
+
+
+def test_coded_question_dedupes_multi_model_rows_per_respondent() -> None:
+    # A multi-model coding job yields several rows per respondent; keep the first
+    # and never write conflicting answers for the same respondent.
+    codebook = [{"code": "a", "label": "A", "description": ""}, {"code": "b", "label": "B", "description": ""}]
+    results = {
+        "data": [
+            {"scenario": {"respondent_id": "r1"}, "answer": {"theme_code": '{"code": "a"}'}},
+            {"scenario": {"respondent_id": "r2"}, "answer": {"theme_code": '{"code": "b"}'}},
+            {"scenario": {"respondent_id": "r1"}, "answer": {"theme_code": '{"code": "b"}'}},  # dup + disagrees
+            {"scenario": {"respondent_id": "r2"}, "answer": {"theme_code": '{"code": "b"}'}},  # dup, agrees
+        ]
+    }
+
+    def parse_answer(row):
+        import json
+
+        return json.loads(next(v for v in row["answer"].values()))
+
+    _question, rows, dist, meta = coded_question_and_answers(
+        results,
+        source_question="q",
+        coded_question_name="q_coded",
+        codebook=codebook,
+        source_text="?",
+        parse_answer=parse_answer,
+    )
+    # exactly one answer per respondent, first-seen wins
+    assert len(rows) == 2
+    assert {r["respondent_id"]: r["answer"] for r in rows} == {"r1": "a", "r2": "b"}
+    assert dist == {"a": 1, "b": 1}
+    assert meta == {"duplicate_respondents": 2, "disagreements": 1}
 
 
 def test_coded_question_omits_unused_unclassified_option() -> None:
@@ -103,7 +137,7 @@ def test_coded_question_omits_unused_unclassified_option() -> None:
 
         return json.loads(next(v for v in row["answer"].values()))
 
-    question, rows, dist = coded_question_and_answers(
+    question, rows, dist, _meta = coded_question_and_answers(
         results,
         source_question="q",
         coded_question_name="q_coded",

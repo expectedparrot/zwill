@@ -102,7 +102,7 @@ def cmd_open_coding_import(args: argparse.Namespace) -> dict[str, Any]:
             raise ZwillError("not_found", f"No codebook available for {source_question!r} (not in results or on disk).")
         codebook = read_json_or_gzip(cb_path)["themes"]
 
-    question, answer_rows, distribution = coded_question_and_answers(
+    question, answer_rows, distribution, meta = coded_question_and_answers(
         results,
         source_question=source_question,
         coded_question_name=coded_question_name,
@@ -124,6 +124,12 @@ def cmd_open_coding_import(args: argparse.Namespace) -> dict[str, Any]:
     warnings = []
     if total and unclassified / total > 0.2:
         warnings.append(f"{unclassified}/{total} answers were unclassified (>20%); the codebook may not fit the data well.")
+    if meta.get("duplicate_respondents"):
+        warnings.append(
+            f"{meta['duplicate_respondents']} extra coding rows per respondent were ignored "
+            f"(kept the first per respondent; {meta.get('disagreements', 0)} disagreed). "
+            "Code with a single model to avoid ambiguity."
+        )
     return envelope(
         "zwill open-coding import",
         "ok",
