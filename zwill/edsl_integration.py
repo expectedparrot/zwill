@@ -818,6 +818,12 @@ The JSON must have exactly this shape:
 }"""
 
 
+def build_edsl_numeric_twin_job_dict(survey_name: str, args: argparse.Namespace) -> dict[str, Any]:
+    from .twin_jobs import build_edsl_numeric_twin_job_dict_impl
+
+    return build_edsl_numeric_twin_job_dict_impl(survey_name, args, digital_twin_job_builder_deps())
+
+
 def build_edsl_rank_utility_twin_job_dict(survey_name: str, args: argparse.Namespace) -> dict[str, Any]:
     sdir = require_survey(survey_name)
     questions = read_jsonl(sdir / "questions.jsonl")
@@ -1129,6 +1135,11 @@ def cmd_edsl_export(args: argparse.Namespace) -> None:
     elif args.target == "rank-utility-twin-job":
         approved_plan = require_twin_plan_approval(args, command="zwill edsl-export --target rank-utility-twin-job")
         export_dict = build_edsl_rank_utility_twin_job_dict(args.survey, args)
+        if approved_plan:
+            export_dict.setdefault("zwill", {})["approved_validation_plan"] = approved_plan
+    elif args.target == "numeric-twin-job":
+        approved_plan = require_twin_plan_approval(args, command="zwill edsl-export --target numeric-twin-job")
+        export_dict = build_edsl_numeric_twin_job_dict(args.survey, args)
         if approved_plan:
             export_dict.setdefault("zwill", {})["approved_validation_plan"] = approved_plan
     else:
