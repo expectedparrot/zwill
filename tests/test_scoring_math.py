@@ -258,3 +258,35 @@ def test_extract_probability_payload_reads_and_validates() -> None:
 
     assert extract_probability_payload({"answer": {"response_probabilities": '{"notes":"x"}'}})[3] == "missing_probabilities"
     assert extract_probability_payload({"answer": {"response_probabilities": '{"probabilities":["a","b"]}'}})[3] == "invalid_probability_value"
+
+
+# --------------------------------------------------------------------------
+# stratified_by_actual — respondent sampling for --stratify-actual
+# --------------------------------------------------------------------------
+def _stratify_setup():
+    ids = [f"r{i}" for i in range(20)]
+    groups = {**{f"r{i}": "A" for i in range(10)}, **{f"r{i}": "B" for i in range(10, 16)}, **{f"r{i}": "C" for i in range(16, 20)}}
+    answers = {rid: {"Q": groups[rid]} for rid in ids}
+    return ids, answers, groups
+
+
+def test_stratified_by_actual_returns_sample_size_and_proportional_strata() -> None:
+    from zwill.twin_jobs import stratified_by_actual
+
+    ids, answers, groups = _stratify_setup()
+    selected = stratified_by_actual(ids, answers, "Q", 10, seed=1)
+    assert len(selected) == 10
+    assert len(set(selected)) == 10  # no duplicates
+    from collections import Counter
+
+    by_group = Counter(groups[rid] for rid in selected)
+    # 20 -> 10 halves each stratum: A 10->5, B 6->3, C 4->2
+    assert by_group == Counter({"A": 5, "B": 3, "C": 2})
+
+
+def test_stratified_by_actual_caps_at_available() -> None:
+    from zwill.twin_jobs import stratified_by_actual
+
+    ids, answers, _ = _stratify_setup()
+    selected = stratified_by_actual(ids, answers, "Q", 100, seed=1)
+    assert len(selected) == len(set(selected)) == 20  # can't exceed the pool
