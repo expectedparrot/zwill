@@ -200,6 +200,32 @@ def test_build_twin_calibration_tolerates_unscored_row() -> None:
     build_twin_calibration([{"probabilities": {"A": 0.8, "B": 0.2}}], bins=10)
 
 
+def test_individual_signal_permutation_detects_and_rejects() -> None:
+    from zwill.executive_summary import individual_signal_permutation
+
+    # Perfect per-respondent twin: 1.0 on each respondent's own answer. Uses 6
+    # distinct answers so the permutation floor (1/n!) is well below 0.05 --
+    # with too few respondents the identity permutation alone keeps p high.
+    letters = ["A", "B", "C", "D", "E", "F"]
+    perfect = [
+        {"heldout_question": "q", "actual_answer": letter, "probabilities": {other: (1.0 if other == letter else 0.0) for other in letters}}
+        for letter in letters
+    ]
+    res = individual_signal_permutation(perfect, simulations=200, seed=1)
+    assert res["observed_mean_p_actual"] == pytest.approx(1.0)
+    assert res["p_value_mean_p_actual"] < 0.05  # individual signal is detected
+    assert 0 < res["p_value_mean_p_actual"] <= 1
+
+    # Respondent-blind twin: identical distribution for everyone -> shuffling the
+    # actual answers can't change the score, so there is no detectable signal.
+    blind = [
+        {"heldout_question": "q", "actual_answer": ans, "probabilities": {"A": 0.5, "B": 0.3, "C": 0.2}}
+        for ans in ("A", "B", "C")
+    ]
+    res_blind = individual_signal_permutation(blind, simulations=200, seed=1)
+    assert res_blind["p_value_mean_p_actual"] == pytest.approx(1.0)
+
+
 def test_top_prediction_tiebreak_matches_scoring() -> None:
     from zwill.twin import one_hot_metrics
     from zwill.twin_report import top_probability_option, twin_top_prediction
