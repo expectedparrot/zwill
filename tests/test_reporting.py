@@ -419,3 +419,56 @@ def test_twin_html_report_contains_embedded_data() -> None:
     assert embedded["row_count"] == 1
     assert embedded["raw_prediction_rows_included"] is False
     assert "rows" not in embedded
+
+
+def test_twin_report_performance_row_survives_missing_empirical_marginal() -> None:
+    # Regression: when the empirical-marginal baseline is absent (e.g. twin-validate
+    # --skip-baseline), the performance row must still render fully with the twin's
+    # own metrics and the random-baseline comparison, not collapse to an empty cell.
+    rows = [
+        {
+            "job_id": "twin1",
+            "respondent_id": "r1",
+            "heldout_question": "q1",
+            "heldout_question_text": "Do it?",
+            "actual_answer": "yes",
+            "model": "gpt-5.5",
+            "service": "openai",
+            "model_label": "openai:gpt-5.5",
+            "probabilities": {"yes": 0.8, "no": 0.2},
+            "probability_actual": 0.8,
+            "uniform_probability_actual": 0.5,
+            "negative_log_likelihood": 0.223,
+            "uniform_negative_log_likelihood": 0.693,
+            "brier": 0.08,
+            "uniform_brier": 0.5,
+            "top1_correct": 1,
+            "actual_rank": 1,
+            "option_labels": ["yes", "no"],
+        }
+    ]
+    summary = {
+        "openai:gpt-5.5": {
+            "rows": 1,
+            "mean_probability_actual": 0.8,
+            "mean_uniform_probability_actual": 0.5,
+            "mean_negative_log_likelihood": 0.223,
+            "mean_uniform_negative_log_likelihood": 0.693,
+            "mean_brier": 0.08,
+            "mean_uniform_brier": 0.5,
+            "top1_accuracy": 1.0,
+            "expected_calibration_error": 0.2,
+            # no empirical/marginal keys at all
+        }
+    }
+    html = render_twin_report_html("demo", rows, summary, {}, None)
+    # the performance row renders as a full <tr> starting with the model and its
+    # own metrics (not collapsed to a bare cell by the old ternary-precedence bug)
+    assert '<tr><td>openai:gpt-5.5</td><td class="numeric">1</td>' in html
+    assert ">0.800<" in html  # p(actual)
+    assert ">0.500<" in html  # random p
+    # absent empirical marginal is shown as an em-dash placeholder, not a broken row
+    assert "&mdash;" in html
+    # the plain-English verdict answers "beats random chance?"
+    assert "Does the twin beat chance?" in html
+    assert "beats random chance" in html

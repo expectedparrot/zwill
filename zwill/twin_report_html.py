@@ -332,6 +332,14 @@ def render_twin_report_html(
         for label, value in health_rows
         if value
     )
+    def _num(value: float | None) -> str:
+        return f'<td class="numeric">{value:.3f}</td>' if value is not None else '<td class="numeric">&mdash;</td>'
+
+    def _delta(value: float | None) -> str:
+        if value is None:
+            return '<td class="numeric">&mdash;</td>'
+        return f'<td class="numeric {"good" if value >= 0 else "bad"}">{value:+.3f}</td>'
+
     performance_rows = []
     for model, values in summary.items():
         error_rate = 1.0 - values["top1_accuracy"]
@@ -344,28 +352,31 @@ def render_twin_report_html(
             values.get("mean_marginal_negative_log_likelihood"),
         )
         marginal_brier = values.get("mean_empirical_marginal_brier", values.get("mean_marginal_brier"))
+        p_vs_emp = None if marginal_p is None else values["mean_probability_actual"] - marginal_p
+        nll_vs_emp = None if marginal_nll is None else marginal_nll - values["mean_negative_log_likelihood"]
+        brier_vs_emp = None if marginal_brier is None else marginal_brier - values["mean_brier"]
         performance_rows.append(
             "<tr>"
-            f"<td>{escape_html(model)}</td>"
-            f"<td class=\"numeric\">{values['rows']}</td>"
-            f"<td class=\"numeric\">{values['top1_accuracy']:.3f}</td>"
-            f"<td class=\"numeric\">{error_rate:.3f}</td>"
-            f"<td class=\"numeric\">{values['mean_probability_actual']:.3f}</td>"
-            f"<td class=\"numeric\">{values['mean_uniform_probability_actual']:.3f}</td>"
-            f"<td class=\"numeric {'good' if p_delta >= 0 else 'bad'}\">{p_delta:+.3f}</td>"
-            f"<td class=\"numeric\">{marginal_p:.3f}</td>" if marginal_p is not None else "<td></td>"
-            f"<td class=\"numeric {'good' if (values['mean_probability_actual'] - marginal_p) >= 0 else 'bad'}\">{values['mean_probability_actual'] - marginal_p:+.3f}</td>" if marginal_p is not None else "<td></td>"
-            f"<td class=\"numeric\">{values['mean_negative_log_likelihood']:.3f}</td>"
-            f"<td class=\"numeric\">{values['mean_uniform_negative_log_likelihood']:.3f}</td>"
-            f"<td class=\"numeric {'good' if nll_delta >= 0 else 'bad'}\">{nll_delta:+.3f}</td>"
-            f"<td class=\"numeric\">{marginal_nll:.3f}</td>" if marginal_nll is not None else "<td></td>"
-            f"<td class=\"numeric {'good' if (marginal_nll - values['mean_negative_log_likelihood']) >= 0 else 'bad'}\">{marginal_nll - values['mean_negative_log_likelihood']:+.3f}</td>" if marginal_nll is not None else "<td></td>"
-            f"<td class=\"numeric\">{values['mean_brier']:.3f}</td>"
-            f"<td class=\"numeric\">{values['mean_uniform_brier']:.3f}</td>"
-            f"<td class=\"numeric {'good' if brier_delta >= 0 else 'bad'}\">{brier_delta:+.3f}</td>"
-            f"<td class=\"numeric\">{marginal_brier:.3f}</td>" if marginal_brier is not None else "<td></td>"
-            f"<td class=\"numeric {'good' if (marginal_brier - values['mean_brier']) >= 0 else 'bad'}\">{marginal_brier - values['mean_brier']:+.3f}</td>" if marginal_brier is not None else "<td></td>"
-            "</tr>"
+            + f"<td>{escape_html(model)}</td>"
+            + f'<td class="numeric">{values["rows"]}</td>'
+            + f'<td class="numeric">{values["top1_accuracy"]:.3f}</td>'
+            + f'<td class="numeric">{error_rate:.3f}</td>'
+            + _num(values["mean_probability_actual"])
+            + _num(values["mean_uniform_probability_actual"])
+            + _delta(p_delta)
+            + _num(marginal_p)
+            + _delta(p_vs_emp)
+            + _num(values["mean_negative_log_likelihood"])
+            + _num(values["mean_uniform_negative_log_likelihood"])
+            + _delta(nll_delta)
+            + _num(marginal_nll)
+            + _delta(nll_vs_emp)
+            + _num(values["mean_brier"])
+            + _num(values["mean_uniform_brier"])
+            + _delta(brier_delta)
+            + _num(marginal_brier)
+            + _delta(brier_vs_emp)
+            + "</tr>"
         )
     by_question_model: dict[tuple[str, str], list[dict[str, Any]]] = {}
     for row in rows:
@@ -380,24 +391,63 @@ def render_twin_report_html(
             values.get("mean_marginal_negative_log_likelihood"),
         )
         marginal_brier = values.get("mean_empirical_marginal_brier", values.get("mean_marginal_brier"))
+        p_vs_emp = None if marginal_p is None else values["mean_probability_actual"] - marginal_p
+        nll_vs_emp = None if marginal_nll is None else marginal_nll - values["mean_negative_log_likelihood"]
+        brier_vs_emp = None if marginal_brier is None else marginal_brier - values["mean_brier"]
         heldout_performance_rows.append(
             "<tr>"
-            f"<td>{escape_html(question)}</td>"
-            f"<td>{escape_html(model)}</td>"
-            f"<td class=\"numeric\">{values['rows']:.0f}</td>"
-            f"<td class=\"numeric\">{values['accuracy']:.3f}</td>"
-            f"<td class=\"numeric\">{1.0 - values['accuracy']:.3f}</td>"
-            f"<td class=\"numeric\">{values['mean_probability_actual']:.3f}</td>"
-            f"<td class=\"numeric\">{marginal_p:.3f}</td>" if marginal_p is not None else "<td></td>"
-            f"<td class=\"numeric {'good' if (values['mean_probability_actual'] - marginal_p) >= 0 else 'bad'}\">{values['mean_probability_actual'] - marginal_p:+.3f}</td>" if marginal_p is not None else "<td></td>"
-            f"<td class=\"numeric\">{values['mean_negative_log_likelihood']:.3f}</td>"
-            f"<td class=\"numeric\">{marginal_nll:.3f}</td>" if marginal_nll is not None else "<td></td>"
-            f"<td class=\"numeric {'good' if (marginal_nll - values['mean_negative_log_likelihood']) >= 0 else 'bad'}\">{marginal_nll - values['mean_negative_log_likelihood']:+.3f}</td>" if marginal_nll is not None else "<td></td>"
-            f"<td class=\"numeric\">{values['mean_brier']:.3f}</td>"
-            f"<td class=\"numeric\">{marginal_brier:.3f}</td>" if marginal_brier is not None else "<td></td>"
-            f"<td class=\"numeric {'good' if (marginal_brier - values['mean_brier']) >= 0 else 'bad'}\">{marginal_brier - values['mean_brier']:+.3f}</td>" if marginal_brier is not None else "<td></td>"
-            "</tr>"
+            + f"<td>{escape_html(question)}</td>"
+            + f"<td>{escape_html(model)}</td>"
+            + f'<td class="numeric">{values["rows"]:.0f}</td>'
+            + f'<td class="numeric">{values["accuracy"]:.3f}</td>'
+            + f'<td class="numeric">{1.0 - values["accuracy"]:.3f}</td>'
+            + _num(values["mean_probability_actual"])
+            + _num(marginal_p)
+            + _delta(p_vs_emp)
+            + _num(values["mean_negative_log_likelihood"])
+            + _num(marginal_nll)
+            + _delta(nll_vs_emp)
+            + _num(values["mean_brier"])
+            + _num(marginal_brier)
+            + _delta(brier_vs_emp)
+            + "</tr>"
         )
+    verdict_cards = []
+    for model, values in summary.items():
+        p = values["mean_probability_actual"]
+        up = values["mean_uniform_probability_actual"]
+        nll = values["mean_negative_log_likelihood"]
+        unll = values["mean_uniform_negative_log_likelihood"]
+        emp_nll = values.get(
+            "mean_empirical_marginal_negative_log_likelihood",
+            values.get("mean_marginal_negative_log_likelihood"),
+        )
+        beats_p = p > up
+        beats_nll = nll < unll
+        if beats_p and beats_nll:
+            headline, badge = "beats random chance", "good"
+        elif not beats_p and not beats_nll:
+            headline, badge = "does not beat random chance", "bad"
+        else:
+            headline, badge = "is mixed versus random chance", "warn"
+        if emp_nll is None:
+            emp_txt = "The empirical-frequency baseline (always predicting the population's answer split) was not computed in this run, so beating it was not tested."
+        elif nll < emp_nll:
+            emp_txt = f"It also beats the tougher empirical-frequency baseline (its NLL {nll:.2f} vs {emp_nll:.2f}), evidence of individual-level signal."
+        else:
+            emp_txt = f"It does <b>not</b> beat the tougher empirical-frequency baseline (its NLL {nll:.2f} vs {emp_nll:.2f}): about as good as just predicting the population's answer split, so little individual-level signal."
+        verdict_cards.append(
+            f'<div class="verdict {badge}">'
+            f'<div class="verdict-head"><b>{escape_html(model)}</b> {headline}.</div>'
+            f'<div class="verdict-body">On the held-out question it places <b>{p:.3f}</b> probability on each respondent\'s true answer '
+            f'versus <b>{up:.3f}</b> for a uniform random guess, and its NLL is <b>{nll:.2f}</b> versus <b>{unll:.2f}</b> for random '
+            f'(lower is better). {emp_txt}</div></div>'
+        )
+    verdict_section = (
+        '<section class="summary-card"><h2>Does the twin beat chance?</h2>' + "".join(verdict_cards) + "</section>"
+        if verdict_cards
+        else ""
+    )
     metric_definitions = [
         ("Accuracy", "Share of twins where the model's highest-probability option matched the respondent's actual answer.", "Higher is better."),
         ("Error", "Share of twins where the model's highest-probability option did not match the actual answer.", "Lower is better."),
@@ -690,6 +740,13 @@ def render_twin_report_html(
     .method:last-child {{ margin-bottom:0; }}
     .method code {{ background:#f1f5f9; padding:1px 5px; border-radius:4px; font-size:12.5px; }}
     em.inline-actual {{ color:var(--good); font-style:normal; font-weight:700; font-size:11px; }}
+    .verdict {{ border-left:4px solid var(--line); border-radius:6px; padding:12px 14px; margin-bottom:10px; background:#f8fafc; }}
+    .verdict:last-child {{ margin-bottom:0; }}
+    .verdict.good {{ border-left-color:var(--good); background:#f0fdf4; }}
+    .verdict.bad {{ border-left-color:var(--bad); background:#fef2f2; }}
+    .verdict.warn {{ border-left-color:#b7791f; background:#fffbeb; }}
+    .verdict-head {{ font-size:15px; margin-bottom:4px; }}
+    .verdict-body {{ font-size:13.5px; line-height:1.5; color:#334155; max-width:760px; }}
     .prob-cell {{ min-width:260px; }}
     .prob-row {{ display:grid; grid-template-columns:minmax(0,1fr) auto auto; column-gap:12px; align-items:baseline; margin-bottom:5px; }}
     .prob-row:last-child {{ margin-bottom:0; }}
@@ -750,6 +807,7 @@ def render_twin_report_html(
         probability the twin placed on the truth (higher is better); <i>NLL</i> is &minus;ln&nbsp;p(actual) (lower is better).
       </p>
     </section>
+    {verdict_section}
     <section class="summary-card">
       <h2>Study Summary</h2>
       <div class="summary-grid">
