@@ -163,6 +163,24 @@ def test_rank_metrics_swap_case_hand_computed() -> None:
     assert m["mean_absolute_rank_error"] == pytest.approx(0.5)
 
 
+def test_weighted_row_mean_and_bootstrap_use_weights() -> None:
+    from zwill.twin_bootstrap import bootstrap_summary
+    from zwill.twin_report import weighted_row_mean
+
+    rows = [{"x": 1.0, "weight": 3.0}, {"x": 0.0, "weight": 1.0}]
+    assert weighted_row_mean(rows, "x") == pytest.approx(0.75)  # (1*3 + 0*1)/4, not 0.5
+    assert weighted_row_mean([{"x": 1.0}, {"x": 3.0}], "x") == pytest.approx(2.0)  # missing weight -> 1.0
+    assert weighted_row_mean([{"y": 2.0}], "x", "y") == pytest.approx(2.0)  # fallback key
+
+    # the bootstrap point estimate is the weighted (population) mean
+    pred = [
+        {"model_label": "m", "heldout_question": "q", "respondent_id": "r1", "probability_actual": 1.0, "weight": 3.0},
+        {"model_label": "m", "heldout_question": "q", "respondent_id": "r2", "probability_actual": 0.0, "weight": 1.0},
+    ]
+    res = bootstrap_summary(pred, metrics=("probability_actual",), n_boot=50, seed=1)
+    assert res["models"]["m"]["questions"]["q"]["probability_actual"]["mean"] == pytest.approx(0.75)
+
+
 def test_top_k_overlap_is_na_when_not_enough_items() -> None:
     from zwill.rank import top_k_overlap
 

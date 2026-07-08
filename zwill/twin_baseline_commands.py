@@ -122,6 +122,15 @@ def cmd_twin_baseline_run(args: argparse.Namespace, *, embedder: Embedder | None
         embedding_model=embedding_model,
         l2=float(getattr(args, "l2", 1.0) or 1.0),
     )
+    # Carry each respondent's survey weight so population-level metrics and the
+    # bootstrap weight the baseline the same way they weight the twin.
+    weight_by_respondent = {
+        str(row["respondent_id"]): float(row.get("weight", 1.0))
+        for row in respondents
+        if row.get("respondent_id") is not None
+    }
+    for row in rows:
+        row["weight"] = weight_by_respondent.get(str(row.get("respondent_id")), 1.0)
     if not rows:
         raise ZwillError(
             "invalid_input",
