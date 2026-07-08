@@ -412,6 +412,40 @@ def answer_commonness_text(question_name: str, answer: str, counts_by_question: 
     return f"Answer commonness: {count}/{total} respondents ({share:.1%}) gave this answer."
 
 
+def load_twin_pipeline_steps(spec_path: str) -> list[dict[str, Any]]:
+    """Load and validate a twin prompt pipeline from a JSON file.
+
+    The file is a JSON list of steps, each ``{"name", "template" | "template_path"[, "model"]}``.
+    ``template_path`` is resolved relative to the pipeline file. Returns the
+    validated, output-contract-substituted steps (see ``twin_pipeline``).
+    """
+    from .twin_pipeline import resolve_pipeline_steps
+
+    path = Path(spec_path)
+    if not path.exists():
+        raise ZwillError("not_found", f"Twin prompt pipeline file does not exist: {spec_path}.")
+    try:
+        spec = json.loads(path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ZwillError("invalid_input", f"Twin prompt pipeline is not valid JSON: {exc}.") from exc
+    if not isinstance(spec, list):
+        raise ZwillError("invalid_input", "A twin prompt pipeline file must contain a JSON list of steps.")
+    steps: list[dict[str, Any]] = []
+    for index, step in enumerate(spec):
+        if not isinstance(step, dict):
+            raise ZwillError("invalid_input", f"Pipeline step {index} must be a JSON object.")
+        template = step.get("template")
+        if template is None and step.get("template_path"):
+            template_file = Path(step["template_path"])
+            if not template_file.is_absolute():
+                template_file = path.parent / template_file
+            if not template_file.exists():
+                raise ZwillError("not_found", f"Pipeline step {step.get('name')!r} template_path does not exist: {template_file}.")
+            template = template_file.read_text()
+        steps.append({"name": step.get("name"), "template": template, "model": step.get("model")})
+    return resolve_pipeline_steps(steps)
+
+
 def digital_twin_question_text(prompt_variant: str) -> str:
     base = """You are acting as a digital twin for one survey respondent.
 
@@ -569,12 +603,21 @@ def build_edsl_digital_twin_job_dict(survey_name: str, args: Any, deps: DigitalT
     context_text = context_file.read_text().strip() if context_file.exists() else ""
     Jobs, Model, ModelList, QuestionFreeText, Scenario, ScenarioList, Survey = deps.load_edsl_job_classes()
     prompt_variant = getattr(args, "prompt_variant", "raw") or "raw"
-    question_text = digital_twin_question_text(prompt_variant)
-
-    twin_question = QuestionFreeText(
-        question_name=args.job_question_name,
-        question_text=question_text,
-    )
+    # A twin prompt pipeline (ordered reasoning/framing steps) generalizes the
+    # single prompt: the final step is scored, earlier steps pipe forward as
+    # {{ step.answer }}. Without one, the single default question is used.
+    pipeline_spec_path = getattr(args, "twin_prompt_pipeline", None)
+    if pipeline_spec_path:
+        pipeline_steps = load_twin_pipeline_steps(pipeline_spec_path)
+        twin_questions = [
+            QuestionFreeText(question_name=step["name"], question_text=step["question_text"])
+            for step in pipeline_steps
+        ]
+        scored_question_name = pipeline_steps[-1]["name"]
+    else:
+        pipeline_steps = None
+        twin_questions = [QuestionFreeText(question_name=args.job_question_name, question_text=digital_twin_question_text(prompt_variant))]
+        scored_question_name = args.job_question_name
     all_twin_material = deps.load_twin_material(args)
     scenarios = []
     skipped_missing_heldout = []
@@ -724,7 +767,7 @@ def build_edsl_digital_twin_job_dict(survey_name: str, args: Any, deps: DigitalT
 
     model_params = deps.parse_model_params(args)
     job = Jobs(
-        survey=Survey(questions=[twin_question]),
+        survey=Survey(questions=twin_questions),
         scenarios=ScenarioList(scenarios),
         models=ModelList(
             [
@@ -758,6 +801,10 @@ def build_edsl_digital_twin_job_dict(survey_name: str, args: Any, deps: DigitalT
         "allow_missing_actual": getattr(args, "allow_missing_actual", False),
         "leakage_exclusions": {target: sorted(values) for target, values in sorted(leakage_exclusions.items())},
         "prompt_variant": prompt_variant,
+        "scored_question_name": scored_question_name,
+        "prompt_pipeline": (
+            {"path": pipeline_spec_path, "steps": [step["name"] for step in pipeline_steps]} if pipeline_steps else None
+        ),
         "scenario_count": len(scenarios),
         "skipped_missing_heldout_count": len(skipped_missing_heldout),
         "uncoded_metadata_keys": (
