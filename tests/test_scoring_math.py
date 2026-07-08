@@ -215,6 +215,33 @@ def test_top_k_identification_over_full_battery() -> None:
     assert top_k_identification({}, scores, full) is None
 
 
+def test_rank_membership_leakage_detects_set_revealing_context() -> None:
+    from zwill.twin_diagnostics import rank_membership_leakage_diagnostics
+
+    questions = [
+        {"question_name": "i1", "question_type": "rank_item", "rank_task_id": "T"},
+        {"question_name": "i2", "question_type": "rank_item", "rank_task_id": "T"},
+        {"question_name": "uses", "question_type": "multiple_choice"},
+        {"question_name": "age", "question_type": "multiple_choice"},
+    ]
+    # even respondents rank i1 (uses=site1), odd rank i2 (uses=site2): `uses` perfectly
+    # reveals which item is in the ranked set; `age` is unrelated to membership.
+    abr = {}
+    for k in range(20):
+        if k % 2 == 0:
+            abr[f"r{k}"] = {"i1": "1", "uses": "site1", "age": "young" if k % 4 == 0 else "old"}
+        else:
+            abr[f"r{k}"] = {"i2": "1", "uses": "site2", "age": "young" if k % 4 == 1 else "old"}
+    batteries = [{"rank_task_id": "T", "item_question_names": ["i1", "i2"]}]
+    d = rank_membership_leakage_diagnostics(questions, abr, batteries, min_pair_rows=4, warn_threshold=0.7)
+    flagged = {row["context_question"] for row in d["rows"] if row["warning"]}
+    assert "uses" in flagged  # membership-revealing context is caught...
+    assert "age" not in flagged  # ...but context unrelated to membership is not
+    # per-answer Cramer's V is blind here: conditioning on ranked i1, `uses` is constant
+    top = next(row for row in d["rows"] if row["context_question"] == "uses")
+    assert top["cramers_v"] == pytest.approx(1.0)
+
+
 def test_rank_metrics_top_k_identification_uses_full_battery_not_subset() -> None:
     from zwill.rank import rank_metrics
 
