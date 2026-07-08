@@ -472,3 +472,50 @@ def test_twin_report_performance_row_survives_missing_empirical_marginal() -> No
     # the plain-English verdict answers "beats random chance?"
     assert "Does the twin beat chance?" in html
     assert "beats random chance" in html
+
+
+def test_executive_summary_shows_na_for_ordering_when_no_ordered_pairs() -> None:
+    from pathlib import Path
+
+    from zwill.executive_summary import render_html
+
+    def _render(ordered_pairs: int) -> str:
+        return render_html(
+            survey="demo",
+            metrics={
+                "row_count": 10,
+                "question_count": 1,
+                "mean_probability_actual": 0.7,
+                "mean_uniform_probability_actual": 0.5,
+                "mean_negative_log_likelihood": 0.5,
+                "mean_uniform_negative_log_likelihood": 0.69,
+                "mean_brier": 0.2,
+                "mean_uniform_brier": 0.5,
+            },
+            questions=[{"question": "q1", "text": "Pick one"}],
+            lift_svg=Path("lift.svg"),
+            empirical_lift_svg=None,
+            lift={"mean_lift": 1.4, "median_lift": 1.3, "share_above_1": 0.8},
+            empirical_lift=None,
+            individual={
+                "p_value_mean_p_actual": 0.01,
+                "observed_mean_p_actual": 0.7,
+                "null_mean_p_actual_mean": 0.5,
+                "observed_mean_nll": 0.5,
+                "null_mean_nll_mean": 0.69,
+                "p_value_mean_nll": 0.01,
+                "per_question": [],
+            },
+            pairwise_svg=Path("pw.svg"),
+            pairwise={"summary": {"pairwise_order_accuracy": 0.62, "total_ordered_option_pairs": ordered_pairs}},
+            spearman_detail={"summary": {"mean_spearman": 0.4, "questions": 1 if ordered_pairs else 0}},
+        )
+
+    # single-select: no ordered pairs -> N/A wording, never a misleading 0% / percentage
+    na_html = _render(0)
+    assert "do not apply and were not evaluated" in na_html
+    assert "62%" not in na_html and "0% of the time" not in na_html
+    # when ordering data exists, the real percentage is shown
+    ok_html = _render(50)
+    assert "62% of the time" in ok_html
+    assert "Mean Spearman rank correlation is 0.40" in ok_html
