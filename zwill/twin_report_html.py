@@ -655,7 +655,7 @@ def render_twin_report_html(
     .score-card, .summary-card, .table-card {{ background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px; }}
     .summary-card {{ margin-bottom:18px; }}
     .summary-card h2 {{ font-size:18px; margin:0 0 12px; }}
-    .summary-grid {{ display:grid; grid-template-columns:minmax(280px,.65fr) minmax(600px,1.35fr); gap:14px; align-items:start; }}
+    .summary-grid {{ display:grid; grid-template-columns:1fr; gap:14px; align-items:start; }}
     .score-title {{ display:flex; justify-content:space-between; gap:10px; align-items:center; font-weight:700; margin-bottom:12px; }}
     .score-title b {{ color:var(--good); background:#e7f6ed; border:1px solid #b7e0c6; border-radius:999px; padding:3px 8px; font-size:12px; }}
     .score-grid {{ display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }}
