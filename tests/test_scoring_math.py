@@ -168,3 +168,33 @@ def test_spearman_bounded_even_with_tied_actual_ranks() -> None:
 
     s = spearman({"a": 1, "b": 1, "c": 3}, {"a": 1, "b": 2, "c": 3}, ["a", "b", "c"])
     assert s is None or -1.0 - 1e-9 <= s <= 1.0 + 1e-9
+
+
+# --------------------------------------------------------------------------
+# build_twin_calibration — reliability bins + ECE
+# --------------------------------------------------------------------------
+def test_build_twin_calibration_bins_and_ece() -> None:
+    from zwill.twin_report import build_twin_calibration
+
+    rows = [
+        {"probabilities": {"A": 1.0, "B": 0.0}, "top1_correct": 1},  # confidence 1.0
+        {"probabilities": {"A": 0.85, "B": 0.15}, "top1_correct": 0},  # confidence 0.85
+        {"probabilities": {"A": 0.85, "B": 0.15}, "top1_correct": 1},  # confidence 0.85
+    ]
+    calib, ece = build_twin_calibration(rows, bins=10)
+    assert len(calib) == 10
+    # confidence 1.0 must land in the top bin (0.9-1.0), not overflow the index
+    assert calib[9]["rows"] == 1
+    assert calib[9]["mean_confidence"] == pytest.approx(1.0)
+    assert calib[8]["rows"] == 2
+    assert calib[8]["accuracy"] == pytest.approx(0.5)
+    # ECE = sum bin_weight * |accuracy - mean_confidence|
+    assert ece == pytest.approx((2 / 3) * 0.35)
+    assert 0.0 <= ece <= 1.0
+
+
+def test_build_twin_calibration_tolerates_unscored_row() -> None:
+    from zwill.twin_report import build_twin_calibration
+
+    # A row without top1_correct must not crash calibration.
+    build_twin_calibration([{"probabilities": {"A": 0.8, "B": 0.2}}], bins=10)

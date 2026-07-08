@@ -117,7 +117,11 @@ def build_twin_calibration(model_rows: list[dict[str, Any]], bins: int = 10) -> 
             if bin_rows
             else None
         )
-        accuracy = sum(row["top1_correct"] for row in bin_rows) / len(bin_rows) if bin_rows else None
+        # Average top-1 accuracy over the rows that were scored against an actual
+        # answer; a row missing top1_correct (e.g. imported without an actual
+        # answer) is skipped rather than crashing the report.
+        top1_values = [row["top1_correct"] for row in bin_rows if row.get("top1_correct") is not None]
+        accuracy = sum(top1_values) / len(top1_values) if top1_values else None
         if bin_rows and mean_confidence is not None and accuracy is not None:
             ece += (len(bin_rows) / len(model_rows)) * abs(accuracy - mean_confidence)
         calibration.append(
