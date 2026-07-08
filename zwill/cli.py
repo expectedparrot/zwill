@@ -612,10 +612,10 @@ def answer_option_issue(
             "valid_options": valid_options,
             "option_delimiter": delimiter,
         }
-    # Strip surrounding whitespace for the comparison, consistent with how
-    # checkbox tokens are matched, so an incidental trailing space in an export
-    # doesn't quarantine an otherwise valid answer.
-    normalized = answer_value.strip() if isinstance(answer_value, str) else answer_value
+    # Stringify and strip for the comparison, consistent with how checkbox
+    # tokens are matched (str(...).split(...).strip()), so an incidental trailing
+    # space or a numeric answer (e.g. 2 vs option "2") isn't quarantined.
+    normalized = str(answer_value).strip()
     if normalized in valid_options:
         return None
     return {

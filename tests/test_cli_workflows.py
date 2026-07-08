@@ -1045,8 +1045,14 @@ def test_answer_option_validation_strips_whitespace_consistently() -> None:
     assert answer_option_issue(checkbox, "q", "Yes | No") is None
     assert answer_option_issue(single, "q", "Yes ") is None
     assert answer_option_issue(single, "q", " No") is None
+    # numeric answers match string-number options, consistent with checkbox
+    numeric = {"question_type": "multiple_choice", "question_options": ["1", "2", "3"]}
+    numeric_checkbox = {"question_type": "checkbox", "question_options": ["1", "2", "3"], "option_delimiter": "|"}
+    assert answer_option_issue(numeric, "q", 2) is None
+    assert answer_option_issue(numeric_checkbox, "q", 2) is None
     # genuinely invalid answers are still flagged
     assert answer_option_issue(single, "q", "Maybe") is not None
+    assert answer_option_issue(numeric, "q", 9) is not None
 
 
 def test_checkbox_answer_import_validates_each_selection(tmp_path: Path, monkeypatch) -> None:
