@@ -3,6 +3,8 @@ name = "zwill"
 version = "0.1.0"
 description = "Python CLI for building survey datasets."
 requires-python = ">=3.10"
+license = { text = "MIT" }
+license-files = ["LICENSE"]
 dependencies = [
     "python-dotenv>=1.0",
     "PyYAML>=6.0",
