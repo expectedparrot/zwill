@@ -504,6 +504,12 @@ def cmd_twin_experiment_init_plan(args: argparse.Namespace) -> dict[str, Any]:
     approaches = [twin_approach_id(value) for value in (args.approach_id or [])]
     if not approaches:
         approaches = ["baseline"]
+    context_names = normalize_name_list(getattr(args, "context_question", None)) + normalize_name_list(
+        getattr(args, "context_questions", None)
+    )
+    unknown_context = [name for name in context_names if name not in questions]
+    if unknown_context:
+        raise ZwillError("invalid_input", "Unknown context questions.", context={"unknown_questions": unknown_context})
     plan = {
         "plan_id": args.plan_id,
         "survey": args.survey,
@@ -513,7 +519,12 @@ def cmd_twin_experiment_init_plan(args: argparse.Namespace) -> dict[str, Any]:
             "sample_respondents": args.sample_respondents,
             "seed": args.seed,
             "complete_cases": True,
+            "stratify_actual": True if getattr(args, "stratify_actual", False) else None,
             "context_question_count": args.context_question_count,
+            "context_questions": getattr(args, "context_questions", None),
+            "context_question": list_or_none(getattr(args, "context_question", None)),
+            "exclude_context_question": list_or_none(getattr(args, "exclude_context_question", None)),
+            "leakage_exclusion": list_or_none(getattr(args, "leakage_exclusion", None)),
             "model": list_or_none(args.model) or ["openai:gpt-5.5"],
             "model_param": list_or_none(getattr(args, "model_param", None)),
         },

@@ -812,7 +812,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--approach-id", action="append", help="Approach id to include as a plan arm. Repeatable.")
     p.add_argument("--sample-respondents", type=int)
     p.add_argument("--seed", type=int, default=123)
+    p.add_argument("--stratify-actual", action="store_true", help="Stratify the respondent sample by the held-out answer.")
     p.add_argument("--context-question-count", type=int, default=5)
+    p.add_argument("--context-question", action="append", help="Context question to include (repeatable).")
+    p.add_argument("--context-questions", help="Comma-separated context questions to include.")
+    p.add_argument("--exclude-context-question", action="append", help="Context question to exclude (repeatable).")
+    p.add_argument(
+        "--leakage-exclusion",
+        action="append",
+        help="Target-specific context exclusion as heldout:<context|rank_task_id|glob> (repeatable).",
+    )
     p.add_argument("--model", action="append")
     p.add_argument(
         "--model-param",

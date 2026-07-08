@@ -1925,6 +1925,46 @@ def test_init_plan_warns_on_missing_output_cap_and_records_model_param(tmp_path:
     assert plan["defaults"]["model_param"] == ["google:gemini-2.5-pro:maxOutputTokens=8192"]
 
 
+def test_init_plan_authors_context_and_leakage_fields(tmp_path: Path, monkeypatch) -> None:
+    from zwill.errors import ZwillError
+
+    monkeypatch.chdir(tmp_path)
+    create_tiny_binary_survey()
+
+    def _init(plan_id: str, context_questions):
+        return cli.cmd_twin_experiment_init_plan(
+            argparse.Namespace(
+                survey="demo",
+                plan_id=plan_id,
+                path=str(tmp_path / f"{plan_id}.json"),
+                heldout_question=["q1"],
+                heldout_questions=None,
+                approach_id=["baseline"],
+                sample_respondents=1,
+                seed=1,
+                stratify_actual=True,
+                context_question_count=5,
+                context_question=None,
+                context_questions=context_questions,
+                exclude_context_question=None,
+                leakage_exclusion=["q1:q2"],
+                model=["openai:gpt-5.5"],
+                model_param=None,
+                primary_metric="nll",
+            )
+        )
+
+    result = _init("full", "q2")
+    defaults = result["data"]["plan"]["defaults"]
+    assert defaults["context_questions"] == "q2"
+    assert defaults["leakage_exclusion"] == ["q1:q2"]
+    assert defaults["stratify_actual"] is True
+
+    # Unknown context question is rejected at authoring time.
+    with pytest.raises(ZwillError):
+        _init("bad", "nope")
+
+
 def test_twin_experiment_validate_lints_plan(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()
