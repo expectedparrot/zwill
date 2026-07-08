@@ -2054,33 +2054,47 @@ def render_twin_benchmark_report_html(payload: dict[str, Any]) -> str:
             f"<td class=\"numeric\">{values['mean_nll']:.3f}</td>"
             f"<td class=\"numeric\">{values['mean_brier']:.3f}</td>"
             f"<td class=\"numeric\">{values['mean_ece']:.3f}</td>"
-            f"<td class=\"numeric {'good' if values.get('mean_nll_vs_empirical', 0) >= 0 else 'bad'}\">{values.get('mean_nll_vs_empirical', 0):+.3f}</td>"
-            "</tr>"
+            + (
+                '<td class="numeric">&mdash;</td>'
+                if values.get("mean_nll_vs_empirical") is None
+                else f"<td class=\"numeric {'good' if values['mean_nll_vs_empirical'] >= 0 else 'bad'}\">{values['mean_nll_vs_empirical']:+.3f}</td>"
+            )
+            + "</tr>"
         )
+
+    def _num3(value: Any) -> str:
+        # Metrics may be None (e.g. empirical-baseline fields on a survey without
+        # committed marginals). Render an em-dash rather than crashing on format/compare.
+        return f'<td class="numeric">{float(value):.3f}</td>' if value is not None else '<td class="numeric">&mdash;</td>'
+
+    def _signed3(value: Any) -> str:
+        if value is None:
+            return '<td class="numeric">&mdash;</td>'
+        return f'<td class="numeric {"good" if value >= 0 else "bad"}">{value:+.3f}</td>'
 
     detail_rows = []
     for row in rows:
         detail_rows.append(
             "<tr>"
-            f"<td>{escape_html(row.get('survey'))}</td>"
-            f"<td>{escape_html(row.get('heldout_questions'))}</td>"
-            f"<td class=\"numeric\">{row.get('option_count', '')}</td>"
-            f"<td>{escape_html(row.get('model'))}</td>"
-            f"<td class=\"numeric\">{row.get('rows', 0)}</td>"
-            f"<td class=\"numeric\">{row.get('accuracy', 0):.3f}</td>"
-            f"<td class=\"numeric\">{row.get('nll', 0):.3f}</td>"
-            f"<td class=\"numeric\">{row.get('nll_p95', 0):.3f}</td>"
-            f"<td class=\"numeric\">{row.get('brier', 0):.3f}</td>"
-            f"<td class=\"numeric\">{row.get('ece', 0):.3f}</td>"
-            f"<td class=\"numeric {'good' if row.get('nll_vs_empirical', 0) >= 0 else 'bad'}\">{row.get('nll_vs_empirical', 0):+.3f}</td>"
-            "</tr>"
+            + f"<td>{escape_html(row.get('survey'))}</td>"
+            + f"<td>{escape_html(row.get('heldout_questions'))}</td>"
+            + f"<td class=\"numeric\">{row.get('option_count', '')}</td>"
+            + f"<td>{escape_html(row.get('model'))}</td>"
+            + f"<td class=\"numeric\">{row.get('rows', 0)}</td>"
+            + _num3(row.get("accuracy"))
+            + _num3(row.get("nll"))
+            + _num3(row.get("nll_p95"))
+            + _num3(row.get("brier"))
+            + _num3(row.get("ece"))
+            + _signed3(row.get("nll_vs_empirical"))
+            + "</tr>"
         )
 
     guidance = []
     for model, values in summary.items():
-        if values.get("mean_nll_vs_empirical", 0) < 0:
+        if (values.get("mean_nll_vs_empirical") or 0) < 0:
             guidance.append(f"{model} trails the empirical marginal baseline on mean NLL across this benchmark.")
-        if values.get("mean_ece", 0) > 0.15:
+        if (values.get("mean_ece") or 0) > 0.15:
             guidance.append(f"{model} shows elevated calibration error; inspect overconfident misses before using probabilities operationally.")
     guidance_rows = "".join(f"<li>{escape_html(item)}</li>" for item in guidance) or "<li>No major benchmark-level warnings.</li>"
 

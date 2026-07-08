@@ -543,3 +543,29 @@ def test_executive_summary_metrics_are_survey_weighted(tmp_path) -> None:
     )
     # weighted: (0.9*1 + 0.5*3)/4 = 0.6 ; unweighted would be 0.7
     assert abs(result["metrics"]["mean_probability_actual"] - 0.6) < 1e-9  # not the unweighted 0.7
+
+
+def test_twin_benchmark_report_renders_with_missing_empirical_baseline() -> None:
+    from zwill.twin_report_html import render_twin_benchmark_report_html
+
+    # nll_vs_empirical is None on surveys without committed marginals -- the report
+    # must render an em-dash, not crash on None >= 0 / None format.
+    payload = {
+        "benchmark": "bench1",
+        "rows": [
+            {
+                "survey": "kora", "heldout_questions": "Q3", "option_count": 4, "model": "openai:gpt-5.5",
+                "rows": 5, "accuracy": 0.2, "nll": 1.4, "nll_p95": 2.0, "brier": 0.7, "ece": 0.1,
+                "nll_vs_empirical": None,
+            }
+        ],
+        "summary": {
+            "openai:gpt-5.5": {
+                "survey_count": 1, "mean_accuracy": 0.2, "mean_nll": 1.4, "mean_brier": 0.7, "mean_ece": 0.1,
+                "mean_nll_vs_empirical": None,
+            }
+        },
+    }
+    html = render_twin_benchmark_report_html(payload)
+    assert "kora" in html and "openai:gpt-5.5" in html
+    assert "&mdash;" in html  # missing empirical rendered as em-dash, not a crash
