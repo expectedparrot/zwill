@@ -7,6 +7,30 @@ from pathlib import Path
 from typing import Any
 
 
+def normalize_name_list(value: Any) -> list[str]:
+    """Coerce a name selector into a clean list of names.
+
+    Accepts ``None``, a comma-separated string, or a list/tuple of names (each
+    item may itself be a comma-separated string). Whitespace is stripped and
+    empty entries dropped. This lets plan-driven exports pass either a JSON
+    list or a comma-separated string for fields like ``context_questions`` /
+    ``heldout_questions`` without the downstream selectors crashing on a
+    ``list.split`` call.
+    """
+    if value is None:
+        return []
+    items = list(value) if isinstance(value, (list, tuple)) else [value]
+    names: list[str] = []
+    for item in items:
+        if item is None:
+            continue
+        for name in str(item).split(","):
+            stripped = name.strip()
+            if stripped:
+                names.append(stripped)
+    return names
+
+
 def digital_twin_jobs_dir(sdir: Path) -> Path:
     return sdir / "digital_twin_jobs"
 

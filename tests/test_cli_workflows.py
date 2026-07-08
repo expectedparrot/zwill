@@ -1771,6 +1771,47 @@ def test_twin_job_export_agent_material_changes_scenarios(tmp_path: Path, monkey
     assert with_material["zwill"]["digital_twin_job_id"] != without_material["zwill"]["digital_twin_job_id"]
 
 
+def test_normalize_name_list_accepts_str_and_list() -> None:
+    from zwill.twin import normalize_name_list
+
+    assert normalize_name_list(None) == []
+    assert normalize_name_list("") == []
+    assert normalize_name_list([]) == []
+    assert normalize_name_list("a, b ,c") == ["a", "b", "c"]
+    assert normalize_name_list(["a", "b"]) == ["a", "b"]
+    # list items may themselves be comma-separated
+    assert normalize_name_list(["a,b", " c "]) == ["a", "b", "c"]
+
+
+def test_twin_job_export_accepts_list_context_and_heldout_questions(tmp_path: Path, monkeypatch) -> None:
+    # Regression (issue #32): plan-driven exports may pass context_questions /
+    # heldout_questions as JSON lists rather than comma-separated strings. These
+    # must not crash with "'list' object has no attribute 'split'".
+    monkeypatch.chdir(tmp_path)
+    create_tiny_binary_survey()
+    monkeypatch.setattr(
+        cli,
+        "load_edsl_job_classes",
+        lambda: (FakeJobs, FakeModel, FakeModelList, FakeQuestionFreeText, FakeScenario, FakeScenarioList, FakeSurvey),
+    )
+    args = default_twin_export_args(
+        heldout_question=None,
+        heldout_questions=["q1"],  # list form (previously latent crash)
+        context_question=None,
+        context_questions=["q2"],  # list form (the reported crash)
+        respondent=None,
+        respondents=["r1"],  # list form (same latent crash in respondent_selection)
+        context_question_count=8,
+    )
+    job = cli.build_edsl_digital_twin_job_dict("demo", args)
+    assert [scenario["respondent_id"] for scenario in job["scenarios"]] == ["r1"]
+    scenario = job["scenarios"][0]
+    assert scenario["heldout_question_name"] == "q1"
+    observed = scenario["observed_answers_text"]
+    assert "q2" in observed  # context resolved from the list
+    assert "q1" not in observed  # held-out target not leaked into context
+
+
 def test_twin_job_export_includes_supplemental_twin_material(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()

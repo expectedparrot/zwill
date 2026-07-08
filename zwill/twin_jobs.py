@@ -10,7 +10,7 @@ from typing import Any, Callable
 
 from .errors import ZwillError
 from .jsonlio import read_jsonl
-from .twin import digital_twin_job_id_from_job, select_context_questions
+from .twin import digital_twin_job_id_from_job, normalize_name_list, select_context_questions
 
 
 @dataclass(frozen=True)
@@ -80,14 +80,8 @@ def expand_question_text_fields(
 
 
 def selected_heldout_question_names(args: Any, questions: list[dict[str, Any]]) -> list[str]:
-    values: list[str] = []
-    heldout_question = getattr(args, "heldout_question", None)
-    if isinstance(heldout_question, list):
-        values.extend(heldout_question)
-    elif heldout_question:
-        values.append(heldout_question)
-    if getattr(args, "heldout_questions", None):
-        values.extend(name.strip() for name in args.heldout_questions.split(",") if name.strip())
+    values = normalize_name_list(getattr(args, "heldout_question", None))
+    values += normalize_name_list(getattr(args, "heldout_questions", None))
     if not values:
         raise ZwillError("invalid_input", "--heldout-question is required for twin-probability-job exports.")
     available = [question["question_name"] for question in questions]
@@ -228,11 +222,8 @@ def extra_heldout_question_specs(args: Any) -> list[dict[str, Any]]:
     if getattr(args, "question_specs", None):
         specs.extend(read_question_specs(Path(args.question_specs)))
     if getattr(args, "question_specs_workbook", None):
-        requested = set()
-        for value in getattr(args, "heldout_question", None) or []:
-            requested.add(str(value))
-        if getattr(args, "heldout_questions", None):
-            requested.update(item.strip() for item in str(args.heldout_questions).split(",") if item.strip())
+        requested = set(normalize_name_list(getattr(args, "heldout_question", None)))
+        requested.update(normalize_name_list(getattr(args, "heldout_questions", None)))
         specs.extend(
             read_question_specs_from_workbook(
                 Path(args.question_specs_workbook),

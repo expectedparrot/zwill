@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .cli import *  # noqa: F403
+from .twin import normalize_name_list
 
 
 def _cli():
@@ -136,15 +137,10 @@ def build_edsl_survey_dict(survey_name: str) -> dict[str, Any]:
 
 def selected_question_names(args: argparse.Namespace, questions: list[dict[str, Any]]) -> list[str]:
     available = [question["question_name"] for question in questions]
-    selected: list[str]
-    if args.question or args.questions:
-        selected = []
-        for question_name in args.question or []:
-            selected.append(question_name)
-        if args.questions:
-            selected.extend(name.strip() for name in args.questions.split(",") if name.strip())
-    else:
-        selected = available[:]
+    # Accept both a comma-separated string and a JSON list (e.g. plan-driven
+    # `context_questions`) for the singular and plural selectors.
+    requested = normalize_name_list(args.question) + normalize_name_list(args.questions)
+    selected: list[str] = requested if requested else available[:]
 
     excluded = set(args.exclude_question or [])
     selected = [name for name in selected if name not in excluded]
@@ -718,15 +714,12 @@ def build_edsl_probability_job_dict(survey_name: str, args: argparse.Namespace) 
 
 
 def respondent_selection(args: argparse.Namespace, all_respondent_ids: list[str]) -> list[str]:
-    selected: list[str]
-    if getattr(args, "respondent", None) or getattr(args, "respondents", None):
-        selected = []
-        for respondent_id in args.respondent or []:
-            selected.append(respondent_id)
-        if args.respondents:
-            selected.extend(value.strip() for value in args.respondents.split(",") if value.strip())
-    else:
-        selected = all_respondent_ids[:]
+    # Accept both a comma-separated string and a JSON list (e.g. plan-driven
+    # `respondents`) for the singular and plural selectors.
+    requested = normalize_name_list(getattr(args, "respondent", None)) + normalize_name_list(
+        getattr(args, "respondents", None)
+    )
+    selected: list[str] = requested if requested else all_respondent_ids[:]
     unknown = [respondent_id for respondent_id in selected if respondent_id not in all_respondent_ids]
     if unknown:
         raise ZwillError(
