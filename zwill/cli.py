@@ -612,7 +612,11 @@ def answer_option_issue(
             "valid_options": valid_options,
             "option_delimiter": delimiter,
         }
-    if answer_value in valid_options:
+    # Strip surrounding whitespace for the comparison, consistent with how
+    # checkbox tokens are matched, so an incidental trailing space in an export
+    # doesn't quarantine an otherwise valid answer.
+    normalized = answer_value.strip() if isinstance(answer_value, str) else answer_value
+    if normalized in valid_options:
         return None
     return {
         "code": "invalid_answer_option",

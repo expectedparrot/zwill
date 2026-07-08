@@ -998,6 +998,21 @@ def test_agent_material_import_quarantines_invalid_rows_and_normalizes_tags(tmp_
     assert {issue["code"] for issue in issues if issue.get("type") == "agent_material"} == {"invalid_input", "unknown_respondent"}
 
 
+def test_answer_option_validation_strips_whitespace_consistently() -> None:
+    # Checkbox tokens are stripped before matching; single-choice answers must be
+    # consistent so incidental whitespace in an export does not silently
+    # quarantine an otherwise valid answer.
+    from zwill.cli import answer_option_issue
+
+    single = {"question_type": "multiple_choice", "question_options": ["Yes", "No"]}
+    checkbox = {"question_type": "checkbox", "question_options": ["Yes", "No"], "option_delimiter": "|"}
+    assert answer_option_issue(checkbox, "q", "Yes | No") is None
+    assert answer_option_issue(single, "q", "Yes ") is None
+    assert answer_option_issue(single, "q", " No") is None
+    # genuinely invalid answers are still flagged
+    assert answer_option_issue(single, "q", "Maybe") is not None
+
+
 def test_checkbox_answer_import_validates_each_selection(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     run_cli("init")
