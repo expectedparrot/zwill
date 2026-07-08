@@ -21,6 +21,7 @@ from zwill.twin_jobs import (
     normalize_question_spec,
     read_question_specs,
     selected_heldout_question_names,
+    uncoded_metadata_keys,
     workbook_option_label,
 )
 from zwill.twin_results import (
@@ -457,3 +458,17 @@ def test_aggregate_twin_marginals_defaults_missing_weight_to_one() -> None:
     probs = agg[("q1", "m")]["probabilities"]
     assert probs["yes"] == 0.5 and probs["no"] == 0.5
     assert agg[("q1", "m")]["weighted_respondents"] == 2.0
+
+
+def test_uncoded_metadata_keys_flags_bare_numeric_codes() -> None:
+    metadata_by_respondent = {
+        f"r{i}": {"F_AGECAT": str(i % 4 + 1), "party": "Democrat" if i % 2 else "Republican", "region": "2.0"}
+        for i in range(10)
+    }
+    flagged = uncoded_metadata_keys(metadata_by_respondent, excluded_keys=set())
+    assert "F_AGECAT" in flagged  # bare integer codes
+    assert "region" in flagged  # "2.0" is a numeric code too
+    assert "party" not in flagged  # readable labels are fine
+    # excluded keys are ignored, and too-few respondents are not flagged
+    assert "F_AGECAT" not in uncoded_metadata_keys(metadata_by_respondent, excluded_keys={"F_AGECAT"})
+    assert uncoded_metadata_keys({"r0": {"F_AGECAT": "4"}}, excluded_keys=set()) == []  # < min_respondents
