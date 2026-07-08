@@ -199,6 +199,37 @@ def test_spearman_bounded_even_with_tied_actual_ranks() -> None:
     assert s is None or -1.0 - 1e-9 <= s <= 1.0 + 1e-9
 
 
+def test_top_k_identification_over_full_battery() -> None:
+    from zwill.rank import top_k_identification
+
+    full = ["A", "B", "C", "D", "E"]
+    actual = {"A": 1, "B": 2}  # respondent ranked their top 2 of 5
+    # predicted order by score: A(90), C(80), B(50), ... -> predicted top-2 = {A, C}
+    scores = {"A": 90.0, "B": 50.0, "C": 80.0, "D": 10.0, "E": 5.0}
+    assert top_k_identification(actual, scores, full) == pytest.approx(0.5)  # caught A, missed B
+    # if B outscores C the twin's top-2 is {A, B} -> perfect identification
+    assert top_k_identification(actual, {**scores, "B": 85.0}, full) == pytest.approx(1.0)
+    # full ranking (k == item count) is vacuous -> None
+    assert top_k_identification({i: r + 1 for r, i in enumerate(full)}, scores, full) is None
+    # no ranked items -> None
+    assert top_k_identification({}, scores, full) is None
+
+
+def test_rank_metrics_top_k_identification_uses_full_battery_not_subset() -> None:
+    from zwill.rank import rank_metrics
+
+    full = ["A", "B", "C", "D"]
+    actual = {"A": 1, "B": 2}  # top-2 partial ranking
+    scores = {"A": 90.0, "B": 40.0, "C": 80.0, "D": 10.0}
+    # internal-ordering metrics are scored on the ranked subset [A, B]...
+    m = rank_metrics(actual, scores, ["A", "B"], full_item_ids=full)
+    assert m["top_3_overlap"] is None  # subset of 2 <= 3 -> vacuous
+    # ...but identification is over the full battery: predicted top-2 = {A, C}, actual = {A, B} -> 0.5
+    assert m["top_k_identification"] == pytest.approx(0.5)
+    # chance is K/N = 2/4; the twin (0.5) beats chance (0.5 here it ties)
+    assert m["top_k_identification_chance"] == pytest.approx(0.5)
+
+
 # --------------------------------------------------------------------------
 # build_twin_calibration — reliability bins + ECE
 # --------------------------------------------------------------------------
