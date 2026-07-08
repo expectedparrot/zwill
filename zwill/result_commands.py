@@ -295,6 +295,19 @@ def cmd_rank_results_import(args: argparse.Namespace) -> dict[str, Any]:
         "imported_at": imported_at,
     }
     write_json(jdir / "import.json", metadata)
+    warnings = []
+    missing_actual_dropped = sum(1 for issue in issues if issue.get("error") == "missing_actual_ranks")
+    if missing_actual_dropped and not getattr(args, "allow_missing_actual", False):
+        warnings.append(
+            {
+                "code": "partial_rankings_dropped",
+                "message": (
+                    f"Dropped {missing_actual_dropped} rows because respondents ranked only some items "
+                    "(top-N / partial rankings, e.g. 'pick your top 3'). Re-import with --allow-missing-actual "
+                    "to score them on the items each respondent actually ranked."
+                ),
+            }
+        )
     return envelope(
         "zwill twin-results import",
         "ok",
@@ -306,6 +319,7 @@ def cmd_rank_results_import(args: argparse.Namespace) -> dict[str, Any]:
             "issue_count": metadata["issue_count"],
             "issues": issues,
         },
+        warnings=warnings or None,
         next_steps=[f"zwill twin-results rank-report --survey {args.survey} --job-id {job_id}"],
     )
 
