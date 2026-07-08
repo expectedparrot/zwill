@@ -412,15 +412,28 @@ def compute_marginals(sdir: Path) -> dict[str, Any]:
     questions = read_jsonl(sdir / "questions.jsonl")
     respondents = respondents_by_id(sdir)
     answers = read_jsonl(sdir / "answers.jsonl")
+    question_by_name = {question["question_name"]: question for question in questions}
     marginals: dict[str, dict[str, dict[str, float | int]]] = {}
     counts: dict[str, Counter] = defaultdict(Counter)
     weighted_counts: dict[str, Counter] = defaultdict(Counter)
     for answer in answers:
+        qname = answer["question"]
+        question = question_by_name.get(qname, {})
         value = answer.get("answer")
-        key = "__missing__" if value is None else value
         weight = float(respondents.get(answer["respondent_id"], {}).get("weight", 1.0))
-        counts[answer["question"]][key] += 1
-        weighted_counts[answer["question"]][key] += weight
+        if value is None:
+            selected = ["__missing__"]
+        elif question.get("question_type") == "checkbox":
+            # A multi-select answer contributes to every option it selected, so
+            # split it on the question's delimiter instead of counting the whole
+            # "A|B" string as one (undeclared) key that then gets dropped.
+            delimiter = question.get("option_delimiter") or DEFAULT_CHECKBOX_DELIMITER
+            selected = checkbox_selection_tokens(value, delimiter) or ["__missing__"]
+        else:
+            selected = [value]
+        for key in selected:
+            counts[qname][key] += 1
+            weighted_counts[qname][key] += weight
     for question in questions:
         qname = question["question_name"]
         keys = list(question.get("question_options", []))

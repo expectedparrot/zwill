@@ -998,6 +998,42 @@ def test_agent_material_import_quarantines_invalid_rows_and_normalizes_tags(tmp_
     assert {issue["code"] for issue in issues if issue.get("type") == "agent_material"} == {"invalid_input", "unknown_respondent"}
 
 
+def test_checkbox_marginals_split_multiselect_by_delimiter(tmp_path: Path, monkeypatch) -> None:
+    # A multi-select answer "Email|Phone" must count toward BOTH Email and Phone,
+    # in the draft marginals (survey report) and the committed truth marginals.
+    monkeypatch.chdir(tmp_path)
+    run_cli("init")
+    run_cli("survey", "create", "--name", "demo")
+    run_cli(
+        "question", "add", "--survey", "demo", "--question-name", "ch", "--question-type", "checkbox",
+        "--question-text", "Which?", "--question-option", "Email", "--question-option", "Phone",
+        "--question-option", "Fax", "--option-delimiter", "|",
+    )
+    for respondent_id in ("r1", "r2"):
+        run_cli("respondent", "add", "--survey", "demo", "--respondent-id", respondent_id)
+    run_cli("answer", "add", "--survey", "demo", "--respondent-id", "r1", "--question", "ch", "--answer", "Email|Phone")
+    run_cli("answer", "add", "--survey", "demo", "--respondent-id", "r2", "--question", "ch", "--answer", "Email")
+
+    sdir = zwill_project_path(tmp_path) / "surveys" / "demo"
+    from zwill.jsonlio import read_jsonl
+    from zwill.survey_report import compute_draft_marginals
+
+    draft = compute_draft_marginals(
+        read_jsonl(sdir / "questions.jsonl"),
+        read_jsonl(sdir / "respondents.jsonl"),
+        read_jsonl(sdir / "answers.jsonl"),
+    )
+    assert draft["ch"]["Email"]["count"] == 2
+    assert draft["ch"]["Phone"]["count"] == 1
+    assert draft["ch"]["Fax"]["count"] == 0
+
+    run_cli("commit", "--survey", "demo")
+    truth = json.loads((sdir / "committed" / "truth_marginals.json").read_text())["marginals"]["ch"]
+    assert truth["Email"]["count"] == 2
+    assert truth["Phone"]["count"] == 1
+    assert truth["Fax"]["count"] == 0
+
+
 def test_answer_option_validation_strips_whitespace_consistently() -> None:
     # Checkbox tokens are stripped before matching; single-choice answers must be
     # consistent so incidental whitespace in an export does not silently
