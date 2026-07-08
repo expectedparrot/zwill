@@ -53,6 +53,13 @@ def cmd_open_codebook_import(args: argparse.Namespace) -> dict[str, Any]:
     parsed = _raw_answer(data[0])
     codebook = normalize_codebook(parsed, n_themes=zwill_meta.get("n_themes"))
 
+    warnings = []
+    if len(data) > 1:
+        warnings.append(
+            f"Codebook results had {len(data)} rows (e.g. multiple models); used the first and ignored the rest. "
+            "Derive the codebook with a single model to make it deterministic."
+        )
+
     out_path = codebook_path(sdir, question_name)
     write_json(out_path, {"source_question": question_name, "themes": codebook, "imported_at": utc_now()})
     return envelope(
@@ -64,6 +71,7 @@ def cmd_open_codebook_import(args: argparse.Namespace) -> dict[str, Any]:
             "themes": codebook,
             "codebook_path": str(out_path),
         },
+        warnings=warnings or None,
         next_steps=[
             f"zwill edsl-export --survey {args.survey} --target open-coding-job --heldout-question {question_name} --model <model> --path coding_job.json",
         ],
