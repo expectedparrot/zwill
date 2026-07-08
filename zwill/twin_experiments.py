@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .cli import *  # noqa: F403
+from .twin import normalize_name_list
 
 
 def twin_experiments_path(sdir: Path) -> Path:
@@ -417,6 +418,71 @@ def plan_id_from_config(plan: dict[str, Any], plan_path: Path) -> str:
     return twin_approach_id(str(plan.get("plan_id") or plan.get("name") or hashlib.sha256(raw.encode()).hexdigest()[:12]))
 
 
+VERBOSE_OUTPUT_CAP_HINT = "google:gemini-2.5-pro:maxOutputTokens=8192"
+
+
+def _construction_model_specs(construction: dict[str, Any]) -> list[str]:
+    models = construction.get("models")
+    if models is None:
+        models = construction.get("model")
+    return normalize_name_list(models)
+
+
+def verbose_model_output_cap_warning(construction: dict[str, Any]) -> dict[str, Any] | None:
+    """Warn when a Gemini/thinking model is exported without an output-token cap.
+
+    Provider defaults (e.g. Gemini's 2048 `maxOutputTokens`) can be exhausted by
+    reasoning tokens and truncate the probability JSON into malformed rows. There
+    is no way to know the cap is missing until rows fail to parse, so surface it
+    at export time.
+    """
+    models = _construction_model_specs(construction)
+    verbose = sorted({m for m in models if "gemini" in m.lower() or m.lower().startswith("google:")})
+    if not verbose:
+        return None
+    params = normalize_name_list(construction.get("model_param"))
+    if any("maxoutputtokens" in param.lower() for param in params):
+        return None
+    return {
+        "code": "verbose_model_missing_output_cap",
+        "message": (
+            "Model(s) "
+            + ", ".join(verbose)
+            + " were exported without an explicit output-token cap; the provider default can be "
+            "exhausted by reasoning tokens and truncate the probability JSON into malformed rows. "
+            "Set a generous cap in the plan's `model_param`, e.g. " + VERBOSE_OUTPUT_CAP_HINT + "."
+        ),
+        "models": verbose,
+    }
+
+
+def unknown_plan_key_warnings(plan: dict[str, Any]) -> list[dict[str, Any]]:
+    """Flag common misspelled/ignored plan keys so silent drops become visible.
+
+    The recognized per-model parameter key is `model_param`; `model_params` is a
+    frequent mistake that is otherwise dropped without notice.
+    """
+    warnings: list[dict[str, Any]] = []
+    containers: list[tuple[str, Any]] = [("top level", plan), ("defaults", plan.get("defaults"))]
+    for arm in plan.get("arms") or plan.get("approaches") or []:
+        if isinstance(arm, dict):
+            containers.append(("an arm", arm))
+    seen: set[str] = set()
+    for name, container in containers:
+        if isinstance(container, dict) and "model_params" in container and name not in seen:
+            seen.add(name)
+            warnings.append(
+                {
+                    "code": "unknown_plan_key",
+                    "message": (
+                        f"Ignored unrecognized plan key `model_params` ({name}); the recognized key is "
+                        "`model_param` (a list of `service:model:key=value` strings)."
+                    ),
+                }
+            )
+    return warnings
+
+
 def cmd_twin_experiment_init_plan(args: argparse.Namespace) -> dict[str, Any]:
     sdir = require_survey(args.survey)
     questions = questions_by_name(sdir)
@@ -449,6 +515,7 @@ def cmd_twin_experiment_init_plan(args: argparse.Namespace) -> dict[str, Any]:
             "complete_cases": True,
             "context_question_count": args.context_question_count,
             "model": list_or_none(args.model) or ["openai:gpt-5.5"],
+            "model_param": list_or_none(getattr(args, "model_param", None)),
         },
         "arms": [{"approach_id": approach_id} for approach_id in approaches],
         "approval": {
@@ -463,12 +530,18 @@ def cmd_twin_experiment_init_plan(args: argparse.Namespace) -> dict[str, Any]:
     plan["defaults"] = {key: value for key, value in plan["defaults"].items() if value is not None}
     path = Path(args.path or f"{args.plan_id}.json")
     write_json(path, plan)
-    warning = sample_exceeds_population_warning(sdir, plan)
+    warnings: list[dict[str, Any]] = []
+    sample_warning = sample_exceeds_population_warning(sdir, plan)
+    if sample_warning:
+        warnings.append(sample_warning)
+    cap_warning = verbose_model_output_cap_warning(plan.get("defaults") or {})
+    if cap_warning:
+        warnings.append(cap_warning)
     return envelope(
         "zwill twin-experiment init-plan",
         "ok",
         {"path": str(path), "plan": plan},
-        warnings=[warning] if warning else None,
+        warnings=warnings or None,
         next_steps=[f"zwill twin-experiment approve --path {path}", f"zwill twin-experiment export-plan --path {path}"],
     )
 
@@ -553,6 +626,8 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
 
     exported = []
     experiment_records = []
+    warnings: list[dict[str, Any]] = list(unknown_plan_key_warnings(plan))
+    seen_cap_warnings: set[str] = set()
     for index, arm in enumerate(arms, start=1):
         if isinstance(arm, str):
             arm = {"approach_id": arm}
@@ -573,6 +648,12 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
             arm.get("construction") if isinstance(arm.get("construction"), dict) else None,
             {key: arm[key] for key in TWIN_APPROACH_CONSTRUCTION_KEYS if key in arm},
         )
+        cap_warning = verbose_model_output_cap_warning(construction)
+        if cap_warning:
+            cap_key = ",".join(cap_warning["models"])
+            if cap_key not in seen_cap_warnings:
+                seen_cap_warnings.add(cap_key)
+                warnings.append(cap_warning)
         export_args = twin_export_namespace_from_plan(construction, survey=str(survey), plan_dir=plan_path.parent)
         job_dict = build_edsl_digital_twin_job_dict(str(survey), export_args)
         job_dict["zwill"]["approved_validation_plan"] = {
@@ -656,6 +737,7 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
         "zwill twin-experiment export-plan",
         "ok",
         {"manifest_path": str(manifest_path), **manifest},
+        warnings=warnings or None,
         next_steps=[
             (
                 f"zwill twin-experiment approve --path {plan_path}"

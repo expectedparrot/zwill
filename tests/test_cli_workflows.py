@@ -1812,6 +1812,59 @@ def test_twin_job_export_accepts_list_context_and_heldout_questions(tmp_path: Pa
     assert "q1" not in observed  # held-out target not leaked into context
 
 
+def test_twin_plan_helpers_flag_ignored_key_and_missing_output_cap() -> None:
+    from zwill.twin_experiments import unknown_plan_key_warnings, verbose_model_output_cap_warning
+
+    # `model_params` (plural) is a common misspelling of `model_param` and is
+    # otherwise silently dropped.
+    plan = {"defaults": {"model_params": ["x"], "model": ["google:gemini-2.5-pro"]}}
+    assert any(w["code"] == "unknown_plan_key" for w in unknown_plan_key_warnings(plan))
+    assert unknown_plan_key_warnings({"defaults": {"model_param": ["x"]}}) == []
+
+    # OpenAI-only export needs no cap warning.
+    assert verbose_model_output_cap_warning({"model": ["openai:gpt-5.5"]}) is None
+    # Gemini without a cap warns; with a cap it does not.
+    warning = verbose_model_output_cap_warning({"model": ["google:gemini-2.5-pro"]})
+    assert warning is not None and warning["code"] == "verbose_model_missing_output_cap"
+    assert (
+        verbose_model_output_cap_warning(
+            {"model": ["google:gemini-2.5-pro"], "model_param": ["google:gemini-2.5-pro:maxOutputTokens=8192"]}
+        )
+        is None
+    )
+
+
+def test_init_plan_warns_on_missing_output_cap_and_records_model_param(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    create_tiny_binary_survey()
+
+    def _init(plan_id: str, model_param):
+        return cli.cmd_twin_experiment_init_plan(
+            argparse.Namespace(
+                survey="demo",
+                plan_id=plan_id,
+                path=str(tmp_path / f"{plan_id}.json"),
+                heldout_question=["q1"],
+                heldout_questions=None,
+                approach_id=["baseline"],
+                sample_respondents=2,
+                seed=1,
+                context_question_count=1,
+                model=["google:gemini-2.5-pro"],
+                model_param=model_param,
+                primary_metric="nll",
+            )
+        )
+
+    without_cap = _init("nocap", None)
+    assert "verbose_model_missing_output_cap" in [w["code"] for w in (without_cap.get("warnings") or [])]
+
+    with_cap = _init("withcap", ["google:gemini-2.5-pro:maxOutputTokens=8192"])
+    assert "verbose_model_missing_output_cap" not in [w["code"] for w in (with_cap.get("warnings") or [])]
+    plan = json.loads((tmp_path / "withcap.json").read_text())
+    assert plan["defaults"]["model_param"] == ["google:gemini-2.5-pro:maxOutputTokens=8192"]
+
+
 def test_twin_job_export_includes_supplemental_twin_material(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()

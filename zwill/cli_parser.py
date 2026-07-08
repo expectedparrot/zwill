@@ -814,6 +814,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--seed", type=int, default=123)
     p.add_argument("--context-question-count", type=int, default=5)
     p.add_argument("--model", action="append")
+    p.add_argument(
+        "--model-param",
+        action="append",
+        help="Per-model parameter as service:model:key=value (repeatable), e.g. "
+        "google:gemini-2.5-pro:maxOutputTokens=8192. Written to the plan's defaults.model_param.",
+    )
     p.add_argument("--primary-metric", choices=sorted(TWIN_EXPERIMENT_METRICS), default="nll")
     p.set_defaults(func=cmd_twin_experiment_init_plan)
     p = twin_experiment.add_parser("approve", help="Mark a reviewed twin experiment plan as approved for export/run.")
