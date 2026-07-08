@@ -227,3 +227,34 @@ def test_cramers_v_stays_in_unit_interval() -> None:
     }
     v = cramers_v_from_joint(joint)
     assert v is not None and 0.0 <= v <= 1.0 + 1e-9
+
+
+# --------------------------------------------------------------------------
+# parse_probability_json / extract_probability_payload — messy provider output
+# --------------------------------------------------------------------------
+def test_parse_probability_json_handles_fences_prose_and_dicts() -> None:
+    from zwill.probability import parse_probability_json
+
+    assert parse_probability_json('{"probabilities":[0.5,0.5]}')[0]["probabilities"] == [0.5, 0.5]
+    assert parse_probability_json('```json\n{"probabilities":[0.6,0.4]}\n```')[0]["probabilities"] == [0.6, 0.4]
+    assert parse_probability_json("```\n{\"probabilities\":[0.1,0.9]}\n```")[0]["probabilities"] == [0.1, 0.9]
+    # prose on both sides of the object
+    assert parse_probability_json('Sure! {"probabilities":[0.7,0.3]} hope it helps')[0]["probabilities"] == [0.7, 0.3]
+    # already-parsed dict passes through
+    assert parse_probability_json({"probabilities": [1.0]})[0] == {"probabilities": [1.0]}
+    assert parse_probability_json(None)[1] == "empty_answer"
+    assert parse_probability_json("not json at all")[1] is not None
+
+
+def test_extract_probability_payload_reads_and_validates() -> None:
+    from zwill.probability import extract_probability_payload
+
+    values, notes, _payload, error = extract_probability_payload(
+        {"answer": {"response_probabilities": '{"probabilities":[0.2,0.8],"notes":"hi"}'}}
+    )
+    assert values == [0.2, 0.8]
+    assert notes == "hi"
+    assert error is None
+
+    assert extract_probability_payload({"answer": {"response_probabilities": '{"notes":"x"}'}})[3] == "missing_probabilities"
+    assert extract_probability_payload({"answer": {"response_probabilities": '{"probabilities":["a","b"]}'}})[3] == "invalid_probability_value"
