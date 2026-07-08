@@ -198,3 +198,32 @@ def test_build_twin_calibration_tolerates_unscored_row() -> None:
 
     # A row without top1_correct must not crash calibration.
     build_twin_calibration([{"probabilities": {"A": 0.8, "B": 0.2}}], bins=10)
+
+
+# --------------------------------------------------------------------------
+# cramers_v_from_joint — powers the leakage audit gate
+# --------------------------------------------------------------------------
+def test_cramers_v_independence_and_perfect_association() -> None:
+    from zwill.twin_diagnostics import cramers_v_from_joint
+
+    independent = {("a", "x"): 0.25, ("a", "y"): 0.25, ("b", "x"): 0.25, ("b", "y"): 0.25}
+    assert cramers_v_from_joint(independent) == pytest.approx(0.0, abs=1e-12)
+
+    associated = {("a", "x"): 0.5, ("b", "y"): 0.5}
+    assert cramers_v_from_joint(associated) == pytest.approx(1.0)
+
+    # degenerate tables (a single row/column, or empty) are unscoreable
+    assert cramers_v_from_joint({("a", "x"): 0.5, ("a", "y"): 0.5}) is None
+    assert cramers_v_from_joint({}) is None
+
+
+def test_cramers_v_stays_in_unit_interval() -> None:
+    from zwill.twin_diagnostics import cramers_v_from_joint
+
+    joint = {
+        ("a", "x"): 0.30, ("a", "y"): 0.10,
+        ("b", "x"): 0.05, ("b", "y"): 0.25,
+        ("c", "x"): 0.20, ("c", "y"): 0.10,
+    }
+    v = cramers_v_from_joint(joint)
+    assert v is not None and 0.0 <= v <= 1.0 + 1e-9
