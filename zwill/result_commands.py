@@ -249,7 +249,9 @@ def cmd_rank_results_import(args: argparse.Namespace) -> dict[str, Any]:
             )
             continue
         scored_item_ids = [item_id for item_id in item_ids if scores and item_id in scores and item_id in actual_ranks]
-        metrics = rank_metrics(actual_ranks, scores or {}, scored_item_ids) if scored_item_ids else {"predicted_ranks": {}}
+        # scored_item_ids is the ranked subset (internal-ordering metrics); item_ids is the
+        # full battery, used for top-K identification (did the twin pick the right items?).
+        metrics = rank_metrics(actual_ranks, scores or {}, scored_item_ids, full_item_ids=item_ids) if scored_item_ids else {"predicted_ranks": {}}
         extracted.append(
             {
                 "job_id": job_id,
@@ -333,6 +335,8 @@ def render_rank_report_html(payload: dict[str, Any]) -> str:
         f"<td class=\"num\">{fmt_optional(values.get('mean_spearman'))}</td>"
         f"<td class=\"num\">{fmt_optional(values.get('mean_pairwise_order_accuracy'))}</td>"
         f"<td class=\"num\">{fmt_optional(values.get('mean_top_3_overlap'))}</td>"
+        f"<td class=\"num\">{fmt_optional(values.get('mean_top_k_identification'))}</td>"
+        f"<td class=\"num\">{fmt_optional(values.get('mean_top_k_identification_chance'))}</td>"
         f"<td class=\"num\">{fmt_optional(values.get('mean_absolute_rank_error'))}</td>"
         f"<td class=\"num\">{fmt_optional(values.get('top_1_hit_rate'))}</td>"
         "</tr>"
@@ -346,6 +350,8 @@ def render_rank_report_html(payload: dict[str, Any]) -> str:
         f"<td class=\"num\">{fmt_optional(values.get('mean_spearman'))}</td>"
         f"<td class=\"num\">{fmt_optional(values.get('mean_pairwise_order_accuracy'))}</td>"
         f"<td class=\"num\">{fmt_optional(values.get('mean_top_3_overlap'))}</td>"
+        f"<td class=\"num\">{fmt_optional(values.get('mean_top_k_identification'))}</td>"
+        f"<td class=\"num\">{fmt_optional(values.get('mean_top_k_identification_chance'))}</td>"
         f"<td class=\"num\">{fmt_optional(values.get('mean_absolute_rank_error'))}</td>"
         "</tr>"
         for task, values in (summary.get("by_task") or {}).items()
@@ -388,8 +394,9 @@ def render_rank_report_html(payload: dict[str, Any]) -> str:
       <tr><th>Rows</th><td class="num">{summary.get('row_count', 0)}</td><th>Respondents</th><td class="num">{summary.get('respondent_count', 0)}</td></tr>
       <tr><th>Rank tasks</th><td class="num">{summary.get('task_count', 0)}</td><th>Models</th><td class="num">{summary.get('model_count', 0)}</td></tr>
     </tbody></table></section>
-    <section><h2>Individual Rank Performance</h2><table><thead><tr><th>Model</th><th class="num">Rows</th><th class="num">Mean Spearman</th><th class="num">Pairwise order accuracy</th><th class="num">Top-3 overlap</th><th class="num">Rank MAE</th><th class="num">Top-1 hit rate</th></tr></thead><tbody>{model_rows}</tbody></table></section>
-    <section><h2>Rank Battery Summary</h2><table><thead><tr><th>Rank task</th><th class="num">Rows</th><th class="num">Items</th><th class="num">Mean Spearman</th><th class="num">Pairwise order accuracy</th><th class="num">Top-3 overlap</th><th class="num">Rank MAE</th></tr></thead><tbody>{task_rows}</tbody></table></section>
+    <section><h2>Individual Rank Performance</h2><table><thead><tr><th>Model</th><th class="num">Rows</th><th class="num">Mean Spearman</th><th class="num">Pairwise order accuracy</th><th class="num">Top-3 overlap</th><th class="num">Top-K identification</th><th class="num">Chance</th><th class="num">Rank MAE</th><th class="num">Top-1 hit rate</th></tr></thead><tbody>{model_rows}</tbody></table>
+      <p class="subtle">Top-K identification: for a top-N battery, the share of each respondent's stated top-K items that the twin's predicted top-K (over the whole battery) also picked. Unlike Spearman/pairwise it does not presume you already know which items the respondent chose. <b>Chance</b> is K/N (picking K of N items at random) &mdash; identification above chance is real item-identification signal. Blank for full rankings.</p></section>
+    <section><h2>Rank Battery Summary</h2><table><thead><tr><th>Rank task</th><th class="num">Rows</th><th class="num">Items</th><th class="num">Mean Spearman</th><th class="num">Pairwise order accuracy</th><th class="num">Top-3 overlap</th><th class="num">Top-K identification</th><th class="num">Chance</th><th class="num">Rank MAE</th></tr></thead><tbody>{task_rows}</tbody></table></section>
     <section><h2>Item-Level Diagnostics</h2><table><thead><tr><th>Task</th><th>Item</th><th class="num">Actual avg rank</th><th class="num">Predicted avg rank</th><th class="num">Predicted avg score</th><th class="num">Rank error</th></tr></thead><tbody>{item_rows}</tbody></table></section>
   </main>
   <script type="application/json" id="rank-report-data">{data}</script>
@@ -435,7 +442,7 @@ def cmd_rank_results_report(args: argparse.Namespace) -> None:
             print(output)
         return
     if args.format == "csv":
-        fieldnames = ["job_id", "respondent_id", "rank_task_id", "model_label", "spearman", "pairwise_order_accuracy", "top_3_overlap", "mean_absolute_rank_error", "top_1_hit"]
+        fieldnames = ["job_id", "respondent_id", "rank_task_id", "model_label", "spearman", "pairwise_order_accuracy", "top_3_overlap", "top_k_identification", "top_k_identification_chance", "mean_absolute_rank_error", "top_1_hit"]
         writer_target = Path(args.path) if args.path else None
         if writer_target:
             writer_target.parent.mkdir(parents=True, exist_ok=True)
@@ -449,7 +456,7 @@ def cmd_rank_results_report(args: argparse.Namespace) -> None:
             writer.writerows({key: row.get(key) for key in fieldnames} for row in rows)
         return
     table = Table(title=f"{args.survey} rank utility validation")
-    for column in ["model", "rows", "spearman", "pairwise", "top-3", "rank mae", "top-1"]:
+    for column in ["model", "rows", "spearman", "pairwise", "top-3", "top-K id", "chance", "rank mae", "top-1"]:
         table.add_column(column)
     for model, values in payload["summary"]["by_model"].items():
         table.add_row(
@@ -458,6 +465,8 @@ def cmd_rank_results_report(args: argparse.Namespace) -> None:
             fmt_optional(values.get("mean_spearman")),
             fmt_optional(values.get("mean_pairwise_order_accuracy")),
             fmt_optional(values.get("mean_top_3_overlap")),
+            fmt_optional(values.get("mean_top_k_identification")),
+            fmt_optional(values.get("mean_top_k_identification_chance")),
             fmt_optional(values.get("mean_absolute_rank_error")),
             fmt_optional(values.get("top_1_hit_rate")),
         )

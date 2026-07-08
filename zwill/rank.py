@@ -406,7 +406,51 @@ def top_k_overlap(actual: dict[str, int], predicted: dict[str, int], item_ids: l
     return len(actual_top & predicted_top) / k
 
 
-def rank_metrics(actual: dict[str, int], scores: dict[str, float], item_ids: list[str]) -> dict[str, Any]:
+def top_k_identification(
+    actual: dict[str, int], scores: dict[str, float], full_item_ids: list[str]
+) -> float | None:
+    """Did the twin identify the respondent's stated top-K items?
+
+    For a top-N / MaxDiff battery a respondent ranks only their K most important
+    items out of the full set. The internal-ordering metrics (spearman, pairwise)
+    are scored on just those K items and so presume you already know which K the
+    respondent chose. This instead scores identification: rank ALL battery items
+    by the twin's predicted utility, take the predicted top-K, and measure the
+    overlap with the K items the respondent actually ranked.
+
+    Returns None for a full ranking (K == item count), where identification is
+    vacuous and top_k_overlap already applies.
+    """
+    ranked = [item_id for item_id in full_item_ids if item_id in actual]
+    k = len(ranked)
+    total = len(full_item_ids)
+    if k == 0 or k >= total:
+        return None
+    predicted = ranks_from_scores(scores, full_item_ids)
+    predicted_top_k = {item_id for item_id in full_item_ids if predicted[item_id] <= k}
+    return len(predicted_top_k & set(ranked)) / k
+
+
+def top_k_identification_chance(actual: dict[str, int], full_item_ids: list[str]) -> float | None:
+    """Expected top-K identification from picking K of N items at random: K / N.
+
+    Matches the None cases of top_k_identification so the two align row-for-row.
+    """
+    ranked = [item_id for item_id in full_item_ids if item_id in actual]
+    k = len(ranked)
+    total = len(full_item_ids)
+    if k == 0 or k >= total:
+        return None
+    return k / total
+
+
+def rank_metrics(
+    actual: dict[str, int],
+    scores: dict[str, float],
+    item_ids: list[str],
+    *,
+    full_item_ids: list[str] | None = None,
+) -> dict[str, Any]:
     predicted = ranks_from_scores(scores, item_ids)
     pair_acc, pair_correct, pair_total = pairwise_order_accuracy(actual, predicted, item_ids)
     top1_actual = min(item_ids, key=lambda item: (actual[item], item)) if item_ids else None
@@ -419,6 +463,12 @@ def rank_metrics(actual: dict[str, int], scores: dict[str, float], item_ids: lis
         "pairwise_total": pair_total,
         "top_1_hit": int(top1_actual == top1_predicted) if top1_actual and top1_predicted else None,
         "top_3_overlap": top_k_overlap(actual, predicted, item_ids, 3),
+        # Over the FULL battery, not just the ranked subset: did the twin's
+        # predicted top-K catch the respondent's actual top-K? (top-N tasks only.)
+        # Chance is K/N (picking K of N items at random), so the metric is
+        # self-interpreting: above chance means real item-identification signal.
+        "top_k_identification": top_k_identification(actual, scores, full_item_ids or item_ids),
+        "top_k_identification_chance": top_k_identification_chance(actual, full_item_ids or item_ids),
         "mean_absolute_rank_error": (
             sum(abs(predicted[item] - actual[item]) for item in item_ids) / len(item_ids)
             if item_ids
@@ -451,6 +501,8 @@ def build_rank_report(rows: list[dict[str, Any]], job_id: str | None = None) -> 
                 "mean_spearman": mean([row.get("spearman") for row in model_rows]),
                 "mean_pairwise_order_accuracy": mean([row.get("pairwise_order_accuracy") for row in model_rows]),
                 "mean_top_3_overlap": mean([row.get("top_3_overlap") for row in model_rows]),
+                "mean_top_k_identification": mean([row.get("top_k_identification") for row in model_rows]),
+                "mean_top_k_identification_chance": mean([row.get("top_k_identification_chance") for row in model_rows]),
                 "mean_absolute_rank_error": mean([row.get("mean_absolute_rank_error") for row in model_rows]),
                 "top_1_hit_rate": mean([row.get("top_1_hit") for row in model_rows]),
             }
@@ -463,6 +515,8 @@ def build_rank_report(rows: list[dict[str, Any]], job_id: str | None = None) -> 
                 "mean_spearman": mean([row.get("spearman") for row in task_rows]),
                 "mean_pairwise_order_accuracy": mean([row.get("pairwise_order_accuracy") for row in task_rows]),
                 "mean_top_3_overlap": mean([row.get("top_3_overlap") for row in task_rows]),
+                "mean_top_k_identification": mean([row.get("top_k_identification") for row in task_rows]),
+                "mean_top_k_identification_chance": mean([row.get("top_k_identification_chance") for row in task_rows]),
                 "mean_absolute_rank_error": mean([row.get("mean_absolute_rank_error") for row in task_rows]),
             }
             for task, task_rows in sorted(by_task.items())
