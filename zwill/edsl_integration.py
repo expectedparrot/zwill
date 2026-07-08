@@ -668,7 +668,14 @@ def build_edsl_agent_study_job_dict(args: argparse.Namespace) -> dict[str, Any]:
     return data
 
 
-def emit_raw_export(command: str, args: argparse.Namespace, output: str, data: dict[str, Any]) -> None:
+def emit_raw_export(
+    command: str,
+    args: argparse.Namespace,
+    output: str,
+    data: dict[str, Any],
+    *,
+    warnings: list[dict[str, Any]] | None = None,
+) -> None:
     """Shared output contract for raw JSON-job exports.
 
     With --path the file is the artifact and stdout carries a clean, parseable
@@ -681,7 +688,7 @@ def emit_raw_export(command: str, args: argparse.Namespace, output: str, data: d
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(output + "\n")
         if not quiet:
-            print_json(envelope(command, "ok", {"path": str(path), **data}))
+            print_json(envelope(command, "ok", {"path": str(path), **data}, warnings=warnings or None))
     elif not quiet:
         print(output)
 
@@ -1168,6 +1175,19 @@ def cmd_edsl_export(args: argparse.Namespace) -> None:
     scenario_count = zwill_meta.get("scenario_count")
     if scenario_count is None:
         scenario_count = len(export_dict.get("scenarios", []) or []) or None
+    warnings = []
+    uncoded = zwill_meta.get("uncoded_metadata_keys") or []
+    if uncoded:
+        warnings.append(
+            {
+                "code": "uncoded_metadata",
+                "message": (
+                    f"{len(uncoded)} respondent metadata key(s) look like unlabeled numeric codes and are included "
+                    f"as twin context ({', '.join(uncoded[:6])}{'...' if len(uncoded) > 6 else ''}). The twin sees raw "
+                    "codes it cannot interpret; map them to readable labels, or drop them with --exclude-metadata-key."
+                ),
+            }
+        )
     emit_raw_export(
         "zwill edsl-export",
         args,
@@ -1178,4 +1198,5 @@ def cmd_edsl_export(args: argparse.Namespace) -> None:
             "scenario_count": scenario_count,
             "model_count": len(export_dict.get("models", []) or []) or None,
         },
+        warnings=warnings,
     )

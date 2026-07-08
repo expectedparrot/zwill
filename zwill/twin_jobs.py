@@ -40,6 +40,42 @@ def slug_id(value: str) -> str:
     return slug or "item"
 
 
+_NUMERIC_CODE_RE = re.compile(r"^-?\d+(\.\d+)?$")
+
+
+def uncoded_metadata_keys(
+    metadata_by_respondent: dict[str, dict[str, Any]],
+    excluded_keys: set[str],
+    *,
+    min_fraction: float = 0.8,
+    min_respondents: int = 5,
+) -> list[str]:
+    """Metadata keys whose values look like bare numeric codes (e.g. F_AGECAT=4).
+
+    Such keys are almost always unlabeled survey codes; included as twin context
+    the model sees the raw number and cannot interpret it. Returns the offending
+    keys so the export can warn the user to map codes to readable labels first.
+    """
+    values_by_key: dict[str, list[str]] = defaultdict(list)
+    for metadata in metadata_by_respondent.values():
+        if not isinstance(metadata, dict):
+            continue
+        for key, value in metadata.items():
+            if key in excluded_keys:
+                continue
+            text = str(value).strip()
+            if text:
+                values_by_key[str(key)].append(text)
+    flagged = []
+    for key, values in values_by_key.items():
+        if len(values) < min_respondents:
+            continue
+        numeric = sum(1 for value in values if _NUMERIC_CODE_RE.match(value))
+        if numeric / len(values) >= min_fraction:
+            flagged.append(key)
+    return sorted(flagged)
+
+
 def read_json(path: Path) -> Any:
     return json.loads(path.read_text())
 
@@ -721,6 +757,9 @@ def build_edsl_digital_twin_job_dict(survey_name: str, args: Any, deps: DigitalT
         "prompt_variant": prompt_variant,
         "scenario_count": len(scenarios),
         "skipped_missing_heldout_count": len(skipped_missing_heldout),
+        "uncoded_metadata_keys": (
+            uncoded_metadata_keys(metadata_by_respondent, excluded_metadata_keys) if include_metadata_context else []
+        ),
     }
     return data
 
@@ -932,6 +971,9 @@ def build_edsl_numeric_twin_job_dict_impl(survey_name: str, args: Any, deps: Dig
         "seed": args.seed,
         "scenario_count": len(scenarios),
         "skipped_missing_count": len(skipped),
+        "uncoded_metadata_keys": (
+            uncoded_metadata_keys(metadata_by_respondent, excluded_metadata_keys) if include_metadata_context else []
+        ),
     }
     return data
 
