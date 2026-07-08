@@ -2236,6 +2236,32 @@ def test_twin_job_export_applies_target_specific_leakage_exclusions(tmp_path: Pa
     assert job["zwill"]["leakage_exclusions"] == {"q1": ["q2"]}
 
 
+def test_twin_export_excludes_all_heldout_questions_from_context(tmp_path: Path, monkeypatch) -> None:
+    # Holding out several questions must exclude EVERY held-out answer from each
+    # target's context -- using one held-out answer to predict another leaks, and
+    # badly inflates correlated batteries.
+    monkeypatch.chdir(tmp_path)
+    create_tiny_binary_survey()
+    monkeypatch.setattr(
+        cli,
+        "load_edsl_job_classes",
+        lambda: (FakeJobs, FakeModel, FakeModelList, FakeQuestionFreeText, FakeScenario, FakeScenarioList, FakeSurvey),
+    )
+
+    job = cli.build_edsl_digital_twin_job_dict(
+        "demo",
+        default_twin_export_args(heldout_question=["q1", "q2"], respondent=["r1"]),
+    )
+
+    by_target = {scenario["heldout_question_name"]: scenario for scenario in job["scenarios"]}
+    # predicting q1, the other held-out q2 must not be context (and vice versa); with
+    # only q1/q2 in the survey that leaves no observed answers at all.
+    assert by_target["q1"]["observed_answers"] == []
+    assert "q2" not in by_target["q1"]["observed_answers_text"]
+    assert by_target["q2"]["observed_answers"] == []
+    assert "q1" not in by_target["q2"]["observed_answers_text"]
+
+
 def test_twin_approach_and_experiment_plan_export_jobs(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()
