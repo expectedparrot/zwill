@@ -159,7 +159,8 @@ body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#
 h1{{font-size:1.6rem}} h2{{font-size:1.2rem;margin-top:2rem;border-bottom:1px solid #e6e9ef;padding-bottom:.3rem}}
 table{{border-collapse:collapse;width:100%;font-size:14px}} th,td{{padding:6px 10px;border-bottom:1px solid #eef1f5;text-align:left}}
 td.n,th.n{{text-align:right;font-variant-numeric:tabular-nums}}
-.muted{{color:#5c667a}} .grid2{{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}}
+.muted{{color:#5c667a}} .grid2{{display:flex;flex-direction:column;gap:24px}}
+svg{{max-width:100%;height:auto}}
 .barrow{{display:flex;align-items:center;gap:10px;margin:4px 0}} .barlabel{{width:190px;font-size:13px}}
 .bartrack{{flex:1;background:#eef1f5;border-radius:4px;height:14px;overflow:hidden}} .barfill{{display:block;height:14px}}
 .barval{{width:60px;text-align:right;font-variant-numeric:tabular-nums;font-size:13px}}

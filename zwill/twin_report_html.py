@@ -651,6 +651,7 @@ def render_twin_report_html(
     h1 {{ margin:0 0 8px; font-size:28px; letter-spacing:0; }}
     .subtle {{ color:var(--muted); font-size:14px; }}
     main {{ padding:24px 36px 44px; max-width:1320px; margin:0 auto; }}
+    svg {{ max-width:100%; height:auto; }}
     .score-strip {{ display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px; margin-bottom:18px; }}
     .score-card, .summary-card, .table-card {{ background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:14px; }}
     .summary-card {{ margin-bottom:18px; }}
@@ -703,6 +704,7 @@ def render_twin_report_html(
     .good {{ color:var(--good); }}
     .bad {{ color:var(--bad); }}
     @media (max-width: 860px) {{ header, main {{ padding-left:16px; padding-right:16px; }} .score-grid {{ grid-template-columns:repeat(2,1fr); }} .summary-grid {{ grid-template-columns:1fr; }} }}
+    @media (max-width: 640px) {{ main {{ padding:16px 12px 32px; }} .score-strip, .score-grid, .marginal-grid, .marginal-option, .prob-row {{ grid-template-columns:1fr; }} }}
   </style>
 </head>
 <body>
