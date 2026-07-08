@@ -484,8 +484,27 @@ def cmd_twin_results_leakage_audit(args: argparse.Namespace) -> dict[str, Any]:
                 targets.append(str(row["heldout_question"]))
     if not targets:
         targets = question_names  # audit every question as a potential target
-    deduped: list[str] = []
+    # A rank battery is referenced by its rank_task_id, which is not a question
+    # name -- expand it to its item questions so auditing a battery is not a
+    # silent no-op. Track anything that resolves to neither so we can warn.
+    from .rank import detect_rank_tasks
+
+    rank_task_items = {
+        str(task["rank_task_id"]): [str(name) for name in (task.get("source_question_names") or [])]
+        for task in detect_rank_tasks(questions)
+    }
+    question_name_set = set(question_names)
+    resolved_targets: list[str] = []
+    unknown_targets: list[str] = []
     for target in targets:
+        if target in rank_task_items:
+            resolved_targets.extend(rank_task_items[target])
+        elif target in question_name_set:
+            resolved_targets.append(target)
+        else:
+            unknown_targets.append(target)
+    deduped: list[str] = []
+    for target in resolved_targets:
         if target not in deduped:
             deduped.append(target)
 
@@ -509,6 +528,16 @@ def cmd_twin_results_leakage_audit(args: argparse.Namespace) -> dict[str, Any]:
                     f"{diagnostics['flagged_count']} context->target pair(s) exceed Cramer's V "
                     f"{diagnostics['warn_threshold']}; strongest: {top['context_question']} -> "
                     f"{top['target_question']} (V={top['cramers_v']:.2f})."
+                ),
+            }
+        )
+    if unknown_targets:
+        warnings.append(
+            {
+                "code": "unknown_targets",
+                "message": (
+                    f"Ignored {len(unknown_targets)} target(s) that are neither a question nor a rank task id: "
+                    f"{', '.join(unknown_targets)}. Nothing was audited for them."
                 ),
             }
         )
