@@ -130,6 +130,13 @@ next command. The full path:
    If your covariates are stored as raw numeric codes (e.g. `F_AGECAT=4`), the
    export warns (`uncoded_metadata`): map them to readable labels first, or the
    twin sees uninterpretable numbers.
+   To experiment with *how the twin reasons or how its evidence is framed*, pass
+   `--twin-prompt-pipeline <file.json>` — an ordered pipeline of prompt steps
+   (e.g. "argue why each option, note thin evidence" → "weigh and predict" as two
+   piped model calls). The final step carries `{{ output_contract }}` and is
+   scored, so any pipeline stays comparable through the gate. See
+   `examples/twin_pipelines/` and `SPEC.md` for the shape; A/B a pipeline against
+   `raw` and read the NLL/ECE deltas to see if the strategy actually helps.
    `twin-probability-job` exports require an approved plan; this one-off/debug
    form passes `--allow-unapproved`. For a validation run, drop that flag and use
    `--approved-plan <plan.json>` (see the `twin-experiment` plan flow below).

@@ -177,6 +177,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="raw",
         help="Twin prompt variant for twin-probability-job exports.",
     )
+    p.add_argument(
+        "--twin-prompt-pipeline",
+        help="JSON file describing an ordered twin prompt pipeline (reasoning/framing steps). "
+        "The final step must include {{ output_contract }} and is the scored step; earlier steps "
+        "pipe forward as {{ <step_name>.answer }}. Overrides --prompt-variant when set.",
+    )
     p.add_argument("--traits-presentation-template", help="Jinja template for presenting AgentList traits in EDSL prompts.")
     p.add_argument("--traits-presentation-template-path", help="Path to a Jinja template for presenting AgentList traits in EDSL prompts.")
     p.add_argument("--no-default-traits-presentation-template", action="store_true", help="Use EDSL's default Agent trait presentation instead of zwill's survey-answer template.")

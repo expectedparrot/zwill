@@ -112,13 +112,20 @@ def parse_probability_json(raw: Any) -> tuple[dict[str, Any] | None, str | None]
         return None, "invalid_json"
 
 
-def extract_probability_payload(row: dict[str, Any]) -> tuple[list[float] | None, str | None, dict[str, Any] | None, str | None]:
+def extract_probability_payload(
+    row: dict[str, Any], scored_question_name: str | None = None
+) -> tuple[list[float] | None, str | None, dict[str, Any] | None, str | None]:
     answer = row.get("answer", {})
     raw_answer = None
     if isinstance(answer, dict):
-        raw_answer = answer.get("response_probabilities")
-        if raw_answer is None and answer:
-            raw_answer = next(iter(answer.values()))
+        # For a prompt pipeline the scored answer is the final step, not the first
+        # answer value (which would be an intermediate reasoning step).
+        if scored_question_name and scored_question_name in answer:
+            raw_answer = answer.get(scored_question_name)
+        else:
+            raw_answer = answer.get("response_probabilities")
+            if raw_answer is None and answer:
+                raw_answer = next(iter(answer.values()))
     parsed, error = parse_probability_json(raw_answer)
     if error:
         return None, None, parsed, error

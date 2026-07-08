@@ -86,13 +86,14 @@ def extract_twin_prediction_rows(
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     weight_by_respondent = weight_by_respondent or {}
     truth = truth or {}
+    scored_question_name = (results.get("zwill") or {}).get("scored_question_name")
     extracted = []
     issues = []
     for index, row in enumerate(results.get("data", [])):
         scenario = row.get("scenario", {})
         model = row.get("model", {})
         options = scenario.get("heldout_options", [])
-        probabilities, notes, payload, error = extract_probability_payload(row)
+        probabilities, notes, payload, error = extract_probability_payload(row, scored_question_name)
         normalized = None
         probability_sum = None
         if probabilities is not None:
@@ -141,6 +142,13 @@ def extract_twin_prediction_rows(
                 "notes": notes,
                 "confidence": payload.get("confidence") if isinstance(payload, dict) else None,
                 "evidence_summary": payload.get("evidence_summary") if isinstance(payload, dict) else None,
+                # For a prompt pipeline, keep the intermediate step answers (everything
+                # except the scored final step) so the reasoning is inspectable.
+                "reasoning_steps": (
+                    {key: value for key, value in row.get("answer", {}).items() if key != scored_question_name}
+                    if scored_question_name and isinstance(row.get("answer"), dict) and len(row.get("answer", {})) > 1
+                    else None
+                ),
                 **metrics,
                 "empirical_marginal_probabilities": marginal_probabilities,
                 "empirical_marginal_probability_actual": marginal_metrics.get("probability_actual"),
