@@ -200,6 +200,21 @@ def test_build_twin_calibration_tolerates_unscored_row() -> None:
     build_twin_calibration([{"probabilities": {"A": 0.8, "B": 0.2}}], bins=10)
 
 
+def test_top_prediction_tiebreak_matches_scoring() -> None:
+    from zwill.twin import one_hot_metrics
+    from zwill.twin_report import top_probability_option, twin_top_prediction
+
+    probs = {"A": 0.5, "B": 0.5, "C": 0.5}  # three-way tie
+    # scoring puts the alphabetically-first tied option at rank 1
+    assert one_hot_metrics(["A", "B", "C"], "A", probs)["top1_correct"] == 1
+    assert one_hot_metrics(["A", "B", "C"], "B", probs)["top1_correct"] == 0
+    # the display helpers must agree, or a row shows top choice B while scored correct with A
+    assert twin_top_prediction({"probabilities": probs})[0] == "A"
+    assert top_probability_option(probs)[0] == "A"
+    # a non-tied case is unaffected
+    assert twin_top_prediction({"probabilities": {"A": 0.2, "B": 0.8}})[0] == "B"
+
+
 # --------------------------------------------------------------------------
 # cramers_v_from_joint — powers the leakage audit gate
 # --------------------------------------------------------------------------

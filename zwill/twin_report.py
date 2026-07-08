@@ -28,14 +28,17 @@ def twin_top_prediction(row: dict[str, Any]) -> tuple[str | None, float]:
     predicted = row.get("probabilities", {})
     if not predicted:
         return None, 0.0
-    option, probability = max(predicted.items(), key=lambda item: (float(item[1]), str(item[0])))
+    # Break probability ties toward the alphabetically-first option, matching
+    # one_hot_metrics' rank-1 tie-break, so the displayed top choice agrees with
+    # the scored top1_correct.
+    option, probability = min(predicted.items(), key=lambda item: (-float(item[1]), str(item[0])))
     return str(option), float(probability)
 
 
 def top_probability_option(probabilities: dict[str, float]) -> tuple[str | None, float | None]:
     if not probabilities:
         return None, None
-    option, probability = max(probabilities.items(), key=lambda item: float(item[1]))
+    option, probability = min(probabilities.items(), key=lambda item: (-float(item[1]), str(item[0])))
     return str(option), float(probability)
 
 
