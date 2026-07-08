@@ -191,15 +191,29 @@ Recommended initial metrics:
 - Spearman
 - pairwise order accuracy
 - top-3 overlap
+- **top-K identification** (see below)
 - mean absolute rank error
+
+**Top-K identification (top-N batteries).** Spearman, pairwise, and top-3 overlap
+are scored on the items a respondent actually ranked, so for a top-N / MaxDiff
+battery ("pick your top 3") they presume you already know *which* items the
+respondent chose. Top-K identification does not: it ranks **all** battery items
+by the twin's predicted utility, takes the predicted top-K, and measures the
+overlap with the K items the respondent ranked (K = number they ranked). Its
+chance level is `K/N` (picking K of N at random), reported alongside it so the
+metric is self-interpreting — above chance means genuine item-identification
+signal. It is `null` for full rankings (where it is vacuous and top-3 overlap
+applies) and, correspondingly, top-3 overlap is `null` when the ranked subset has
+≤ 3 items.
 
 ### Aggregate Metrics
 
-Across respondents:
+Across respondents (all aggregate rank metrics are **survey-weighted**; with
+all-1.0 weights this equals the plain mean):
 
 1. **Mean Spearman**
 2. **Mean pairwise order accuracy**
-3. **Mean top-k overlap**
+3. **Mean top-k overlap** and **mean top-K identification** (with its mean chance)
 4. **Aggregate rank correlation**
    Compare average predicted item score/rank against average actual item rank.
 5. **Top item agreement**
@@ -254,6 +268,8 @@ Example validation row:
     "spearman": 0.42,
     "pairwise_order_accuracy": 0.63,
     "top_3_overlap": 0.67,
+    "top_k_identification": 0.60,
+    "top_k_identification_chance": 0.29,
     "mean_absolute_rank_error": 3.1
   }
 }
@@ -315,6 +331,25 @@ When holding out a rank battery:
 For example:
 
 - Holding out message ranking `c10a_msg_appeal` should exclude all `q011`-`q020` and `q073_top_message`.
+
+**Set-membership leakage.** For a top-N battery, ordinary per-answer leakage
+audits (Cramér's V between a target item and each context question) cannot detect
+context that reveals *which items a respondent ranked*, because they condition on
+respondents who ranked the item (membership is then constant). Yet such context —
+e.g. a "which sites did you use" checkbox feeding a "rank the sites you used"
+battery — trivially inflates top-K identification. `zwill twin-results
+leakage-audit --target <rank_task_id>` expands the battery to its items and runs
+both checks: the per-answer Cramér's V, and a **set-membership** check that treats
+each item's membership (ranked vs not-ranked, over all respondents) as the target.
+Context flagged there should be excluded from the rank export.
+
+### Partial / Top-N Rankings
+
+Respondents who rank only a subset (their top few of N) are missing an actual rank
+for the items they did not pick. Pass `--allow-missing-actual` to **both**
+`edsl-export --target rank-utility-twin-job` **and** `twin-results import` to score
+them on the items they did rank; without it on import, those rows are dropped as
+`missing_actual_ranks` (the import warns and points to the flag).
 - Holding out feature ranking `c11_bplus_feat_app` should exclude all `q021`-`q036` and `q074_top_feature`.
 
 ## Reporting Changes
