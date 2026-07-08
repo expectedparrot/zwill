@@ -500,10 +500,20 @@ def build_edsl_digital_twin_job_dict(survey_name: str, args: Any, deps: DigitalT
     leakage_exclusions = resolve_leakage_exclusion_patterns(
         raw_leakage_exclusions, known_question_names, dict(rank_task_items)
     )
-    all_respondent_ids = [row["respondent_id"] for row in read_jsonl(sdir / "respondents.jsonl")]
+    respondent_rows = read_jsonl(sdir / "respondents.jsonl")
+    all_respondent_ids = [row["respondent_id"] for row in respondent_rows]
+    metadata_by_respondent = {
+        row["respondent_id"]: row["metadata"]
+        for row in respondent_rows
+        if isinstance(row.get("metadata"), dict)
+    }
     if not all_respondent_ids:
         all_respondent_ids = sorted({row["respondent_id"] for row in read_jsonl(sdir / "answers.jsonl")})
     respondent_ids = deps.respondent_selection(args, all_respondent_ids)
+    # Respondent metadata (panel covariates like age/party/region) is included as
+    # twin context by default; exclude it wholesale or by key for leakage control.
+    include_metadata_context = not getattr(args, "exclude_metadata_context", False)
+    excluded_metadata_keys = set(getattr(args, "exclude_metadata_key", None) or [])
 
     answer_by_respondent: dict[str, dict[str, str]] = defaultdict(dict)
     for answer in read_jsonl(sdir / "answers.jsonl"):
@@ -603,6 +613,18 @@ def build_edsl_digital_twin_job_dict(survey_name: str, args: Any, deps: DigitalT
                 twin_material,
                 getattr(args, "max_twin_material_chars", None),
             )
+            respondent_metadata: dict[str, Any] = {}
+            if include_metadata_context:
+                respondent_metadata = {
+                    key: value
+                    for key, value in metadata_by_respondent.get(respondent_id, {}).items()
+                    if key not in excluded_metadata_keys and str(value).strip() != ""
+                }
+            metadata_block = (
+                "Respondent profile:\n" + "\n".join(f"- {key}: {value}" for key, value in respondent_metadata.items())
+                if respondent_metadata
+                else ""
+            )
             observed_lines = []
             for observed in observed_answers:
                 observed_lines.append(
@@ -644,7 +666,11 @@ def build_edsl_digital_twin_job_dict(survey_name: str, args: Any, deps: DigitalT
                         "twin_material": twin_material,
                         "twin_material_text": twin_material_text,
                         "observed_answers": observed_answers,
-                        "observed_answers_text": "\n\n".join(observed_lines) if observed_lines else "No observed answers provided.",
+                        "respondent_metadata": respondent_metadata,
+                        "observed_answers_text": (
+                            "\n\n".join(block for block in [metadata_block, *observed_lines] if block)
+                            or "No observed answers provided."
+                        ),
                         "leakage_exclusions": sorted(target_exclusions),
                     }
                 )

@@ -33,6 +33,11 @@ def cmd_twin_results_import(args: argparse.Namespace) -> dict[str, Any]:
     truth_path = sdir / "committed" / "truth_marginals.json"
     truth = read_json(truth_path, {}) if truth_path.exists() else {}
 
+    weight_by_respondent = {
+        str(row["respondent_id"]): float(row.get("weight", 1.0))
+        for row in read_jsonl(sdir / "respondents.jsonl")
+        if row.get("respondent_id") is not None
+    }
     imported_at = utc_now()
     extracted, issues = extract_twin_prediction_rows(
         results,
@@ -42,6 +47,7 @@ def cmd_twin_results_import(args: argparse.Namespace) -> dict[str, Any]:
         imported_at=imported_at,
         truth=truth,
         allow_missing_actual=getattr(args, "allow_missing_actual", False),
+        weight_by_respondent=weight_by_respondent,
     )
 
     def _row_key(row: dict[str, Any]) -> tuple[Any, ...]:

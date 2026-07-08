@@ -82,7 +82,9 @@ def extract_twin_prediction_rows(
     imported_at: str,
     truth: dict[str, Any] | None = None,
     allow_missing_actual: bool = False,
+    weight_by_respondent: dict[str, float] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    weight_by_respondent = weight_by_respondent or {}
     truth = truth or {}
     extracted = []
     issues = []
@@ -121,6 +123,7 @@ def extract_twin_prediction_rows(
                 "row": index,
                 "survey": survey,
                 "respondent_id": scenario.get("respondent_id"),
+                "weight": float(weight_by_respondent.get(str(scenario.get("respondent_id")), 1.0)),
                 "heldout_question": scenario.get("heldout_question_name"),
                 "heldout_question_text": scenario.get("heldout_question_text"),
                 "actual_answer": actual_answer,

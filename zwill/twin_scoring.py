@@ -44,41 +44,58 @@ def _value(row: dict[str, Any], key: str) -> float | None:
 
 
 def _mean(values: list[float]) -> float | None:
+    """Plain mean, used for the equal-weighted macro average across questions."""
     return sum(values) / len(values) if values else None
 
 
-def _skill(model_losses: list[float], baseline_losses: list[float]) -> float | None:
+def _weight(row: dict[str, Any]) -> float:
+    return float(row.get("weight", 1.0))
+
+
+def _weighted_mean(pairs: list[tuple[float, float]]) -> float | None:
+    """Weighted mean of (value, weight) pairs; plain mean when weights are all 1."""
+    total_weight = sum(weight for _value, weight in pairs)
+    if total_weight <= 0:
+        return None
+    return sum(value * weight for value, weight in pairs) / total_weight
+
+
+def _skill(model_pairs: list[tuple[float, float]], baseline_pairs: list[tuple[float, float]]) -> float | None:
     """1 - mean(model) / mean(baseline); None if the baseline mean is not positive."""
-    model_mean = _mean(model_losses)
-    baseline_mean = _mean(baseline_losses)
+    model_mean = _weighted_mean(model_pairs)
+    baseline_mean = _weighted_mean(baseline_pairs)
     if model_mean is None or baseline_mean is None or baseline_mean <= 0:
         return None
     return 1.0 - model_mean / baseline_mean
 
 
-def _paired(model_rows: list[dict[str, Any]], model_key: str, baseline_key: str) -> tuple[list[float], list[float]]:
-    """Model and baseline loss lists over the rows where both are present."""
-    model_losses: list[float] = []
-    baseline_losses: list[float] = []
+def _paired(
+    model_rows: list[dict[str, Any]], model_key: str, baseline_key: str
+) -> tuple[list[tuple[float, float]], list[tuple[float, float]]]:
+    """Model and baseline (loss, weight) pairs over the rows where both are present."""
+    model_pairs: list[tuple[float, float]] = []
+    baseline_pairs: list[tuple[float, float]] = []
     for row in model_rows:
         model_loss = _value(row, model_key)
         baseline_loss = _value(row, baseline_key)
         if model_loss is None or baseline_loss is None:
             continue
-        model_losses.append(model_loss)
-        baseline_losses.append(baseline_loss)
-    return model_losses, baseline_losses
+        weight = _weight(row)
+        model_pairs.append((model_loss, weight))
+        baseline_pairs.append((baseline_loss, weight))
+    return model_pairs, baseline_pairs
 
 
 def _question_scores(model_rows: list[dict[str, Any]]) -> dict[str, Any]:
     model_nll = [v for row in model_rows if (v := _value(row, _MODEL_NLL)) is not None]
-    model_brier = [v for row in model_rows if (v := _value(row, _MODEL_BRIER)) is not None]
+    model_brier = [(v, _weight(row)) for row in model_rows if (v := _value(row, _MODEL_BRIER)) is not None]
+    model_nll_pairs = [(v, _weight(row)) for row in model_rows if (v := _value(row, _MODEL_NLL)) is not None]
     scores: dict[str, Any] = {
         "n": len(model_rows),
-        "mean_nll": _mean(model_nll),
+        "mean_nll": _weighted_mean(model_nll_pairs),
         "median_nll": median(model_nll) if model_nll else None,
-        "mean_brier": _mean(model_brier),
-        "accuracy": _mean([float(row.get("top1_correct") or 0) for row in model_rows]) if model_rows else None,
+        "mean_brier": _weighted_mean(model_brier),
+        "accuracy": _weighted_mean([(float(row.get("top1_correct") or 0), _weight(row)) for row in model_rows]) if model_rows else None,
     }
     for name, (nll_key, brier_key) in _BASELINES.items():
         scores[f"nll_skill_vs_{name}"] = _skill(*_paired(model_rows, _MODEL_NLL, nll_key))

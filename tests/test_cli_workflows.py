@@ -2100,6 +2100,34 @@ def test_twin_experiment_validate_lints_plan(tmp_path: Path, monkeypatch) -> Non
     assert "unknown_plan_key" in [w["code"] for w in (warn.get("warnings") or [])]
 
 
+def test_twin_context_includes_respondent_metadata_by_default(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    create_tiny_binary_survey()
+    md_path = tmp_path / "md.jsonl"
+    write_jsonl(md_path, [{"respondent_id": "r1", "metadata": {"age_group": "35-44", "party": "Independent"}}])
+    run_cli("respondent", "import", "--survey", "demo", "--path", str(md_path))
+    monkeypatch.setattr(
+        cli,
+        "load_edsl_job_classes",
+        lambda: (FakeJobs, FakeModel, FakeModelList, FakeQuestionFreeText, FakeScenario, FakeScenarioList, FakeSurvey),
+    )
+    base = default_twin_export_args(heldout_question=["q1"], respondent=["r1"], context_question=["q2"])
+
+    scenario = cli.build_edsl_digital_twin_job_dict("demo", base)["scenarios"][0]
+    assert scenario["respondent_metadata"] == {"age_group": "35-44", "party": "Independent"}
+    assert "Respondent profile" in scenario["observed_answers_text"]
+    assert "party: Independent" in scenario["observed_answers_text"]
+
+    # Wholesale exclusion.
+    off = argparse.Namespace(**{**vars(base), "exclude_metadata_context": True})
+    assert "Respondent profile" not in cli.build_edsl_digital_twin_job_dict("demo", off)["scenarios"][0]["observed_answers_text"]
+
+    # Per-key exclusion (leakage control).
+    drop_party = argparse.Namespace(**{**vars(base), "exclude_metadata_key": ["party"]})
+    text = cli.build_edsl_digital_twin_job_dict("demo", drop_party)["scenarios"][0]["observed_answers_text"]
+    assert "party" not in text and "age_group" in text
+
+
 def test_twin_job_export_includes_supplemental_twin_material(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()

@@ -59,9 +59,28 @@ def _metric_array(rowmap: dict[str, dict[str, Any]], respondent_ids: list[str], 
     return np.asarray([float(rowmap[rid].get(metric) or 0.0) for rid in respondent_ids], dtype=float)
 
 
-def _bootstrap_means(values: np.ndarray, indices: np.ndarray) -> np.ndarray:
-    """Mean of `values` under each bootstrap resample (indices shape: n_boot x n)."""
-    return values[indices].mean(axis=1)
+def _weight_array(rowmap: dict[str, dict[str, Any]], respondent_ids: list[str]) -> np.ndarray:
+    return np.asarray([float(rowmap[rid].get("weight", 1.0)) for rid in respondent_ids], dtype=float)
+
+
+def _weighted_mean(values: np.ndarray, weights: np.ndarray) -> float:
+    total = float(weights.sum())
+    return float((values * weights).sum() / total) if total > 0 else float(values.mean())
+
+
+def _bootstrap_means(values: np.ndarray, indices: np.ndarray, weights: np.ndarray | None = None) -> np.ndarray:
+    """Weighted mean of `values` under each bootstrap resample (indices: n_boot x n).
+
+    With uniform weights this is the ordinary resample mean; survey weights make
+    each draw a population-level (weighted) estimate.
+    """
+    resampled = values[indices]
+    if weights is None:
+        return resampled.mean(axis=1)
+    weight_draws = weights[indices]
+    totals = weight_draws.sum(axis=1)
+    totals[totals == 0] = 1.0
+    return (resampled * weight_draws).sum(axis=1) / totals
 
 
 def bootstrap_summary(
@@ -89,14 +108,16 @@ def bootstrap_summary(
             respondent_ids = sorted(rowmap)
             n = len(respondent_ids)
             indices = rng.integers(0, n, size=(n_boot, n))
+            weights = _weight_array(rowmap, respondent_ids)
             metric_block: dict[str, Any] = {}
             for metric in metrics:
                 values = _metric_array(rowmap, respondent_ids, metric)
-                samples = _bootstrap_means(values, indices)
+                samples = _bootstrap_means(values, indices, weights)
                 lo, hi = _percentile_ci(samples, ci)
-                metric_block[metric] = {"mean": float(values.mean()), "lo": lo, "hi": hi, "n": n}
+                point = _weighted_mean(values, weights)
+                metric_block[metric] = {"mean": point, "lo": lo, "hi": hi, "n": n}
                 macro_samples[metric].append(samples)
-                macro_point[metric].append(float(values.mean()))
+                macro_point[metric].append(point)
             per_question[question] = metric_block
         macro: dict[str, Any] = {}
         for metric in metrics:
@@ -157,19 +178,22 @@ def _delta_block(
             continue
         n = len(shared)
         indices = rng.integers(0, n, size=(n_boot, n))
+        weights = _weight_array(model_map, shared)  # same respondents/weights for both models
         metric_block: dict[str, Any] = {}
         for metric in metrics:
             model_values = _metric_array(model_map, shared, metric)
             base_values = _metric_array(base_map, shared, metric)
-            samples = _bootstrap_means(model_values, indices) - _bootstrap_means(base_values, indices)
+            samples = _bootstrap_means(model_values, indices, weights) - _bootstrap_means(base_values, indices, weights)
             lo, hi = _percentile_ci(samples, ci)
-            delta = float(model_values.mean() - base_values.mean())
+            model_mean = _weighted_mean(model_values, weights)
+            baseline_mean = _weighted_mean(base_values, weights)
+            delta = model_mean - baseline_mean
             metric_block[metric] = {
                 "delta": delta,
                 "lo": lo,
                 "hi": hi,
-                "model_mean": float(model_values.mean()),
-                "baseline_mean": float(base_values.mean()),
+                "model_mean": model_mean,
+                "baseline_mean": baseline_mean,
                 "n_shared": n,
             }
             macro_samples[metric].append(samples)

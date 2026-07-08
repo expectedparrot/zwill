@@ -13,6 +13,88 @@ DEFAULT_SOURCE_DIR = Path(
 )
 
 
+# Standard Pew American Trends Panel "F_" profile-variable codings. The public-use
+# file stores these covariates as numeric codes; expanding them to labels here (a
+# converter responsibility, mirroring how the survey items are expanded) makes the
+# respondent profile usable as twin context. Each entry maps raw variable -> (a
+# readable key, {code: label}). Refused/missing codes (99, "") are dropped.
+PEW_ATP_COVARIATES: dict[str, tuple[str, dict[str, str]]] = {
+    "F_GENDER": ("gender", {"1": "A man", "2": "A woman", "3": "In some other way"}),
+    "F_AGECAT": ("age", {"1": "18-29", "2": "30-49", "3": "50-64", "4": "65+"}),
+    "F_EDUCCAT2": (
+        "education",
+        {
+            "1": "Less than high school",
+            "2": "High school graduate",
+            "3": "Some college, no degree",
+            "4": "Associate's degree",
+            "5": "Bachelor's degree",
+            "6": "Postgraduate degree",
+        },
+    ),
+    "F_RACETHNMOD": (
+        "race_ethnicity",
+        {"1": "White, non-Hispanic", "2": "Black, non-Hispanic", "3": "Hispanic", "4": "Other", "5": "Asian, non-Hispanic"},
+    ),
+    "F_PARTYSUMIDEO_FINAL": (
+        "party_and_ideology",
+        {
+            "1": "Conservative Republican",
+            "2": "Moderate/Liberal Republican",
+            "3": "Conservative/Moderate Democrat",
+            "4": "Liberal Democrat",
+            "9": "Other / no lean",
+        },
+    ),
+    "F_IDEO": (
+        "ideology",
+        {"1": "Very conservative", "2": "Conservative", "3": "Moderate", "4": "Liberal", "5": "Very liberal"},
+    ),
+    "F_INC_TIER2": ("income_tier", {"1": "Lower income", "2": "Middle income", "3": "Upper income"}),
+    "F_CREGION": ("census_region", {"1": "Northeast", "2": "Midwest", "3": "South", "4": "West"}),
+    "F_METRO": ("metro_status", {"1": "Metropolitan", "2": "Non-metropolitan"}),
+    "F_INTFREQ": (
+        "internet_use_frequency",
+        {
+            "1": "Almost constantly",
+            "2": "Several times a day",
+            "3": "About once a day",
+            "4": "Several times a week",
+            "5": "Less often",
+        },
+    ),
+}
+
+
+def _normalize_code(value: str) -> str:
+    """Codes arrive as '1' or '1.0'; normalize to the integer string used as a key."""
+    text = (value or "").strip()
+    if not text:
+        return ""
+    try:
+        return str(int(float(text)))
+    except ValueError:
+        return text
+
+
+def labeled_covariates(row: dict, covariates: list[str]) -> dict[str, str]:
+    """Expand a respondent's raw covariate codes into a readable {key: label} profile.
+
+    Only the standard ATP profile variables above are included; refused/missing and
+    unrecognized codes are dropped so the profile shown to a twin is clean.
+    """
+    profile: dict[str, str] = {}
+    for name in covariates:
+        mapping = PEW_ATP_COVARIATES.get(name)
+        if mapping is None:
+            continue
+        readable_key, code_labels = mapping
+        label = code_labels.get(_normalize_code(row.get(name, "")))
+        if label is not None:
+            profile[readable_key] = label
+    return profile
+
+
 def write_jsonl(path: Path, rows: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w") as f:
@@ -67,10 +149,10 @@ def main() -> None:
                 {
                     "respondent_id": respondent_id,
                     "weight": float(row["weight"]),
-                    "metadata": {name: row[name] for name in covariates},
+                    "metadata": labeled_covariates(row, covariates),
                     "source": {
                         "raw_id": "w154_diff1_respondents",
-                        "note": "Weight and covariates from normalized Pew W154 DIFF1 respondent file.",
+                        "note": "Weight and covariates (expanded to labels via the standard Pew ATP F_ codebook) from the normalized Pew W154 DIFF1 respondent file.",
                     },
                 }
             )

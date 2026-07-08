@@ -42,6 +42,26 @@ def top_probability_option(probabilities: dict[str, float]) -> tuple[str | None,
     return str(option), float(probability)
 
 
+def weighted_row_mean(rows: list[dict[str, Any]], key: str, fallback_key: str | None = None) -> float | None:
+    """Survey-weighted mean of row[key] (row["weight"] defaults to 1.0).
+
+    With all-1.0 weights this equals the plain mean, so it is a no-op for
+    unweighted surveys; genuine survey weights make it a population estimate.
+    """
+    total_weight = 0.0
+    accumulated = 0.0
+    for row in rows:
+        value = row.get(key)
+        if value is None and fallback_key is not None:
+            value = row.get(fallback_key)
+        if value is None:
+            continue
+        weight = float(row.get("weight", 1.0))
+        accumulated += float(value) * weight
+        total_weight += weight
+    return accumulated / total_weight if total_weight > 0 else None
+
+
 def summarize_twin_rows(model_rows: list[dict[str, Any]]) -> dict[str, Any]:
     marginal_rows = [
         row
@@ -49,44 +69,40 @@ def summarize_twin_rows(model_rows: list[dict[str, Any]]) -> dict[str, Any]:
         if row.get("empirical_marginal_probability_actual", row.get("marginal_probability_actual")) is not None
     ]
     nll_values = [float(row["negative_log_likelihood"]) for row in model_rows]
-    top_confidences = [twin_top_prediction(row)[1] for row in model_rows]
+    total_weight = sum(float(row.get("weight", 1.0)) for row in model_rows)
+    mean_top_confidence = (
+        sum(twin_top_prediction(row)[1] * float(row.get("weight", 1.0)) for row in model_rows) / total_weight
+        if total_weight > 0
+        else None
+    )
     values = {
         "rows": len(model_rows),
-        "mean_probability_actual": sum(row["probability_actual"] for row in model_rows) / len(model_rows),
-        "mean_uniform_probability_actual": sum(row["uniform_probability_actual"] for row in model_rows) / len(model_rows),
-        "mean_negative_log_likelihood": sum(row["negative_log_likelihood"] for row in model_rows) / len(model_rows),
+        "mean_probability_actual": weighted_row_mean(model_rows, "probability_actual"),
+        "mean_uniform_probability_actual": weighted_row_mean(model_rows, "uniform_probability_actual"),
+        "mean_negative_log_likelihood": weighted_row_mean(model_rows, "negative_log_likelihood"),
         "negative_log_likelihood_p50": percentile(nll_values, 0.50),
         "negative_log_likelihood_p90": percentile(nll_values, 0.90),
         "negative_log_likelihood_p95": percentile(nll_values, 0.95),
         "negative_log_likelihood_max": max(nll_values),
-        "mean_top_confidence": sum(top_confidences) / len(top_confidences),
-        "mean_uniform_negative_log_likelihood": sum(row["uniform_negative_log_likelihood"] for row in model_rows) / len(model_rows),
-        "mean_brier": sum(row["brier"] for row in model_rows) / len(model_rows),
-        "mean_uniform_brier": sum(row["uniform_brier"] for row in model_rows) / len(model_rows),
-        "mean_brier_improvement": sum(row["brier_improvement"] for row in model_rows) / len(model_rows),
-        "top1_accuracy": sum(row["top1_correct"] for row in model_rows) / len(model_rows),
+        "mean_top_confidence": mean_top_confidence,
+        "mean_uniform_negative_log_likelihood": weighted_row_mean(model_rows, "uniform_negative_log_likelihood"),
+        "mean_brier": weighted_row_mean(model_rows, "brier"),
+        "mean_uniform_brier": weighted_row_mean(model_rows, "uniform_brier"),
+        "mean_brier_improvement": weighted_row_mean(model_rows, "brier_improvement"),
+        "top1_accuracy": weighted_row_mean(model_rows, "top1_correct"),
     }
     if marginal_rows:
-        mean_empirical_marginal_probability_actual = (
-            sum(row.get("empirical_marginal_probability_actual", row.get("marginal_probability_actual")) for row in marginal_rows)
-            / len(marginal_rows)
+        mean_empirical_marginal_probability_actual = weighted_row_mean(
+            marginal_rows, "empirical_marginal_probability_actual", "marginal_probability_actual"
         )
-        mean_empirical_marginal_negative_log_likelihood = (
-            sum(
-                row.get(
-                    "empirical_marginal_negative_log_likelihood",
-                    row.get("marginal_negative_log_likelihood"),
-                )
-                for row in marginal_rows
-            )
-            / len(marginal_rows)
+        mean_empirical_marginal_negative_log_likelihood = weighted_row_mean(
+            marginal_rows, "empirical_marginal_negative_log_likelihood", "marginal_negative_log_likelihood"
         )
-        mean_empirical_marginal_brier = (
-            sum(row.get("empirical_marginal_brier", row.get("marginal_brier")) for row in marginal_rows) / len(marginal_rows)
+        mean_empirical_marginal_brier = weighted_row_mean(
+            marginal_rows, "empirical_marginal_brier", "marginal_brier"
         )
-        empirical_marginal_top1_accuracy = (
-            sum(row.get("empirical_marginal_top1_correct", row.get("marginal_top1_correct")) for row in marginal_rows)
-            / len(marginal_rows)
+        empirical_marginal_top1_accuracy = weighted_row_mean(
+            marginal_rows, "empirical_marginal_top1_correct", "marginal_top1_correct"
         )
         values.update(
             {
