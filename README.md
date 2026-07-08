@@ -1,6 +1,30 @@
 # zwill
 
-`zwill` is a Python CLI for building survey datasets, expanding survey codebooks, exporting EDSL objects, and comparing model-elicited response probabilities against real respondent marginals.
+**An open validation harness for survey digital twins.**
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)
+[![EDSL](https://img.shields.io/badge/built%20on-EDSL-brightgreen.svg)](https://github.com/expectedparrot/edsl)
+
+Digital twins — LLM stand-ins for survey respondents — are only useful if you can
+tell whether they actually match real people. `zwill` is the measurement layer
+that answers that question, honestly. It ingests real survey microdata, holds out
+a question, asks an LLM twin (built from each respondent's *other* answers and
+covariates) to predict it, and **scores the prediction against the truth with
+proper scoring rules** (NLL, Brier, pinball/CRPS), calibration diagnostics,
+weighted population metrics, bootstrap confidence intervals, and a leakage audit —
+so a positive claim has to clear a real bar, not vibes.
+
+It covers every common question shape — multiple-choice, numeric (as predicted
+quantile distributions), rank / MaxDiff batteries, and open-ended answers (coded
+into themes) — and provides a **prompt-pipeline** surface for experimenting with
+*how* a twin reasons and framing its evidence, then measuring whether that
+actually improves calibration.
+
+`zwill` is a CLI built on [EDSL](https://github.com/expectedparrot/edsl) and
+developed by [Expected Parrot](https://www.expectedparrot.com). The methodology is
+open by design: the point of a validation gate is that anyone can inspect and run
+it. Start with `zwill guide` for the end-to-end walkthrough.
 
 ## Install
 
