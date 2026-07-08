@@ -419,10 +419,33 @@ def find_local_env(start: Path | None = None) -> Path | None:
     return None
 
 
+# Credential env vars zwill / EDSL may rely on. `load_local_env` reports which of
+# these are present (names only, never values) so callers can tell whether a key
+# is available regardless of whether it came from the .env or the ambient
+# environment. `loaded_keys` alone is misleading: it only lists keys the .env
+# newly injected, so it reads empty when the keys are already exported.
+CREDENTIAL_ENV_KEYS = (
+    "EXPECTED_PARROT_API_KEY",
+    "OPENAI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GOOGLE_API_KEY",
+    "GEMINI_API_KEY",
+    "DEEPSEEK_API_KEY",
+    "MISTRAL_API_KEY",
+    "TOGETHER_API_KEY",
+    "GROQ_API_KEY",
+    "AZURE_OPENAI_API_KEY",
+)
+
+
+def present_credential_env_keys() -> list[str]:
+    return [key for key in CREDENTIAL_ENV_KEYS if os.environ.get(key)]
+
+
 def load_local_env(path: Path | None = None) -> dict[str, Any]:
     path = path or find_local_env()
     if path is None:
-        return {"path": None, "loaded_keys": []}
+        return {"path": None, "loaded_keys": [], "present_keys": present_credential_env_keys()}
     try:
         from dotenv import dotenv_values
     except ImportError as exc:
@@ -437,7 +460,7 @@ def load_local_env(path: Path | None = None) -> dict[str, Any]:
             continue
         os.environ[key] = str(value)
         loaded.append(key)
-    return {"path": str(path), "loaded_keys": loaded}
+    return {"path": str(path), "loaded_keys": loaded, "present_keys": present_credential_env_keys()}
 
 
 def questions_by_name(sdir: Path) -> dict[str, dict[str, Any]]:
@@ -788,6 +811,15 @@ def cmd_survey_report(args: argparse.Namespace) -> dict[str, Any] | None:
         output = render_survey_report_html(payload)
         if args.path:
             Path(args.path).write_text(output)
+            # Mirror the json/csv branches: the file holds the rendered report and
+            # stdout carries a parseable {command,status,data,...} envelope.
+            print_json(
+                envelope(
+                    "zwill survey report",
+                    "ok",
+                    {"survey": args.survey, "format": "html", "path": str(args.path), **payload["summary"]},
+                )
+            )
         else:
             print(output)
         return None

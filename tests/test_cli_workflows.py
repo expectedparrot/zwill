@@ -562,6 +562,32 @@ def test_survey_report_command_writes_json_html_and_csv(tmp_path: Path, monkeypa
     assert (tmp_path / "survey_report_options.csv").exists()
 
 
+def test_survey_report_html_emits_json_envelope_on_stdout(tmp_path: Path, monkeypatch, capsys) -> None:
+    # `--format html --path` must emit a parseable stdout envelope like json/csv do.
+    monkeypatch.chdir(tmp_path)
+    create_tiny_binary_survey()
+    run_cli("commit", "--survey", "demo")
+    html_path = tmp_path / "r.html"
+    capsys.readouterr()  # discard setup output
+    run_cli("survey", "report", "--survey", "demo", "--format", "html", "--path", str(html_path))
+    env = json.loads(capsys.readouterr().out)
+    assert env["status"] == "ok"
+    assert env["data"]["format"] == "html"
+    assert env["data"]["path"] == str(html_path)
+    assert env["data"]["survey"] == "demo"
+
+
+def test_load_local_env_reports_present_credential_keys(tmp_path: Path, monkeypatch) -> None:
+    # loaded_keys only lists keys the .env newly injected, so it reads empty when a
+    # key is already in the environment; present_keys must still report it.
+    monkeypatch.setenv("OPENAI_API_KEY", "already-set")
+    env_file = tmp_path / ".env"
+    env_file.write_text("OPENAI_API_KEY=from-file\n")
+    result = cli.load_local_env(env_file)
+    assert result["loaded_keys"] == []  # already in env -> not re-injected
+    assert "OPENAI_API_KEY" in result["present_keys"]  # but reported present
+
+
 def test_report_catalog_lists_readiness_and_commands(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()
