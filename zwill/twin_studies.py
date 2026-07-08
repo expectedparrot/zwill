@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .cli import *  # noqa: F403
+from .twin import normalize_name_list
 
 
 def _cli():
@@ -601,9 +602,7 @@ def cmd_twin_study_show(args: argparse.Namespace) -> dict[str, Any]:
 
 def cmd_twin_study_compare(args: argparse.Namespace) -> None:
     sdir = _cli().require_survey(args.survey)
-    selected_job_ids = args.job_id or []
-    if args.jobs:
-        selected_job_ids.extend(job_id.strip() for job_id in args.jobs.split(",") if job_id.strip())
+    selected_job_ids = list(args.job_id or []) + normalize_name_list(args.jobs)
     if len(selected_job_ids) < 2:
         raise ZwillError("invalid_input", "At least two --job-id values are required for comparison.")
     all_rows = read_jsonl(digital_twin_predictions_path(sdir))

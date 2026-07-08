@@ -486,9 +486,7 @@ def unknown_plan_key_warnings(plan: dict[str, Any]) -> list[dict[str, Any]]:
 def cmd_twin_experiment_init_plan(args: argparse.Namespace) -> dict[str, Any]:
     sdir = require_survey(args.survey)
     questions = questions_by_name(sdir)
-    heldout = list_or_none(args.heldout_question) or []
-    if args.heldout_questions:
-        heldout.extend(name.strip() for name in args.heldout_questions.split(",") if name.strip())
+    heldout = normalize_name_list(args.heldout_question) + normalize_name_list(args.heldout_questions)
     if not heldout:
         mc_questions = [
             name
@@ -1599,9 +1597,7 @@ def twin_experiment_response_changes(
 def selected_twin_experiments(args: argparse.Namespace, sdir: Path) -> list[dict[str, Any]]:
     experiments = read_twin_experiments(sdir)
     selected_ids = args.experiment_id or []
-    selected_jobs = args.job_id or []
-    if args.jobs:
-        selected_jobs.extend(job_id.strip() for job_id in args.jobs.split(",") if job_id.strip())
+    selected_jobs = list(args.job_id or []) + normalize_name_list(args.jobs)
     if selected_ids:
         experiments = [item for item in experiments if item.get("experiment_id") in selected_ids]
     if selected_jobs:

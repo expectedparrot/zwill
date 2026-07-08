@@ -1872,6 +1872,22 @@ def test_twin_job_export_accepts_list_context_and_heldout_questions(tmp_path: Pa
     assert "q1" not in observed  # held-out target not leaked into context
 
 
+def test_model_and_baseline_selectors_accept_list_args() -> None:
+    # Same list-vs-CSV robustness as the plan selectors (issue #32), for the
+    # model and conditional-baseline selectors.
+    from zwill.edsl_integration import parse_model_specs
+    from zwill.twin_baseline_commands import selected_baseline_heldout_questions
+
+    specs = parse_model_specs(argparse.Namespace(model=None, models=["openai:gpt-5.5", "google:gemini-2.5-pro"]))
+    assert len(specs) == 2
+
+    questions = [{"question_name": "q1"}, {"question_name": "q2"}]
+    got = selected_baseline_heldout_questions(
+        argparse.Namespace(heldout_question=None, heldout_questions=["q1", "q2"]), questions
+    )
+    assert got == ["q1", "q2"]
+
+
 def test_twin_plan_helpers_flag_ignored_key_and_missing_output_cap() -> None:
     from zwill.twin_experiments import unknown_plan_key_warnings, verbose_model_output_cap_warning
 

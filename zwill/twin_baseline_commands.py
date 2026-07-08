@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .cli import *  # noqa: F403
+from .twin import normalize_name_list
 from .twin_baseline import (
     DEFAULT_EMBEDDING_MODEL,
     MODEL_LABEL,
@@ -43,14 +44,8 @@ def resolve_baseline_embedder(args: Any, embedding_model: str) -> Embedder:
 
 
 def selected_baseline_heldout_questions(args: Any, questions: list[dict[str, Any]]) -> list[str]:
-    values: list[str] = []
-    heldout_question = getattr(args, "heldout_question", None)
-    if isinstance(heldout_question, list):
-        values.extend(heldout_question)
-    elif heldout_question:
-        values.append(heldout_question)
-    if getattr(args, "heldout_questions", None):
-        values.extend(name.strip() for name in args.heldout_questions.split(",") if name.strip())
+    values = normalize_name_list(getattr(args, "heldout_question", None))
+    values += normalize_name_list(getattr(args, "heldout_questions", None))
     if not values:
         raise ZwillError("invalid_input", "--heldout-question is required for the conditional baseline.")
     available = {question["question_name"] for question in questions}

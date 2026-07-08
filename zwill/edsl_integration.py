@@ -350,11 +350,7 @@ def option_key(index: int) -> str:
 
 
 def parse_model_specs(args: argparse.Namespace) -> list[tuple[str, str | None]]:
-    values: list[str] = []
-    for model in args.model or []:
-        values.append(model)
-    if args.models:
-        values.extend(model.strip() for model in args.models.split(",") if model.strip())
+    values = normalize_name_list(args.model) + normalize_name_list(args.models)
     if not values:
         values = ["gpt-5.5"]
 
