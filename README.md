@@ -488,6 +488,16 @@ Use `--format json` or `--format csv --path comparison.csv` for machine-readable
 
 When two runs contain the same respondent, held-out question, and model, `twin-study compare` also reports paired top-choice changes. These diagnostics show how many twins changed their predicted answer, how many changes corrected a wrong answer, how many introduced a regression, and how much the probability assigned to the actual answer changed.
 
+### Other held-out target types
+
+The multiple-choice `twin-probability-job` above is the headline gate, but three other target types share the same export → run → import shape:
+
+- **Numeric** (`--target numeric-twin-job` → `numeric-results import/report`): the twin predicts a quantile distribution, scored with pinball loss / CRPS / interval coverage vs a marginal-quantile baseline. Import the target with `question_type: numeric`.
+- **Ranking / MaxDiff** (`--target rank-utility-twin-job` → `twin-results rank-report`): the twin scores item utilities; the report gives spearman, pairwise, top-K identification vs chance, and rank MAE. See `zwill guide show rank`.
+- **Open-ended** (`--target open-codebook-job` / `open-coding-job` → `open-coding` commands): free-text answers are coded into themes, producing a `multiple_choice` question you then validate with the normal gate.
+
+Respondent metadata (panel covariates) is included as twin context by default across all of these; suppress it with `--exclude-metadata-context` or `--exclude-metadata-key`. See `SPEC.md` §10–§10b and `zwill guide` for details.
+
 ## Twin Development Experiments
 
 Use `twin-approach` and `twin-experiment` as a small lab notebook for twin construction. The intended loop is: compile respondent/survey sources, define reusable construction approaches, export EDSL jobs from a validation plan, run/import the Results objects, then compare approaches with metrics, plots, audit tables, and model-authored reports.

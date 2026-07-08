@@ -123,6 +123,13 @@ next command. The full path:
    zwill edsl-run --job twin.edsl.json --path twin_results.json.gz
    zwill twin-results import --survey <survey> --path twin_results.json.gz
    ```
+   Respondent metadata (panel covariates like age/party/region) is included as
+   twin context **by default** — rendered as a "Respondent profile" block — for
+   the multiple-choice, numeric, rank, and agent-list exports alike. Drop it with
+   `--exclude-metadata-context`, or a single key with `--exclude-metadata-key <key>`.
+   If your covariates are stored as raw numeric codes (e.g. `F_AGECAT=4`), the
+   export warns (`uncoded_metadata`): map them to readable labels first, or the
+   twin sees uninterpretable numbers.
    `twin-probability-job` exports require an approved plan; this one-off/debug
    form passes `--allow-unapproved`. For a validation run, drop that flag and use
    `--approved-plan <plan.json>` (see the `twin-experiment` plan flow below).
@@ -197,7 +204,55 @@ zwill twin-results rank-report --survey <survey> --rank-task-id <rank_task_id> \
 
 Declare batteries with an explicit `rank_task_id` at import so they are detected
 reliably (see `zwill guide show import-format`), and link the rank report pages
-from your report folder.
+from your report folder. For the rank metrics, partial/top-N rankings, and rank
+leakage checks, see `zwill guide show rank`.
+
+## Numeric questions (continuous targets)
+
+For a `numeric` held-out question the twin predicts a **quantile distribution**
+(p05/p25/p50/p75/p95) rather than option probabilities, scored with proper
+scoring rules (pinball loss, CRPS), interval coverage, and skill vs a marginal-
+quantile climatology baseline:
+
+```bash
+zwill edsl-export --survey <survey> --target numeric-twin-job \
+  --heldout-question <numeric_q> --allow-unapproved --path numeric.edsl.json
+zwill edsl-run --job numeric.edsl.json --path numeric_results.json.gz
+zwill numeric-results import --survey <survey> --path numeric_results.json.gz
+zwill numeric-results report --survey <survey> --job-id <job_id> \
+  --format html --path report_out/numeric.html
+```
+
+Import the target with `question_type: numeric` (and optional `numeric_min` /
+`numeric_max` bounds).
+
+## Open-ended questions (code, then validate)
+
+Free-text (`free_text`) questions are validated by **coding them into themes** and
+running the coded multiple-choice question through the normal gate. Two ordinary
+export → run → import cycles:
+
+```bash
+# 1. Derive a codebook of themes from a sample of the answers
+zwill edsl-export --survey <survey> --target open-codebook-job \
+  --heldout-question <free_text_q> --n-themes 8 --model openai:gpt-5.5 --path cb.json
+zwill edsl-run --job cb.json --path cb_results.json.gz
+zwill open-coding codebook-import --survey <survey> --path cb_results.json.gz
+
+# 2. Code every respondent's answer into one theme -> new multiple_choice question
+zwill edsl-export --survey <survey> --target open-coding-job \
+  --heldout-question <free_text_q> --model openai:gpt-5.5 --path coding.json
+zwill edsl-run --job coding.json --path coding_results.json.gz
+zwill open-coding import --survey <survey> --path coding_results.json.gz \
+  --coded-question-name <free_text_q>_coded
+```
+
+`open-coding import` writes a `multiple_choice` question (options = theme codes)
+plus one coded answer per respondent, and warns if the unclassified bucket
+exceeds 20% (a sign the codebook does not fit). Then validate
+`<free_text_q>_coded` exactly like any other multiple-choice target with
+`twin-probability-job` → `twin-validate`. Code with a single model for
+deterministic results.
 
 ## Reading the result (do not over-claim)
 
