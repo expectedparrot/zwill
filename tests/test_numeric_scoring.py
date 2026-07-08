@@ -73,6 +73,47 @@ def test_score_numeric_prediction_median_and_coverage() -> None:
     assert s2["covered_50"] == 0.0 and s2["covered_90"] == 0.0
 
 
+def test_extract_numeric_rows_scores_and_flags_malformed() -> None:
+    import json as _json
+
+    from zwill.numeric_commands import extract_numeric_prediction_rows, marginal_quantile_baseline_rows
+
+    def scenario(rid, actual):
+        return {
+            "respondent_id": rid,
+            "heldout_question_name": "spend",
+            "actual_value": actual,
+            "numeric_bounds": [0, 500],
+            "quantile_levels": [0.05, 0.25, 0.5, 0.75, 0.95],
+        }
+
+    def result_row(rid, actual, quantiles):
+        return {
+            "scenario": scenario(rid, actual),
+            "model": {"model": "gpt-5.5", "inference_service": "openai"},
+            "answer": {"response_probabilities": _json.dumps({"quantiles": quantiles})},
+        }
+
+    results = {
+        "edsl_class_name": "Results",
+        "data": [
+            result_row("r1", 180, {"0.05": 100, "0.25": 150, "0.5": 190, "0.75": 230, "0.95": 300}),
+            result_row("r2", 55, {"0.05": 30, "0.25": 50, "0.5": 70, "0.75": 90, "0.95": 120}),
+            {"scenario": scenario("r3", 40), "model": {"model": "gpt-5.5", "inference_service": "openai"}, "answer": {"response_probabilities": "not json"}},
+        ],
+    }
+    rows, issues = extract_numeric_prediction_rows(results, job_id="j", survey="s", weight_by_respondent={"r1": 1.5, "r2": 0.7})
+    assert len(rows) == 2 and len(issues) == 1 and issues[0]["error"]
+    r1 = next(r for r in rows if r["respondent_id"] == "r1")
+    assert r1["absolute_error"] == pytest.approx(10)  # |180 - median 190|
+    assert r1["weight"] == 1.5 and r1["covered_50"] == 1.0
+
+    baseline = marginal_quantile_baseline_rows(rows, [0.05, 0.25, 0.5, 0.75, 0.95])
+    assert len(baseline) == 2 and all(b["model_label"] == "baseline:marginal-quantile" for b in baseline)
+    # the marginal baseline predicts the same quantiles for every respondent
+    assert baseline[0]["quantile_values"] == baseline[1]["quantile_values"]
+
+
 def test_weighted_quantiles_shift_with_weight() -> None:
     # equal weights -> median around the middle
     assert weighted_quantiles([10, 20, 30, 40], [1, 1, 1, 1], [0.5]) == [20]

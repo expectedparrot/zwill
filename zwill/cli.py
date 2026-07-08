@@ -1273,6 +1273,18 @@ def cmd_probability_results_import(*args, **kwargs):
 
     return impl(*args, **kwargs)
 
+
+def cmd_numeric_results_import(*args, **kwargs):
+    from .numeric_commands import cmd_numeric_results_import as impl
+
+    return impl(*args, **kwargs)
+
+
+def cmd_numeric_results_report(*args, **kwargs):
+    from .numeric_commands import cmd_numeric_results_report as impl
+
+    return impl(*args, **kwargs)
+
 def cmd_probability_results_report(*args, **kwargs):
     from .probability_commands import cmd_probability_results_report as impl
 
