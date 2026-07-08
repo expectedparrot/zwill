@@ -1953,6 +1953,11 @@ def cmd_twin_experiment_export_plan(*args, **kwargs):
 
     return impl(*args, **kwargs)
 
+def cmd_twin_experiment_validate(*args, **kwargs):
+    from .twin_experiments import cmd_twin_experiment_validate as impl
+
+    return impl(*args, **kwargs)
+
 def twin_plan_experiments(*args, **kwargs):
     from .twin_experiments import twin_plan_experiments as impl
 

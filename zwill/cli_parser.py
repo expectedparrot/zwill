@@ -837,6 +837,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--plan-id", help="Override the plan id.")
     p.add_argument("--allow-unapproved", action="store_true", help="Explicitly export a draft/unapproved plan for debugging.")
     p.set_defaults(func=cmd_twin_experiment_export_plan)
+    p = twin_experiment.add_parser(
+        "validate", help="Lint a plan file (resolve questions/models/counts) before approve/export."
+    )
+    p.add_argument("--path", required=True, help="JSON/YAML experiment plan.")
+    p.add_argument("--survey", help="Override survey in the plan.")
+    p.add_argument("--plan-id", help="Override the plan id.")
+    p.set_defaults(func=cmd_twin_experiment_validate)
     p = twin_experiment.add_parser("plan-status", help="Show exported/imported status for a twin experiment plan.")
     p.add_argument("--survey", required=True)
     p.add_argument("--plan-id", required=True)

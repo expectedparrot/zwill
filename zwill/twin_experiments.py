@@ -752,6 +752,100 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
     )
 
 
+def cmd_twin_experiment_validate(args: argparse.Namespace) -> dict[str, Any]:
+    """Lint a plan file before approve/export: resolve questions, models, and
+    counts, and surface problems/warnings without writing any jobs."""
+    plan_path = Path(args.path)
+    plan = load_object_file(plan_path, kind="Twin experiment plan")
+    survey = args.survey or plan.get("survey")
+    if not survey:
+        raise ZwillError("invalid_input", "Twin experiment plan needs a survey, or pass --survey.")
+    sdir = require_survey(str(survey))
+    plan_id = args.plan_id or plan_id_from_config(plan, plan_path)
+
+    warnings: list[dict[str, Any]] = list(unknown_plan_key_warnings(plan))
+    problems: list[dict[str, Any]] = []
+
+    arms = plan.get("arms") or plan.get("approaches")
+    if not isinstance(arms, list) or not arms:
+        problems.append({"code": "invalid_input", "message": "Plan needs a non-empty arms or approaches list."})
+        arms = []
+
+    registered = {item["approach_id"]: item for item in read_twin_approaches(sdir)}
+    defaults = dict(plan.get("defaults") or {})
+    plan_heldout = {key: plan[key] for key in ["heldout_question", "heldout_questions"] if key in plan}
+
+    exported_prediction_count = 0
+    seen_cap: set[str] = set()
+    arm_reports: list[dict[str, Any]] = []
+    for index, arm in enumerate(arms, start=1):
+        if isinstance(arm, str):
+            arm = {"approach_id": arm}
+        if not isinstance(arm, dict):
+            problems.append({"code": "invalid_input", "message": f"Arm {index} must be a string or object."})
+            continue
+        approach = registered.get(twin_approach_id(str(arm["approach_id"]))) if arm.get("approach_id") else None
+        source_approach = approach or normalize_twin_approach_record(arm)
+        construction = merge_plan_dicts(
+            defaults,
+            plan_heldout,
+            source_approach.get("construction", {}),
+            arm.get("construction") if isinstance(arm.get("construction"), dict) else None,
+            {key: arm[key] for key in TWIN_APPROACH_CONSTRUCTION_KEYS if key in arm},
+        )
+        cap_warning = verbose_model_output_cap_warning(construction)
+        if cap_warning:
+            cap_key = ",".join(cap_warning["models"])
+            if cap_key not in seen_cap:
+                seen_cap.add(cap_key)
+                warnings.append(cap_warning)
+        try:
+            export_args = twin_export_namespace_from_plan(construction, survey=str(survey), plan_dir=plan_path.parent)
+            job_dict = build_edsl_digital_twin_job_dict(str(survey), export_args)
+        except ZwillError as exc:
+            problems.append(
+                {"arm": source_approach.get("approach_id"), "code": exc.code, "message": exc.message}
+            )
+            continue
+        count = edsl_job_prediction_count(job_dict)
+        exported_prediction_count += count
+        arm_reports.append({"approach_id": source_approach.get("approach_id"), "prediction_count": count})
+
+    sample_warning = sample_exceeds_population_warning(sdir, plan)
+    if sample_warning:
+        warnings.append(sample_warning)
+
+    approved_estimate = plan.get("prediction_count_estimate")
+    if approved_estimate is None:
+        approved_estimate = estimate_plan_prediction_count(plan, sdir)
+    valid = not problems
+    count_check = prediction_count_check(approved_estimate, exported_prediction_count) if valid else None
+
+    if valid and not is_plan_approved(plan):
+        next_steps = [f"zwill twin-experiment approve --path {plan_path}"]
+    elif valid:
+        next_steps = [f"zwill twin-experiment export-plan --path {plan_path}"]
+    else:
+        next_steps = ["Fix the reported problems, then re-run validate."]
+    return envelope(
+        "zwill twin-experiment validate",
+        "ok" if valid else "error",
+        {
+            "plan_id": plan_id,
+            "survey": str(survey),
+            "valid": valid,
+            "approved": is_plan_approved(plan),
+            "arms": arm_reports,
+            "prediction_count_estimate": approved_estimate,
+            "prediction_count_exported": exported_prediction_count if valid else None,
+            "export_count_check": count_check,
+            "problems": problems,
+        },
+        warnings=warnings or None,
+        next_steps=next_steps,
+    )
+
+
 def twin_plan_experiments(sdir: Path, plan_id: str) -> list[dict[str, Any]]:
     experiments = [
         experiment

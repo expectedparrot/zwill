@@ -1891,6 +1891,68 @@ def test_init_plan_warns_on_missing_output_cap_and_records_model_param(tmp_path:
     assert plan["defaults"]["model_param"] == ["google:gemini-2.5-pro:maxOutputTokens=8192"]
 
 
+def test_twin_experiment_validate_lints_plan(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    create_tiny_binary_survey()
+    monkeypatch.setattr(
+        cli,
+        "load_edsl_job_classes",
+        lambda: (FakeJobs, FakeModel, FakeModelList, FakeQuestionFreeText, FakeScenario, FakeScenarioList, FakeSurvey),
+    )
+
+    def _write(name: str, plan: dict) -> Path:
+        path = tmp_path / name
+        path.write_text(json.dumps(plan))
+        return path
+
+    def _validate(path: Path) -> dict:
+        return cli.cmd_twin_experiment_validate(argparse.Namespace(path=str(path), survey=None, plan_id=None))
+
+    good = _validate(
+        _write(
+            "good.json",
+            {
+                "plan_id": "g",
+                "survey": "demo",
+                "heldout_questions": ["q1"],
+                "defaults": {"model": ["openai:gpt-5.5"], "context_questions": ["q2"], "sample_respondents": 1},
+                "arms": [{"approach_id": "baseline"}],
+            },
+        )
+    )
+    assert good["status"] == "ok" and good["data"]["valid"] is True
+    assert good["data"]["prediction_count_exported"] >= 1
+
+    bad = _validate(
+        _write(
+            "bad.json",
+            {
+                "plan_id": "b",
+                "survey": "demo",
+                "heldout_questions": ["nope"],  # unknown question
+                "defaults": {"model": ["openai:gpt-5.5"], "context_questions": ["q2"]},
+                "arms": [{"approach_id": "baseline"}],
+            },
+        )
+    )
+    assert bad["status"] == "error" and bad["data"]["valid"] is False
+    assert bad["data"]["problems"]
+
+    warn = _validate(
+        _write(
+            "warn.json",
+            {
+                "plan_id": "w",
+                "survey": "demo",
+                "heldout_questions": ["q1"],
+                "defaults": {"model": ["openai:gpt-5.5"], "context_questions": ["q2"], "model_params": ["x"]},
+                "arms": [{"approach_id": "baseline"}],
+            },
+        )
+    )
+    assert "unknown_plan_key" in [w["code"] for w in (warn.get("warnings") or [])]
+
+
 def test_twin_job_export_includes_supplemental_twin_material(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()
