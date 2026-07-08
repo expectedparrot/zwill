@@ -196,6 +196,12 @@ def cmd_twin_benchmark_run(args: argparse.Namespace) -> dict[str, Any]:
     config = load_twin_benchmark_config(args.config)
     output_dir = benchmark_output_dir(config, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    # Load API keys before the studies make model calls (parity with edsl-run).
+    # Skipped for --dry-run, which only exports jobs.
+    loaded_env = None
+    if not args.dry_run:
+        env_path = Path(args.env_path) if getattr(args, "env_path", None) else None
+        loaded_env = load_local_env(env_path)
     runs = []
     for study in config["studies"]:
         run_args = benchmark_study_namespace(config, study, output_dir, args.dry_run, args.replace)
@@ -223,7 +229,7 @@ def cmd_twin_benchmark_run(args: argparse.Namespace) -> dict[str, Any]:
     return envelope(
         "zwill twin-benchmark run",
         "ok",
-        {"benchmark": benchmark_name(config), "manifest_path": str(manifest_path), "runs": runs},
+        {"benchmark": benchmark_name(config), "manifest_path": str(manifest_path), "runs": runs, "loaded_env": loaded_env},
         next_steps=[f"zwill twin-benchmark report --manifest {manifest_path} --format html --path {output_dir / (benchmark_name(config) + '_report.html')}"],
     )
 
