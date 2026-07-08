@@ -202,6 +202,17 @@ def test_spearman_bounded_even_with_tied_actual_ranks() -> None:
 # --------------------------------------------------------------------------
 # build_twin_calibration — reliability bins + ECE
 # --------------------------------------------------------------------------
+def test_calibration_reliability_svg_renders() -> None:
+    from zwill.twin_report_html import _calibration_reliability_svg
+
+    cal = {"gpt-5.5": [{"bin": "0.8-0.9", "rows": 50, "mean_confidence": 0.85, "accuracy": 0.7}, {"bin": "0.9-1.0", "rows": 100, "mean_confidence": 0.95, "accuracy": 0.82}]}
+    svg = _calibration_reliability_svg(cal)
+    assert "<svg" in svg and "confidence vs accuracy" in svg and "diag" in svg
+    # nothing to plot -> empty (no data, or bins with zero rows)
+    assert _calibration_reliability_svg({}) == ""
+    assert _calibration_reliability_svg({"m": [{"rows": 0, "mean_confidence": 0.5, "accuracy": 0.5}]}) == ""
+
+
 def test_build_twin_calibration_bins_and_ece() -> None:
     from zwill.twin_report import build_twin_calibration
 
