@@ -1285,6 +1285,18 @@ def cmd_numeric_results_report(*args, **kwargs):
 
     return impl(*args, **kwargs)
 
+
+def cmd_open_codebook_import(*args, **kwargs):
+    from .open_ends_commands import cmd_open_codebook_import as impl
+
+    return impl(*args, **kwargs)
+
+
+def cmd_open_coding_import(*args, **kwargs):
+    from .open_ends_commands import cmd_open_coding_import as impl
+
+    return impl(*args, **kwargs)
+
 def cmd_probability_results_report(*args, **kwargs):
     from .probability_commands import cmd_probability_results_report as impl
 
