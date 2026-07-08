@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .cli import *  # noqa: F403
+from .costs import results_cost_summary
 
 
 def cmd_twin_results_import(args: argparse.Namespace) -> dict[str, Any]:
@@ -111,6 +112,7 @@ def cmd_twin_results_import(args: argparse.Namespace) -> dict[str, Any]:
             "issue_count": len(report_issues),
             "issues": report_issues,
             "recovered_count": len(extracted) if merge else None,
+            "cost": results_cost_summary(results),
         },
         next_steps=[
             f"zwill twin-results export --survey {args.survey} --job-id {job_id} --path predictions.csv"

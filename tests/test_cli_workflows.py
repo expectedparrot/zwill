@@ -588,6 +588,40 @@ def test_load_local_env_reports_present_credential_keys(tmp_path: Path, monkeypa
     assert "OPENAI_API_KEY" in result["present_keys"]  # but reported present
 
 
+def test_results_cost_summary_aggregates_cost_and_tokens() -> None:
+    from zwill.costs import results_cost_summary
+
+    results = {
+        "data": [
+            {"model": {"model": "gpt-5.5"}, "raw_model_response": {"q_cost": 0.01, "q_input_tokens": 100, "q_output_tokens": 20}},
+            {
+                "model": {"model": "gpt-5.5"},
+                "raw_model_response": {"q_cost": 0.03, "q_input_tokens": 50, "q_output_tokens": 10, "q_thinking_tokens": 5},
+            },
+            {"model": {"model": "gemini-2.5-pro"}, "raw_model_response": {"q_cost": 0.10, "q_input_tokens": 200, "q_output_tokens": 40}},
+        ]
+    }
+    summary = results_cost_summary(results)
+    assert summary["cost_data_available"] is True
+    assert summary["call_count"] == 3
+    assert round(summary["total_usd"], 2) == 0.14
+    by_model = {row["model"]: row for row in summary["by_model"]}
+    assert round(by_model["gpt-5.5"]["cost_usd"], 2) == 0.04
+    assert by_model["gpt-5.5"]["call_count"] == 2
+    assert by_model["gpt-5.5"]["input_tokens"] == 150
+    assert by_model["gpt-5.5"]["thinking_tokens"] == 5
+    assert by_model["gemini-2.5-pro"]["cost_usd"] == 0.1
+
+    # Graceful degradation when cost fields are absent.
+    assert results_cost_summary({})["cost_data_available"] is False
+    assert results_cost_summary({"data": []})["call_count"] == 0
+
+    # The pre-run estimator must never crash on an object lacking estimate_job_cost.
+    from zwill.costs import estimate_job_cost_summary
+
+    assert estimate_job_cost_summary(object())["available"] is False
+
+
 def test_report_catalog_lists_readiness_and_commands(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()

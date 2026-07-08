@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .cli import *  # noqa: F403
+from .costs import estimate_job_cost_summary, results_cost_summary
 from .twin import normalize_name_list
 
 
@@ -1056,6 +1057,7 @@ def cmd_edsl_run(args: argparse.Namespace) -> dict[str, Any]:
                 "job_path": str(job_path),
                 "results_path": str(output_path),
                 "dry_run": True,
+                "estimated_cost": estimate_job_cost_summary(job),
                 "scenario_count": len(job.scenarios),
                 "model_count": len(job.models),
                 "question_count": len(job.survey.questions),
@@ -1083,6 +1085,7 @@ def cmd_edsl_run(args: argparse.Namespace) -> dict[str, Any]:
             "job_path": str(job_path),
             "results_path": str(output_path),
             "result_count": len(results_dict.get("data", [])),
+            "cost": results_cost_summary(results_dict),
             "probability_job_id": results_dict.get("zwill", {}).get("probability_job_id"),
             "digital_twin_job_id": results_dict.get("zwill", {}).get("digital_twin_job_id"),
             "rank_utility_twin_job_id": results_dict.get("zwill", {}).get("rank_utility_twin_job_id"),
