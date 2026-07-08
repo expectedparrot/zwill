@@ -67,6 +67,27 @@ def cmd_twin_validate(args: argparse.Namespace, *, embedder=None) -> dict[str, A
     steps: dict[str, Any] = {}
     warnings: list[dict[str, Any]] = []
 
+    # The empirical-frequency baseline is attached at import time from committed
+    # truth marginals. If the survey was committed AFTER these predictions were
+    # imported, the baseline is silently absent -- flag it so the user can re-import.
+    from .twin_result_commands import empirical_marginal_targets
+
+    committed_marginals = empirical_marginal_targets(sdir)
+    if (
+        any(question in committed_marginals for question in heldout_questions)
+        and not any(row.get("empirical_marginal_probability_actual") is not None for row in twin_rows)
+    ):
+        warnings.append(
+            {
+                "code": "empirical_baseline_missing",
+                "message": (
+                    "Committed truth marginals exist for the held-out question(s), but these predictions were "
+                    "imported before the survey was committed, so the empirical-frequency baseline is absent from "
+                    "the report. Re-import with `twin-results import --replace` to add it."
+                ),
+            }
+        )
+
     # 1. Leakage audit -------------------------------------------------------
     if not getattr(args, "skip_leakage_audit", False):
         leakage_path = out_dir / "leakage_audit.json"
