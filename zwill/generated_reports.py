@@ -348,6 +348,16 @@ def build_executive_summary_report_context(
             "job_ids": job_ids,
             "model": getattr(args, "prediction_model", None),
             "questions": heldout_names,
+            # Fingerprint of the twin model set this narrative describes, so a
+            # rebuild can detect when the prose predates an added/removed model.
+            # Baseline rows are excluded so the fingerprint compares twin-to-twin.
+            "model_labels": sorted(
+                {
+                    str(row.get("model_label"))
+                    for row in rows
+                    if row.get("model_label") and not str(row.get("model_label")).startswith("baseline:")
+                }
+            ),
         },
         "heldout_questions": [
             {

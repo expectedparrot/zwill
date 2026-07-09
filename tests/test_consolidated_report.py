@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from zwill.consolidated_report import downloads_section_html, render_consolidated_report
+from zwill.consolidated_report import (
+    downloads_section_html,
+    mark_intermediate_page_html,
+    render_consolidated_report,
+)
 from zwill.reporting import EP_REPORT_CSS
 
 
@@ -38,6 +42,22 @@ def test_composes_pages_into_one_document_with_toc() -> None:
     assert html.count("--ep-border") >= 1  # EP_REPORT_CSS present
     # Download link is present and row-level material is not inlined.
     assert 'href="audit/run.html"' in html and "Twin run audit" in html
+
+
+def test_section_banner_is_added_outside_main_and_excluded_from_report() -> None:
+    page = _page("", "<section class='panel'>BODY-CONTENT</section>")
+    marked = mark_intermediate_page_html(page)
+    # Banner is inserted (after <body>, before <main>).
+    assert "This is one section of a larger report" in marked
+    assert marked.index("This is one section") < marked.index("<main")
+    # Idempotent.
+    assert mark_intermediate_page_html(marked) == marked
+    # When composed into the report, the banner is not pulled in (only <main> is).
+    html = render_consolidated_report(
+        survey="demo", sections=[("s", "Section", marked)], downloads_section=""
+    )
+    assert "BODY-CONTENT" in html
+    assert "This is one section of a larger report" not in html
 
 
 def test_empty_sections_and_downloads_are_skipped() -> None:
