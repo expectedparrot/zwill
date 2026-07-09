@@ -2,6 +2,8 @@
 
 **An open validation harness for survey digital twins.**
 
+> *zwill* — from the German *Zwilling*, "twin."
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)
 [![EDSL](https://img.shields.io/badge/built%20on-EDSL-brightgreen.svg)](https://github.com/expectedparrot/edsl)
