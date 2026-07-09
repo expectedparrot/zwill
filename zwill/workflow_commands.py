@@ -282,7 +282,7 @@ def cmd_workflow_pew_demo(args: argparse.Namespace) -> dict[str, Any]:
         cmd_context_set(
             argparse.Namespace(
                 survey=survey_name,
-                path=str(repo_root / "examples" / survey_name / "context.md"),
+                input_path=str(repo_root / "examples" / survey_name / "context.md"),
                 text=None,
             )
         )
@@ -290,7 +290,7 @@ def cmd_workflow_pew_demo(args: argparse.Namespace) -> dict[str, Any]:
             argparse.Namespace(
                 survey=survey_name,
                 id="w154_diff1_metadata",
-                path=str(source_dir / "W154_DIFF1_metadata.json"),
+                input_path=str(source_dir / "W154_DIFF1_metadata.json"),
                 kind="metadata",
                 title="Pew W154 DIFF1 Normalized Metadata",
             )
@@ -299,14 +299,14 @@ def cmd_workflow_pew_demo(args: argparse.Namespace) -> dict[str, Any]:
             argparse.Namespace(
                 survey=survey_name,
                 id="w154_diff1_respondents",
-                path=str(source_dir / "W154_DIFF1_respondents.csv"),
+                input_path=str(source_dir / "W154_DIFF1_respondents.csv"),
                 kind="respondent_data",
                 title="Pew W154 DIFF1 Normalized Respondents",
             )
         )
-        cmd_question_import(argparse.Namespace(survey=survey_name, path=str(import_dir / "questions.jsonl")))
-        cmd_respondent_import(argparse.Namespace(survey=survey_name, path=str(import_dir / "respondents.jsonl")))
-        cmd_answer_import(argparse.Namespace(survey=survey_name, path=str(import_dir / "answers.jsonl")))
+        cmd_question_import(argparse.Namespace(survey=survey_name, input_path=str(import_dir / "questions.jsonl")))
+        cmd_respondent_import(argparse.Namespace(survey=survey_name, input_path=str(import_dir / "respondents.jsonl")))
+        cmd_answer_import(argparse.Namespace(survey=survey_name, input_path=str(import_dir / "answers.jsonl")))
         commit_result = cmd_commit(argparse.Namespace(survey=survey_name))
 
         if not args.no_edsl:
@@ -336,7 +336,7 @@ def cmd_workflow_pew_demo(args: argparse.Namespace) -> dict[str, Any]:
             import_result = cmd_probability_results_import(
                 argparse.Namespace(
                     survey=survey_name,
-                    path=args.results_path,
+                    input_path=args.results_path,
                     job_id=args.job_id,
                     replace=True,
                 )

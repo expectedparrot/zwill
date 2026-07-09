@@ -779,7 +779,7 @@ def cmd_survey_create(args: argparse.Namespace) -> dict[str, Any]:
         "ok",
         {"survey": existing},
         next_steps=[
-            f"zwill raw add --survey {args.name} --id <id> --path <file-or-dir>",
+            f"zwill raw add --survey {args.name} --id <id> --input-path <file-or-dir>",
             f"zwill question add --survey {args.name} ...",
         ],
     )

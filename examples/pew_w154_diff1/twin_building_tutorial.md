@@ -47,7 +47,7 @@ zwill edsl-run \
 
 zwill prob-results import \
   --survey "$SURVEY" \
-  --path "$OUT/one_shot_prior_results.json.gz" \
+  --input-path "$OUT/one_shot_prior_results.json.gz" \
   --replace
 ```
 

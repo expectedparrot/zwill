@@ -53,7 +53,7 @@ if [[ "${ZWILL_EXAMPLE_DRY_RUN:-0}" == "1" ]]; then
   zwill_cmd edsl-run --job without_material_job.edsl.json --path without_material_results.json.gz --dry-run
 else
   zwill_cmd edsl-run --job without_material_job.edsl.json --path without_material_results.json.gz
-  zwill_cmd twin-results import --survey agent_material_hello --path without_material_results.json.gz --replace
+  zwill_cmd twin-results import --survey agent_material_hello --input-path without_material_results.json.gz --replace
 fi
 
 zwill_cmd edsl-export \
@@ -71,7 +71,7 @@ if [[ "${ZWILL_EXAMPLE_DRY_RUN:-0}" == "1" ]]; then
   zwill_cmd edsl-run --job with_material_job.edsl.json --path with_material_results.json.gz --dry-run
 else
   zwill_cmd edsl-run --job with_material_job.edsl.json --path with_material_results.json.gz
-  zwill_cmd twin-results import --survey agent_material_hello --path with_material_results.json.gz --replace
+  zwill_cmd twin-results import --survey agent_material_hello --input-path with_material_results.json.gz --replace
 
   zwill_cmd twin-study list --survey agent_material_hello --format json
 fi

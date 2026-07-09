@@ -30,7 +30,7 @@ COMMANDS = [
     {
         "stem": "02_agent_list_inspect",
         "title": "Inspect the AgentList",
-        "command": "zwill agent-list inspect --path pew_w154_diff1_agent_list.edsl.json --format json",
+        "command": "zwill agent-list inspect --input-path pew_w154_diff1_agent_list.edsl.json --format json",
         "note": "Checks the number of agents, trait keys, instruction coverage, and a small preview before asking a new question.",
     },
     {
@@ -66,7 +66,7 @@ COMMANDS = [
     {
         "stem": "06_agent_study_import_leadership",
         "title": "Import the multiple-choice Results object",
-        "command": "zwill agent-study import --path pew_w154_diff1_agent_study_leadership_results.json.gz --replace",
+        "command": "zwill agent-study import --input-path pew_w154_diff1_agent_study_leadership_results.json.gz --replace",
         "note": "Stores the raw Results object and extracts one row per agent/model/question answer for reporting.",
     },
     {
@@ -78,7 +78,7 @@ COMMANDS = [
     {
         "stem": "08_agent_study_import_gender_roles",
         "title": "Import the free-text Results object",
-        "command": "zwill agent-study import --path pew_w154_diff1_agent_study_gender_roles_results.json.gz --replace",
+        "command": "zwill agent-study import --input-path pew_w154_diff1_agent_study_gender_roles_results.json.gz --replace",
         "note": "Stores the raw free-text Results object and extracts one row per agent/model/question answer.",
     },
     {

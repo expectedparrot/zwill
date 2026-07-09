@@ -57,7 +57,7 @@ scores and compares them to the respondent's actual ranking:
 zwill edsl-export --survey <survey> --target rank-utility-twin-job \
   --rank-task-id <rank_task_id> --allow-unapproved --path rank.edsl.json
 zwill edsl-run --job rank.edsl.json --path rank_results.json.gz
-zwill twin-results import --survey <survey> --path rank_results.json.gz
+zwill twin-results import --survey <survey> --input-path rank_results.json.gz
 zwill twin-results rank-report --survey <survey> --rank-task-id <rank_task_id> \
   --format html --path report_out/rank-<rank_task_id>.html
 ```
@@ -75,7 +75,7 @@ you must pass **`--allow-missing-actual` to BOTH the export and the import**:
 ```bash
 zwill edsl-export ... --target rank-utility-twin-job --rank-task-id <id> \
   --allow-unapproved --allow-missing-actual --path rank.edsl.json
-zwill twin-results import --survey <survey> --path rank_results.json.gz --allow-missing-actual
+zwill twin-results import --survey <survey> --input-path rank_results.json.gz --allow-missing-actual
 ```
 
 Without the flag on import, every partial-ranking row is dropped as

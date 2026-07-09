@@ -88,8 +88,8 @@ def upsert_twin_approach(sdir: Path, approach: dict[str, Any]) -> None:
 def markdown_from_note_args(args: argparse.Namespace) -> str | None:
     if getattr(args, "clear", False):
         return ""
-    if getattr(args, "path", None):
-        return Path(args.path).read_text().strip()
+    if getattr(args, "input_path", None):
+        return Path(args.input_path).read_text().strip()
     if getattr(args, "text", None) is not None:
         return str(args.text).strip()
     return None
@@ -97,8 +97,8 @@ def markdown_from_note_args(args: argparse.Namespace) -> str | None:
 
 def cmd_twin_approach_add(args: argparse.Namespace) -> dict[str, Any]:
     sdir = require_survey(args.survey)
-    if args.path:
-        approach = normalize_twin_approach_record(load_object_file(Path(args.path), kind="Twin approach"), source=str(args.path))
+    if args.input_path:
+        approach = normalize_twin_approach_record(load_object_file(Path(args.input_path), kind="Twin approach"), source=str(args.input_path))
     else:
         approach = twin_approach_from_args(args)
     upsert_twin_approach(sdir, approach)
@@ -197,7 +197,7 @@ def cmd_twin_approach_scaffold(args: argparse.Namespace) -> dict[str, Any]:
         "zwill twin-approach scaffold",
         "ok",
         {"path": str(path), "approach": approach},
-        next_steps=[f"zwill twin-approach add --survey {args.survey} --path {path}"],
+        next_steps=[f"zwill twin-approach add --survey {args.survey} --input-path {path}"],
     )
 
 

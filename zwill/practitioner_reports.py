@@ -574,7 +574,7 @@ def cmd_twin_benchmark_practitioner_report_export(args: argparse.Namespace) -> d
         data,
         next_steps=[
             f"zwill edsl-run --job {data['job_path']} --path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
-            f"zwill twin-benchmark practitioner-report-import --report-id {report_id} --path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
+            f"zwill twin-benchmark practitioner-report-import --report-id {report_id} --input-path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
             f"zwill twin-benchmark practitioner-report-render --report-id {report_id}",
         ],
     )
@@ -600,16 +600,16 @@ def cmd_twin_study_practitioner_report_export(args: argparse.Namespace) -> dict[
         data,
         next_steps=[
             f"zwill edsl-run --job {data['job_path']} --path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
-            f"zwill twin-study practitioner-report-import --report-id {report_id} --path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
+            f"zwill twin-study practitioner-report-import --report-id {report_id} --input-path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
             f"zwill twin-study practitioner-report-render --report-id {report_id}",
         ],
     )
 
 
 def cmd_twin_benchmark_practitioner_report_import(args: argparse.Namespace) -> dict[str, Any]:
-    source = Path(args.path)
+    source = Path(args.input_path)
     if not source.exists():
-        raise ZwillError("not_found", f"Results file does not exist: {args.path}.")
+        raise ZwillError("not_found", f"Results file does not exist: {args.input_path}.")
     results = read_json_or_gzip(source)
     if not isinstance(results, dict) or results.get("edsl_class_name") != "Results":
         raise ZwillError("invalid_input", "Expected an EDSL Results serialization.")
@@ -682,7 +682,7 @@ def cmd_twin_benchmark_practitioner_report_render(args: argparse.Namespace) -> N
         raise ZwillError(
             "not_found",
             f"No imported practitioner report Markdown found for report id {report_id}.",
-            hint=f"Run `zwill twin-benchmark practitioner-report-import --report-id {report_id} --path <results.json.gz>`.",
+            hint=f"Run `zwill twin-benchmark practitioner-report-import --report-id {report_id} --input-path <results.json.gz>`.",
         )
     context = read_json(paths["context"], {})
     payload = context.get("benchmark_payload")
@@ -748,7 +748,7 @@ def generate_practitioner_report_markdown(
         )
     )
     import_result = _cli().cmd_twin_benchmark_practitioner_report_import(
-        argparse.Namespace(path=str(results_path), report_id=report_id, replace=True)
+        argparse.Namespace(input_path=str(results_path), report_id=report_id, replace=True)
     )
     markdown = default_paths["markdown"].read_text().strip()
     markdown_path = Path(args.markdown_path) if args.markdown_path else (output_path.with_suffix(".md") if output_path else None)
@@ -1048,7 +1048,7 @@ def cmd_twin_experiment_report_export(args: argparse.Namespace) -> dict[str, Any
         data,
         next_steps=[
             f"zwill edsl-run --job {data['job_path']} --path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
-            f"zwill twin-experiment report-import --report-id {report_id} --path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
+            f"zwill twin-experiment report-import --report-id {report_id} --input-path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
             f"zwill twin-experiment report-render --report-id {report_id}",
         ],
     )
@@ -1103,7 +1103,7 @@ def cmd_twin_experiment_report(args: argparse.Namespace) -> None:
             run_param=None,
         )
     )
-    cmd_twin_experiment_report_import(argparse.Namespace(path=str(results_path), report_id=report_id, replace=True))
+    cmd_twin_experiment_report_import(argparse.Namespace(input_path=str(results_path), report_id=report_id, replace=True))
     markdown = default_paths["markdown"].read_text()
     generation = {
         **context.get("generation", {}),

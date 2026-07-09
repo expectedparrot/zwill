@@ -18,11 +18,11 @@ This fixture is an import-ready survey dataset for testing the `zwill` CLI contr
 ```bash
 zwill init
 zwill survey create --name hiring_study
-zwill raw add --survey hiring_study --id questionnaire --path examples/hiring_study/raw/questionnaire.md --kind questionnaire --title "Hiring Study Questionnaire"
-zwill raw add --survey hiring_study --id panel_export --path examples/hiring_study/raw/panel_export.csv --kind panel_export --title "Hiring Study Panel Export"
-zwill question import --survey hiring_study --path examples/hiring_study/questions.jsonl
-zwill respondent import --survey hiring_study --path examples/hiring_study/respondents.jsonl
-zwill answer import --survey hiring_study --path examples/hiring_study/answers.jsonl
+zwill raw add --survey hiring_study --id questionnaire --input-path examples/hiring_study/raw/questionnaire.md --kind questionnaire --title "Hiring Study Questionnaire"
+zwill raw add --survey hiring_study --id panel_export --input-path examples/hiring_study/raw/panel_export.csv --kind panel_export --title "Hiring Study Panel Export"
+zwill question import --survey hiring_study --input-path examples/hiring_study/questions.jsonl
+zwill respondent import --survey hiring_study --input-path examples/hiring_study/respondents.jsonl
+zwill answer import --survey hiring_study --input-path examples/hiring_study/answers.jsonl
 zwill status
 zwill commit --survey hiring_study
 ```

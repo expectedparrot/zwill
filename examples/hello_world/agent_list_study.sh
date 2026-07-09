@@ -48,7 +48,7 @@ zwill_cmd edsl-export \
   --include-agent-material \
   --agent-material-kind profile \
   --path agent_list.edsl.json
-zwill_cmd agent-list inspect --path agent_list.edsl.json
+zwill_cmd agent-list inspect --input-path agent_list.edsl.json
 
 zwill_cmd agent-study export \
   --agent-list agent_list.edsl.json \
@@ -63,7 +63,7 @@ if [[ "${ZWILL_EXAMPLE_DRY_RUN:-0}" == "1" ]]; then
   zwill_cmd edsl-run --job agent_study_job.edsl.json --path agent_study_results.json.gz --dry-run
 else
   zwill_cmd edsl-run --job agent_study_job.edsl.json --path agent_study_results.json.gz
-  zwill_cmd agent-study import --path agent_study_results.json.gz --replace
+  zwill_cmd agent-study import --input-path agent_study_results.json.gz --replace
   zwill_cmd agent-study list
   zwill_cmd agent-study report --format table
 fi

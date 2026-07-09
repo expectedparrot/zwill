@@ -5,9 +5,9 @@ from .cli import *  # noqa: F403
 
 def cmd_raw_add(args: argparse.Namespace) -> dict[str, Any]:
     sdir = require_survey(args.survey)
-    source = Path(args.path)
+    source = Path(args.input_path)
     if not source.exists() or not source.is_file():
-        raise ZwillError("invalid_input", f"Raw path is not a file: {args.path}.")
+        raise ZwillError("invalid_input", f"Raw path is not a file: {args.input_path}.")
     stored_dir = sdir / "raw" / args.id
     stored_dir.mkdir(parents=True, exist_ok=True)
     stored = stored_dir / source.name
@@ -16,7 +16,7 @@ def cmd_raw_add(args: argparse.Namespace) -> dict[str, Any]:
         "id": args.id,
         "kind": args.kind,
         "title": args.title,
-        "source_path": args.path,
+        "source_path": args.input_path,
         "source_hash": sha256(source),
         "stored_path": str(stored),
         "stored_hash": sha256(stored),
@@ -38,11 +38,11 @@ def cmd_raw_list(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def markdown_from_args(args: argparse.Namespace) -> tuple[str, str | None]:
-    if args.path:
-        path = Path(args.path)
+    if args.input_path:
+        path = Path(args.input_path)
         if not path.exists() or not path.is_file():
-            raise ZwillError("invalid_input", f"Context path is not a file: {args.path}.")
-        return path.read_text(), args.path
+            raise ZwillError("invalid_input", f"Context path is not a file: {args.input_path}.")
+        return path.read_text(), args.input_path
     return args.text, None
 
 
@@ -127,14 +127,14 @@ def cmd_question_add(args: argparse.Namespace) -> dict[str, Any]:
     rows.append(question)
     annotated, _rank_tasks = annotate_rank_items(rows)
     rewrite_jsonl(sdir / "questions.jsonl", annotated)
-    return envelope("zwill question add", "ok", {"question": question}, next_steps=[f"zwill answer import --survey {args.survey} --path answers.jsonl"])
+    return envelope("zwill question add", "ok", {"question": question}, next_steps=[f"zwill answer import --survey {args.survey} --input-path answers.jsonl"])
 
 
 def cmd_question_import(args: argparse.Namespace) -> dict[str, Any]:
     sdir = require_survey(args.survey)
     existing = questions_by_name(sdir)
     imported = []
-    for row in read_jsonl(Path(args.path)):
+    for row in read_jsonl(Path(args.input_path)):
         existing[row["question_name"]] = row
         imported.append(row["question_name"])
     annotated, rank_tasks = annotate_rank_items(list(existing.values()))
@@ -186,7 +186,7 @@ def cmd_respondent_import(args: argparse.Namespace) -> dict[str, Any]:
     sdir = require_survey(args.survey)
     existing = respondents_by_id(sdir)
     imported = 0
-    for row in read_jsonl(Path(args.path)):
+    for row in read_jsonl(Path(args.input_path)):
         existing[row["respondent_id"]] = row
         imported += 1
     rewrite_jsonl(sdir / "respondents.jsonl", list(existing.values()))
@@ -194,11 +194,11 @@ def cmd_respondent_import(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def material_markdown_from_args(args: argparse.Namespace) -> tuple[str, str | None]:
-    if args.path:
-        path = Path(args.path)
+    if args.input_path:
+        path = Path(args.input_path)
         if not path.exists() or not path.is_file():
-            raise ZwillError("invalid_input", f"Agent material path is not a file: {args.path}.")
-        return path.read_text().strip(), args.path
+            raise ZwillError("invalid_input", f"Agent material path is not a file: {args.input_path}.")
+        return path.read_text().strip(), args.input_path
     return args.text.strip(), None
 
 
@@ -266,7 +266,7 @@ def cmd_agent_material_import(args: argparse.Namespace) -> dict[str, Any]:
     imported = 0
     quarantined = 0
     examples = []
-    for line, row in enumerate(read_jsonl(Path(args.path)), 1):
+    for line, row in enumerate(read_jsonl(Path(args.input_path)), 1):
         material = dict(row)
         material.setdefault("material_id", next_agent_material_id(sdir, material.get("respondent_id", "unknown"), material.get("kind", "material")))
         material.setdefault("title", material.get("kind", "Agent material"))
@@ -347,7 +347,7 @@ def cmd_answer_import(args: argparse.Namespace) -> dict[str, Any]:
     quarantine_examples = []
     valid_rows = []
     implicit_respondents = []
-    for line, row in enumerate(read_jsonl(Path(args.path)), 1):
+    for line, row in enumerate(read_jsonl(Path(args.input_path)), 1):
         question_name = row.get("question")
         issue = None
         if question_name not in questions:

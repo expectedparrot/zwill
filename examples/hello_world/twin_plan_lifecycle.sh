@@ -77,7 +77,7 @@ zwill_cmd twin-approach add \
   --model openai:gpt-5.5
 
 zwill_cmd twin-experiment export-plan \
-  --path "$REPO_ROOT/examples/hello_world/twin_plan.json" \
+  --input-path "$REPO_ROOT/examples/hello_world/twin_plan.json" \
   --output-dir jobs
 
 zwill_cmd twin-experiment plan-status --survey hello_twin_plan --plan-id hello_twin_plan

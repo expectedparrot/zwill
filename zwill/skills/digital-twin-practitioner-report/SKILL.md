@@ -20,7 +20,7 @@ or the explicit artifact flow:
 ```bash
 zwill twin-study practitioner-report-export --survey <survey> --job-id <job_id>
 zwill edsl-run --job .zwill/practitioner_reports/<report_id>/job.edsl.json --path .zwill/practitioner_reports/<report_id>/results.json.gz
-zwill twin-study practitioner-report-import --path .zwill/practitioner_reports/<report_id>/results.json.gz
+zwill twin-study practitioner-report-import --input-path .zwill/practitioner_reports/<report_id>/results.json.gz
 zwill twin-study practitioner-report-render --report-id <report_id> --path practitioner_report.html
 ```
 

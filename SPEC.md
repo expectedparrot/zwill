@@ -123,7 +123,7 @@ Returns:
   "warnings": [],
   "errors": [],
   "next_steps": [
-    "zwill raw add --survey hiring_study --id <id> --path <file-or-dir>",
+    "zwill raw add --survey hiring_study --id <id> --input-path <file-or-dir>",
     "zwill question add --survey hiring_study ..."
   ]
 }
@@ -149,7 +149,7 @@ State written:
 zwill raw add \
   --survey hiring_study \
   --id questionnaire \
-  --path raw/questionnaire.pdf \
+  --input-path raw/questionnaire.pdf \
   --kind questionnaire \
   --title "Hiring Study Questionnaire"
 ```
@@ -262,7 +262,7 @@ Returns:
   "warnings": [],
   "errors": [],
   "next_steps": [
-    "zwill answer import --survey hiring_study --path answers.jsonl"
+    "zwill answer import --survey hiring_study --input-path answers.jsonl"
   ]
 }
 ```
@@ -314,7 +314,7 @@ Returns:
 ### Bulk Import Questions
 
 ```bash
-zwill question import --survey hiring_study --path questions.jsonl
+zwill question import --survey hiring_study --input-path questions.jsonl
 ```
 
 Each JSONL row is one question:
@@ -383,7 +383,7 @@ Returns:
 Bulk import respondents:
 
 ```bash
-zwill respondent import --survey hiring_study --path respondents.jsonl
+zwill respondent import --survey hiring_study --input-path respondents.jsonl
 ```
 
 Input:
@@ -430,7 +430,7 @@ zwill agent-material add \
 Bulk import agent material:
 
 ```bash
-zwill agent-material import --survey hiring_study --path agent_material.jsonl
+zwill agent-material import --survey hiring_study --input-path agent_material.jsonl
 ```
 
 Input:
@@ -537,7 +537,7 @@ Returns:
 ### Bulk Import Answers
 
 ```bash
-zwill answer import --survey hiring_study --path answers.jsonl
+zwill answer import --survey hiring_study --input-path answers.jsonl
 ```
 
 Input:
@@ -610,7 +610,7 @@ Users can attach markdown context to a survey. This is intended for source descr
 Append markdown context from a file:
 
 ```bash
-zwill context add --survey hiring_study --path source_context.md
+zwill context add --survey hiring_study --input-path source_context.md
 ```
 
 Or from a command argument:
@@ -644,7 +644,7 @@ Returns:
 Replace existing context:
 
 ```bash
-zwill context set --survey hiring_study --path source_context.md
+zwill context set --survey hiring_study --input-path source_context.md
 ```
 
 Show stored context:
@@ -727,7 +727,7 @@ This avoids presenting survey answers as cryptic generic traits. Users can overr
 Inspect an exported AgentList:
 
 ```bash
-zwill agent-list inspect --path hiring_agents.edsl.json
+zwill agent-list inspect --input-path hiring_agents.edsl.json
 ```
 
 The inspector reports agent count, trait keys, codebook keys, instruction coverage, mean instruction length, export metadata, and a small agent preview. Use `--format json` for machine-readable output.
@@ -760,7 +760,7 @@ The exported job is a normal EDSL `Jobs.to_dict()` serialization with the AgentL
 
 ```bash
 zwill edsl-run --job hiring_agent_study.edsl.json --path hiring_agent_study_results.json.gz
-zwill agent-study import --path hiring_agent_study_results.json.gz
+zwill agent-study import --input-path hiring_agent_study_results.json.gz
 ```
 
 Imported AgentStudy results are stored in two forms:
@@ -816,7 +816,7 @@ Import serialized EDSL `Results` from a probability job:
 ```bash
 zwill prob-results import \
   --survey hiring_study \
-  --path example_prob_job.json.gz
+  --input-path example_prob_job.json.gz
 ```
 
 The command stores the raw Results file under `.zwill/projects/<project_id>/surveys/<survey>/probability_jobs/<job_id>/raw/` and extracts one predicted probability distribution per EDSL result row. The default `job_id` is a deterministic hash of the Results survey/scenario/model payload; it can be overridden with `--job-id`. JSON answers wrapped in markdown fences are accepted. Extracted rows are stored in `.zwill/projects/<project_id>/surveys/<survey>/probability_predictions.jsonl`.
@@ -866,7 +866,7 @@ Run the exported job with `zwill edsl-run`, then import and score the Results:
 ```bash
 zwill twin-results import \
   --survey hiring_study \
-  --path hiring_twin_results.json.gz
+  --input-path hiring_twin_results.json.gz
 
 zwill twin-results report \
   --survey hiring_study \
@@ -919,7 +919,7 @@ zwill twin-approach add \
   --complete-cases \
   --model openai:gpt-5.5
 
-zwill twin-approach add --survey hiring_study --path approach.json
+zwill twin-approach add --survey hiring_study --input-path approach.json
 zwill twin-approach scaffold --survey hiring_study --approach-id baseline_context --path approach.json
 zwill twin-approach list --survey hiring_study
 zwill twin-approach show --survey hiring_study --approach-id baseline_context
@@ -957,7 +957,7 @@ Experiment plans compile one or more registered or inline approaches into EDSL j
 
 ```bash
 zwill twin-experiment init-plan --survey hiring_study --plan-id holdout_v1 --heldout-questions q1,q2 --approach-id baseline_context --path holdout_v1.json
-zwill twin-experiment export-plan --path holdout_v1.json --output-dir holdout_v1_jobs
+zwill twin-experiment export-plan --input-path holdout_v1.json --output-dir holdout_v1_jobs
 ```
 
 `init-plan` must write a valid editable JSON plan using existing survey question names, defaulting to the first multiple-choice question when no held-out question is provided. It must not mutate project state or export jobs.
@@ -1021,7 +1021,7 @@ zwill twin-experiment report-export \
   --report-model openai:gpt-5.5
 
 zwill edsl-run --job .zwill/projects/default/practitioner_reports/<report_id>/job.edsl.json --path .zwill/projects/default/practitioner_reports/<report_id>/results.json.gz
-zwill twin-experiment report-import --report-id <report_id> --path .zwill/projects/default/practitioner_reports/<report_id>/results.json.gz
+zwill twin-experiment report-import --report-id <report_id> --input-path .zwill/projects/default/practitioner_reports/<report_id>/results.json.gz
 zwill twin-experiment report-render --report-id <report_id> --path experiment_report.html
 ```
 
@@ -1040,7 +1040,7 @@ Respondent metadata (panel covariates such as age, party, region) is included as
 For a held-out question with `question_type: numeric`, `zwill edsl-export --survey <survey> --target numeric-twin-job --heldout-question <q>` builds a twin job in which the model predicts a **quantile distribution** (5th/25th/50th/75th/95th percentiles) of the value the respondent would give, honoring optional `numeric_min` / `numeric_max` bounds. Run it with `zwill edsl-run`, then:
 
 ```bash
-zwill numeric-results import --survey <survey> --path numeric_results.json.gz
+zwill numeric-results import --survey <survey> --input-path numeric_results.json.gz
 zwill numeric-results report --survey <survey> --job-id <job_id> --format html --path numeric_report.html
 ```
 
@@ -1055,13 +1055,13 @@ Free-text (`free_text`) questions are validated by **coding them into themes** a
 zwill edsl-export --survey <survey> --target open-codebook-job --heldout-question <free_text_q> \
   --n-themes 8 --sample-answers 150 --model openai:gpt-5.5 --path codebook.edsl.json
 zwill edsl-run --job codebook.edsl.json --path codebook_results.json.gz
-zwill open-coding codebook-import --survey <survey> --path codebook_results.json.gz
+zwill open-coding codebook-import --survey <survey> --input-path codebook_results.json.gz
 
 # 2. Classify each respondent's answer into one codebook theme.
 zwill edsl-export --survey <survey> --target open-coding-job --heldout-question <free_text_q> \
   --coded-question-name <free_text_q>_coded --model openai:gpt-5.5 --path coding.edsl.json
 zwill edsl-run --job coding.edsl.json --path coding_results.json.gz
-zwill open-coding import --survey <survey> --path coding_results.json.gz
+zwill open-coding import --survey <survey> --input-path coding_results.json.gz
 ```
 
 `open-codebook-job` builds a single scenario that shows a sample of the answers (`--sample-answers`, default 150) and asks for at most `--n-themes` (default 8) mutually-exclusive themes. `codebook-import` stores it under `open_coding/<question>/codebook.json`. `open-coding-job` builds one scenario per respondent that classifies their actual answer into a codebook theme (or a reserved `unclassified` bucket). `open-coding import` writes a new `multiple_choice` question (`--coded-question-name`, default `<question>_coded`; options = theme codes, labels = theme labels) plus one coded answer per respondent, and returns a warning if more than 20% of answers were `unclassified` (the codebook may not fit) or if the results carried multiple codings per respondent (code with a single model). The coded question is then validated exactly like any other multiple-choice target.
@@ -1076,7 +1076,7 @@ Practitioner report generation follows the same export/run/import/render lifecyc
 
 `zwill twin-benchmark practitioner-report-export` accepts the same `--manifest` or `--config` sources for cross-survey benchmark/meta reports. Cross-survey reports should be used to compare exercises and models, not as the default practitioner narrative for one uploaded survey.
 
-The exported job is run through `zwill edsl-run` or by another agent using EDSL `job.run()`. `zwill twin-benchmark practitioner-report-import --path <results.json.gz>` stores the raw Results object under the matching report id and extracts the generated Markdown. `zwill twin-benchmark practitioner-report-render --report-id <report_id>` wraps the stored Markdown as standalone HTML using the stored benchmark payload; rendering must not call a frontier model. The HTML should embed source JSON and include a button that copies the Markdown report to the clipboard for LLM use. Public-facing report HTML should use Expected Parrot branding, should not mention the internal tool name, and should include canned boilerplate explaining why held-out questions are used as a proxy for new questions asked of instantiated digital twins. That boilerplate should explain that this is a high-bar test because survey designers typically avoid asking highly correlated questions.
+The exported job is run through `zwill edsl-run` or by another agent using EDSL `job.run()`. `zwill twin-benchmark practitioner-report-import --input-path <results.json.gz>` stores the raw Results object under the matching report id and extracts the generated Markdown. `zwill twin-benchmark practitioner-report-render --report-id <report_id>` wraps the stored Markdown as standalone HTML using the stored benchmark payload; rendering must not call a frontier model. The HTML should embed source JSON and include a button that copies the Markdown report to the clipboard for LLM use. Public-facing report HTML should use Expected Parrot branding, should not mention the internal tool name, and should include canned boilerplate explaining why held-out questions are used as a proxy for new questions asked of instantiated digital twins. That boilerplate should explain that this is a high-bar test because survey designers typically avoid asking highly correlated questions.
 
 `zwill twin-study practitioner-report` and `zwill twin-benchmark practitioner-report` remain one-step convenience commands. They should call the same export, EDSL run, import, and render machinery rather than using a separate hidden model-call path.
 

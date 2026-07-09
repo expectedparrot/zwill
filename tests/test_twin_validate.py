@@ -106,9 +106,9 @@ def _build_survey(tmp_path: Path) -> tuple[dict, list[str]]:
     )
     assert main(["init"]) == 0
     assert main(["survey", "create", "--name", "demo"]) == 0
-    assert main(["question", "import", "--survey", "demo", "--path", str(tmp_path / "questions.jsonl")]) == 0
-    assert main(["respondent", "import", "--survey", "demo", "--path", str(tmp_path / "respondents.jsonl")]) == 0
-    assert main(["answer", "import", "--survey", "demo", "--path", str(tmp_path / "answers.jsonl")]) == 0
+    assert main(["question", "import", "--survey", "demo", "--input-path", str(tmp_path / "questions.jsonl")]) == 0
+    assert main(["respondent", "import", "--survey", "demo", "--input-path", str(tmp_path / "respondents.jsonl")]) == 0
+    assert main(["answer", "import", "--survey", "demo", "--input-path", str(tmp_path / "answers.jsonl")]) == 0
     assert main(["commit", "--survey", "demo"]) == 0
     return answers, options
 

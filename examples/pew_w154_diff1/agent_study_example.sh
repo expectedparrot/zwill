@@ -55,7 +55,7 @@ run_step 01_agent_list_export \
 
 run_step 02_agent_list_inspect \
   zwill_cmd agent-list inspect \
-  --path "$AGENT_LIST" \
+  --input-path "$AGENT_LIST" \
   --format json
 cp "$OUTDIR/02_agent_list_inspect.stdout.txt" "$AGENT_LIST_INSPECT"
 
@@ -93,13 +93,13 @@ fi
 run_step 05_edsl_run_leadership \
   zwill_cmd edsl-run --job "$MC_JOB" --path "$MC_RESULTS"
 run_step 06_agent_study_import_leadership \
-  zwill_cmd agent-study import --path "$MC_RESULTS" --replace
+  zwill_cmd agent-study import --input-path "$MC_RESULTS" --replace
 cp "$OUTDIR/06_agent_study_import_leadership.stdout.txt" "$MC_IMPORT_LOG"
 
 run_step 07_edsl_run_gender_roles \
   zwill_cmd edsl-run --job "$FT_JOB" --path "$FT_RESULTS"
 run_step 08_agent_study_import_gender_roles \
-  zwill_cmd agent-study import --path "$FT_RESULTS" --replace
+  zwill_cmd agent-study import --input-path "$FT_RESULTS" --replace
 cp "$OUTDIR/08_agent_study_import_gender_roles.stdout.txt" "$FT_IMPORT_LOG"
 
 run_step 09_agent_study_report \

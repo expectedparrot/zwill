@@ -80,9 +80,9 @@ def test_next_walks_the_pipeline(tmp_path, monkeypatch) -> None:
         [{"respondent_id": f"r{i}", "question": q, "answer": "a" if i % 2 else "b"}
          for i in range(4) for q in ("q1", "q2")],
     )
-    assert main(["question", "import", "--survey", "demo", "--path", str(tmp_path / "q.jsonl")]) == 0
-    assert main(["respondent", "import", "--survey", "demo", "--path", str(tmp_path / "r.jsonl")]) == 0
-    assert main(["answer", "import", "--survey", "demo", "--path", str(tmp_path / "a.jsonl")]) == 0
+    assert main(["question", "import", "--survey", "demo", "--input-path", str(tmp_path / "q.jsonl")]) == 0
+    assert main(["respondent", "import", "--survey", "demo", "--input-path", str(tmp_path / "r.jsonl")]) == 0
+    assert main(["answer", "import", "--survey", "demo", "--input-path", str(tmp_path / "a.jsonl")]) == 0
     assert _stage() == "commit"
 
     assert main(["commit", "--survey", "demo"]) == 0

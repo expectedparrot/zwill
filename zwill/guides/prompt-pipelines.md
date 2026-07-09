@@ -65,7 +65,7 @@ zwill edsl-export --survey <survey> --target twin-probability-job \
   --twin-prompt-pipeline examples/twin_pipelines/dialectical.json \
   --model openai:gpt-5.5 --path twin.edsl.json
 zwill edsl-run --job twin.edsl.json --path twin_results.json.gz
-zwill twin-results import --survey <survey> --path twin_results.json.gz
+zwill twin-results import --survey <survey> --input-path twin_results.json.gz
 ```
 
 `--twin-prompt-pipeline` overrides `--prompt-variant`. The import scores the final

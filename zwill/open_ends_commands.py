@@ -36,9 +36,9 @@ def _raw_answer(row: dict[str, Any]) -> Any:
 
 def cmd_open_codebook_import(args: argparse.Namespace) -> dict[str, Any]:
     sdir = require_survey(args.survey)
-    source = Path(args.path)
+    source = Path(args.input_path)
     if not source.exists():
-        raise ZwillError("not_found", f"Results file does not exist: {args.path}.")
+        raise ZwillError("not_found", f"Results file does not exist: {args.input_path}.")
     results = read_json_or_gzip(source)
     if not isinstance(results, dict) or results.get("edsl_class_name") != "Results":
         raise ZwillError("invalid_input", "Expected an EDSL Results serialization.")
@@ -80,9 +80,9 @@ def cmd_open_codebook_import(args: argparse.Namespace) -> dict[str, Any]:
 
 def cmd_open_coding_import(args: argparse.Namespace) -> dict[str, Any]:
     sdir = require_survey(args.survey)
-    source = Path(args.path)
+    source = Path(args.input_path)
     if not source.exists():
-        raise ZwillError("not_found", f"Results file does not exist: {args.path}.")
+        raise ZwillError("not_found", f"Results file does not exist: {args.input_path}.")
     results = read_json_or_gzip(source)
     if not isinstance(results, dict) or results.get("edsl_class_name") != "Results":
         raise ZwillError("invalid_input", "Expected an EDSL Results serialization.")

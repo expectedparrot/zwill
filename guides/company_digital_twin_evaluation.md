@@ -47,7 +47,7 @@ zwill survey create --name customer_validation
 Import raw files as provenance before converting them into questions, respondents, and answers:
 
 ```bash
-zwill raw add --survey customer_validation --id source_workbook --path customer_data.xlsx --kind workbook
+zwill raw add --survey customer_validation --id source_workbook --input-path customer_data.xlsx --kind workbook
 ```
 
 For survey data, import:
@@ -59,9 +59,9 @@ For survey data, import:
 Then commit the observed truth marginals:
 
 ```bash
-zwill question import --survey customer_validation --path questions.jsonl
-zwill respondent import --survey customer_validation --path respondents.jsonl
-zwill answer import --survey customer_validation --path answers.jsonl
+zwill question import --survey customer_validation --input-path questions.jsonl
+zwill respondent import --survey customer_validation --input-path respondents.jsonl
+zwill answer import --survey customer_validation --input-path answers.jsonl
 zwill commit --survey customer_validation
 ```
 
@@ -120,7 +120,7 @@ zwill edsl-run \
 
 zwill prob-results import \
   --survey customer_validation \
-  --path one_shot_marginals_results.json.gz
+  --input-path one_shot_marginals_results.json.gz
 
 zwill prob-results report \
   --survey customer_validation \
@@ -172,7 +172,7 @@ zwill edsl-run \
 
 zwill twin-results import \
   --survey customer_validation \
-  --path twin_validation_results.json.gz
+  --input-path twin_validation_results.json.gz
 ```
 
 For larger studies, use full respondent sets rather than small samples once the workflow is working. Sampling is useful for debugging, but it can make marginal diagnostics noisy.
