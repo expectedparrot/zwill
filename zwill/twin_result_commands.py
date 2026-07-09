@@ -251,17 +251,17 @@ def cmd_twin_results_export(args: argparse.Namespace) -> None:
     if not rows:
         raise ZwillError("not_found", "No digital twin predictions found for the requested filters.")
     output_rows = twin_prediction_export_rows(rows, args.format)
-    write_csv_rows(Path(args.path) if args.path else None, output_rows)
+    write_csv_rows(resolve_output_path(args.path) if args.path else None, output_rows)
 
 
 def cmd_twin_results_package(args: argparse.Namespace) -> dict[str, Any]:
     rows = filtered_twin_prediction_rows(args)
     if not rows:
         raise ZwillError("not_found", "No digital twin predictions found for the requested filters.")
-    csv_path = Path(args.path)
+    csv_path = resolve_output_path(args.path)
     output_rows = twin_prediction_export_rows(rows, args.format)
     write_csv_rows(csv_path, output_rows)
-    zip_path = Path(args.zip_path) if args.zip_path else csv_path.with_suffix(".zip")
+    zip_path = resolve_output_path(args.zip_path) if args.zip_path else csv_path.with_suffix(".zip")
     zip_csv(csv_path, zip_path)
     return envelope(
         "zwill twin-results package",
@@ -343,12 +343,12 @@ def cmd_twin_results_marginal_diagnostics(args: argparse.Namespace) -> None:
     if args.format == "json":
         output = json.dumps(payload, indent=2)
         if args.path:
-            Path(args.path).write_text(output + "\n")
+            resolve_output_path(args.path).write_text(output + "\n")
         else:
             print(output)
         return
     if args.format == "csv":
-        path = Path(args.path) if args.path else None
+        path = resolve_output_path(args.path) if args.path else None
         fieldnames = list(summary_rows[0].keys()) if summary_rows else [
             "survey",
             "job_id",
@@ -378,7 +378,7 @@ def cmd_twin_results_marginal_diagnostics(args: argparse.Namespace) -> None:
                     "difference",
                     "abs_difference",
                 ]
-                with Path(args.option_path).open("w", newline="") as output_file:
+                with resolve_output_path(args.option_path).open("w", newline="") as output_file:
                     writer = csv.DictWriter(output_file, fieldnames=option_fieldnames)
                     writer.writeheader()
                     writer.writerows(option_rows)
@@ -420,7 +420,7 @@ def cmd_twin_results_bootstrap(args: argparse.Namespace) -> dict[str, Any]:
         ci=float(getattr(args, "ci", 0.95) or 0.95),
     )
     if getattr(args, "path", None):
-        write_json(Path(args.path), result)
+        write_json(resolve_output_path(args.path), result)
 
     # Compact headline: macro score CIs per model, and macro deltas vs the baseline.
     headline_models = {
@@ -450,7 +450,7 @@ def cmd_twin_results_bootstrap(args: argparse.Namespace) -> dict[str, Any]:
             "models": sorted(result["models"]),
             "macro_scores": headline_models,
             "macro_deltas_vs_baseline": headline_deltas,
-            "full_result_path": str(Path(args.path)) if getattr(args, "path", None) else None,
+            "full_result_path": str(resolve_output_path(args.path)) if getattr(args, "path", None) else None,
         },
         warnings=warnings,
     )
@@ -540,7 +540,7 @@ def cmd_twin_results_leakage_audit(args: argparse.Namespace) -> dict[str, Any]:
         payload = dict(diagnostics)
         if membership is not None:
             payload["set_membership_leakage"] = membership
-        write_json(Path(args.path), payload)
+        write_json(resolve_output_path(args.path), payload)
 
     warnings = []
     if diagnostics["flagged_count"]:
@@ -596,7 +596,7 @@ def cmd_twin_results_leakage_audit(args: argparse.Namespace) -> dict[str, Any]:
                 if membership is not None
                 else None
             ),
-            "full_result_path": str(Path(args.path)) if getattr(args, "path", None) else None,
+            "full_result_path": str(resolve_output_path(args.path)) if getattr(args, "path", None) else None,
         },
         warnings=warnings,
     )

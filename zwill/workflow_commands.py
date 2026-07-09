@@ -119,7 +119,7 @@ def workflow_base_payload(path: Path, config: dict[str, Any], values: dict[str, 
 
 
 def cmd_workflow_explain(args: argparse.Namespace) -> dict[str, Any]:
-    path = Path(args.path)
+    path = resolve_output_path(args.path)
     config = load_workflow_file(path)
     values = workflow_vars(config, args.var)
     steps = rendered_workflow_steps(config, values)
@@ -127,7 +127,7 @@ def cmd_workflow_explain(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def cmd_workflow_dry_run(args: argparse.Namespace) -> dict[str, Any]:
-    path = Path(args.path)
+    path = resolve_output_path(args.path)
     config = load_workflow_file(path)
     values = workflow_vars(config, args.var)
     steps = rendered_workflow_steps(config, values)
@@ -137,7 +137,7 @@ def cmd_workflow_dry_run(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def cmd_workflow_run(args: argparse.Namespace) -> dict[str, Any]:
-    path = Path(args.path)
+    path = resolve_output_path(args.path)
     config = load_workflow_file(path)
     values = workflow_vars(config, args.var)
     steps = rendered_workflow_steps(config, values)

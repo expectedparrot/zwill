@@ -181,7 +181,7 @@ def cmd_twin_results_retry_malformed(args: argparse.Namespace) -> dict[str, Any]
             context={"failed_pairs": sorted(f"{r}:{q}" for r, q in failed_pairs)[:10]},
             hint="Pass the original job file that produced these results.",
         )
-    out_path = Path(args.path) if getattr(args, "path", None) else jdir / "retry.edsl.json"
+    out_path = resolve_output_path(args.path) if getattr(args, "path", None) else jdir / "retry.edsl.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     write_json(out_path, retry_dict)
     results_path = jdir / "retry_results.json.gz"
@@ -435,21 +435,21 @@ def cmd_rank_results_report(args: argparse.Namespace) -> None:
     if args.format == "json":
         output = json.dumps(payload, indent=2)
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.path).write_text(output + "\n")
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            resolve_output_path(args.path).write_text(output + "\n")
         print(output)
         return
     if args.format == "html":
         output = render_rank_report_html(payload)
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.path).write_text(output)
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            resolve_output_path(args.path).write_text(output)
         else:
             print(output)
         return
     if args.format == "csv":
         fieldnames = ["job_id", "respondent_id", "rank_task_id", "model_label", "spearman", "pairwise_order_accuracy", "top_3_overlap", "top_k_identification", "top_k_identification_chance", "mean_absolute_rank_error", "top_1_hit"]
-        writer_target = Path(args.path) if args.path else None
+        writer_target = resolve_output_path(args.path) if args.path else None
         if writer_target:
             writer_target.parent.mkdir(parents=True, exist_ok=True)
             with writer_target.open("w", newline="") as output_file:

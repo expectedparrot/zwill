@@ -34,6 +34,11 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     p = subparsers.add_parser("init")
+    p.add_argument(
+        "--output-dir",
+        help="Directory that reports, bundles, and exports are contained under (relative paths rebase here). "
+        "Persisted in .zwill/config.json. Defaults to zwill_work/; overridable per-run with the ZWILL_OUT env var.",
+    )
     p.set_defaults(func=cmd_init)
 
     p = subparsers.add_parser("status")

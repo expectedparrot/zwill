@@ -109,8 +109,8 @@ def cmd_probability_results_report(args: argparse.Namespace) -> None:
     if args.format == "json":
         output = json.dumps(payload, indent=2)
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.path).write_text(output + "\n")
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            resolve_output_path(args.path).write_text(output + "\n")
         print(output)
         return
 
@@ -133,8 +133,8 @@ def cmd_probability_results_report(args: argparse.Namespace) -> None:
             "kl_percent_improvement",
         ]
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            with Path(args.path).open("w", newline="") as output_file:
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            with resolve_output_path(args.path).open("w", newline="") as output_file:
                 writer = csv.DictWriter(output_file, fieldnames=fieldnames)
                 writer.writeheader()
                 for row in report_rows:
@@ -161,8 +161,8 @@ def cmd_probability_results_report(args: argparse.Namespace) -> None:
             generation=generated.get("generation") if generated else None,
         )
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.path).write_text(output)
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            resolve_output_path(args.path).write_text(output)
         else:
             print(output)
         return
@@ -228,15 +228,15 @@ def cmd_probability_results_analysis_export(args: argparse.Namespace) -> dict[st
     report_context = build_one_shot_analysis_report_context(args, payload)
     job_dict, context, prompt = _cli().build_edsl_one_shot_analysis_report_job_dict(args, report_context)
     report_id = job_dict["zwill"]["practitioner_report_id"]
-    path = Path(args.path or (Path("artifacts") / f"{args.survey}_one_shot_marginals.html"))
+    path = resolve_output_path(args.path or (Path("artifacts") / f"{args.survey}_one_shot_marginals.html"))
     data = write_practitioner_report_export(
         report_id,
         job_dict,
         context,
         prompt,
         job_path=Path(args.job_path) if args.job_path else None,
-        prompt_path=Path(args.prompt_path) if args.prompt_path else None,
-        context_path_arg=Path(args.context_path) if args.context_path else None,
+        prompt_path=resolve_output_path(args.prompt_path) if args.prompt_path else None,
+        context_path_arg=resolve_output_path(args.context_path) if args.context_path else None,
     )
     return envelope(
         "zwill prob-results analysis-export",
@@ -307,7 +307,7 @@ def cmd_probability_results_analysis_render(args: argparse.Namespace) -> dict[st
         "markdown_path": str(paths["markdown"]),
         "import_path": str(paths["import"]) if paths["import"].exists() else None,
     }
-    output_path = Path(args.path) if args.path else paths["html"]
+    output_path = resolve_output_path(args.path) if args.path else paths["html"]
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         render_probability_report_html(

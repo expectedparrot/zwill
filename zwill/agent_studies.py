@@ -239,15 +239,15 @@ def cmd_agent_study_report(args: argparse.Namespace) -> None:
     if args.format == "json":
         output = json.dumps(payload, indent=2)
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.path).write_text(output + "\n")
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            resolve_output_path(args.path).write_text(output + "\n")
         print(output)
         return
     fieldnames = ["job_id", "agent_name", "question_name", "answer", "comment", "service", "model", "model_label", "instruction_present", "instruction_chars"]
     if args.format == "csv":
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            with Path(args.path).open("w", newline="") as output_file:
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            with resolve_output_path(args.path).open("w", newline="") as output_file:
                 writer = csv.DictWriter(output_file, fieldnames=fieldnames)
                 writer.writeheader()
                 for row in rows:
@@ -261,8 +261,8 @@ def cmd_agent_study_report(args: argparse.Namespace) -> None:
     if args.format == "html":
         output = render_agent_study_report_html(payload)
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.path).write_text(output)
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            resolve_output_path(args.path).write_text(output)
         else:
             print(output)
         return

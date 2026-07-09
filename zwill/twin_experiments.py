@@ -539,7 +539,7 @@ def cmd_twin_experiment_init_plan(args: argparse.Namespace) -> dict[str, Any]:
     if estimate is not None:
         plan["prediction_count_estimate"] = estimate
     plan["defaults"] = {key: value for key, value in plan["defaults"].items() if value is not None}
-    path = Path(args.path or f"{args.plan_id}.json")
+    path = resolve_output_path(args.path or f"{args.plan_id}.json")
     write_json(path, plan)
     warnings: list[dict[str, Any]] = []
     sample_warning = sample_exceeds_population_warning(sdir, plan)
@@ -1492,7 +1492,7 @@ def cmd_twin_experiment_dashboard(args: argparse.Namespace) -> dict[str, Any]:
             "report_prompt": (bundle_manifest.get("report_export") or {}).get("prompt_path"),
             "report_context": (bundle_manifest.get("report_export") or {}).get("context_path"),
         }
-    output_path = Path(args.path) if args.path else digital_twin_jobs_dir(sdir) / "plans" / args.plan_id / "dashboard.html"
+    output_path = resolve_output_path(args.path) if args.path else digital_twin_jobs_dir(sdir) / "plans" / args.plan_id / "dashboard.html"
     payload = {
         "survey": args.survey,
         "plan_id": args.plan_id,
@@ -1510,7 +1510,7 @@ def cmd_twin_experiment_dashboard(args: argparse.Namespace) -> dict[str, Any]:
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(render_twin_experiment_dashboard_html(payload, output_path=output_path), encoding="utf-8")
-    json_path = Path(args.json_path) if args.json_path else output_path.with_suffix(".json")
+    json_path = resolve_output_path(args.json_path) if args.json_path else output_path.with_suffix(".json")
     write_json(json_path, payload)
     return envelope(
         "zwill twin-experiment dashboard",
@@ -1614,8 +1614,8 @@ def output_twin_experiment_comparison(args: argparse.Namespace, payload: dict[st
     if args.format == "json":
         output = json.dumps(payload, indent=2)
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.path).write_text(output + "\n")
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            resolve_output_path(args.path).write_text(output + "\n")
         print(output)
         return
     if args.format == "csv":
@@ -1638,8 +1638,8 @@ def output_twin_experiment_comparison(args: argparse.Namespace, payload: dict[st
             "brier_vs_empirical",
         ]
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            with Path(args.path).open("w", newline="") as output_file:
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            with resolve_output_path(args.path).open("w", newline="") as output_file:
                 writer = csv.DictWriter(output_file, fieldnames=fieldnames)
                 writer.writeheader()
                 for row in rows:
@@ -1889,7 +1889,7 @@ def write_twin_experiment_plots(args: argparse.Namespace) -> dict[str, Any]:
         raise ZwillError("not_found", "At least two scored experiment rows are required to make comparison plots.")
     all_rows = read_jsonl(digital_twin_predictions_path(sdir))
     plot_id = args.plot_id or twin_experiment_plot_id(args, comparison_rows)
-    output_dir = Path(args.path) if args.path else digital_twin_jobs_dir(sdir) / "plots" / plot_id
+    output_dir = resolve_output_path(args.path) if args.path else digital_twin_jobs_dir(sdir) / "plots" / plot_id
     output_dir.mkdir(parents=True, exist_ok=True)
     artifacts = []
     plot_summaries = []
