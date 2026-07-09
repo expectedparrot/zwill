@@ -1,7 +1,57 @@
 from __future__ import annotations
 
 from .cli import *  # noqa: F403
+from .consolidated_report import downloads_section_html, render_consolidated_report
 from .twin_baseline import MODEL_LABEL as BASELINE_MODEL_LABEL
+
+# Bundle pages that fold into the single scrollable report as sections, in order.
+# (The Decision & Evidence section comes from the executive-summary HTML, which is
+# a generated file rather than a catalog "page" — handled separately.)
+_CONSOLIDATED_SECTIONS = [
+    ("twin-validation", "validation", "Technical Validation"),
+    ("survey-profile", "survey-profile", "Survey Profile"),
+    ("one-shot-marginals", "one-shot", "One-Shot Marginals"),
+]
+# Row-level / reference pages linked from the report rather than inlined (they
+# are large or narrow-audience — inlining them explodes the file).
+_CONSOLIDATED_DOWNLOADS = [
+    ("twin-run-audit", "Twin run audit", "Prompt construction, held-out questions, and raw model responses for one job."),
+    ("twin-comparison", "Twin comparison", "Side-by-side comparison of two or more twin jobs."),
+    ("twin-experiment-microdata", "Per-twin microdata (row-level)", "One row per respondent x question x model — linked to keep this report lightweight."),
+]
+
+
+def build_consolidated_report_html(
+    output_dir: Path, pages: list[dict[str, Any]], survey: str, executive_html_path: str | None = None
+) -> str | None:
+    """One scrollable report from the ready bundle pages, or None if not ready.
+
+    Leads with the executive summary (Decision & Evidence), folds the
+    validation/profile pages in as sections, and links the row-level audit pages
+    as downloads. Never inlines per-twin material.
+    """
+    by_id = {page.get("page_id"): page for page in pages}
+    twin = by_id.get("twin-validation")
+    if not twin or twin.get("status") != "ready" or not twin.get("path"):
+        return None
+    sections: list[tuple[str, str, str]] = []
+    if executive_html_path and Path(executive_html_path).exists():
+        sections.append(("decision", "Decision & Evidence", Path(executive_html_path).read_text()))
+    for page_id, anchor, title in _CONSOLIDATED_SECTIONS:
+        page = by_id.get(page_id)
+        page_path = Path(page["path"]) if page and page.get("path") else None
+        if page and page.get("status") == "ready" and page_path and page_path.exists():
+            sections.append((anchor, title, page_path.read_text()))
+    links = []
+    for page_id, title, note in _CONSOLIDATED_DOWNLOADS:
+        page = by_id.get(page_id)
+        if page and page.get("status") == "ready" and page.get("path"):
+            href = bundle_rel_link(page["path"], output_dir)
+            if href:
+                links.append({"href": href, "title": title, "note": note})
+    return render_consolidated_report(
+        survey=survey, sections=sections, downloads_section=downloads_section_html(links)
+    )
 
 
 def conditional_baseline_rows_for_questions(
@@ -1201,7 +1251,18 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
     }
     stage_manifest = write_report_stage_artifacts(output_dir, manifest)
     manifest["stages"] = stage_manifest
-    (output_dir / "index.html").write_text(render_report_bundle_index(manifest))
+    # The bundle entry point is ONE scrollable report with a table of contents;
+    # it replaces the old digest index. When there is no ready twin validation
+    # yet, fall back to the readiness/next-steps index so the bundle is still
+    # navigable.
+    consolidated_report = build_consolidated_report_html(
+        output_dir, pages, survey, (manifest.get("executive_summary") or {}).get("path")
+    )
+    if consolidated_report:
+        (output_dir / "report.html").write_text(consolidated_report)
+        (output_dir / "index.html").write_text(consolidated_report)
+    else:
+        (output_dir / "index.html").write_text(render_report_bundle_index(manifest))
     write_bundle_json(manifest_path, manifest)
     copied_index = copy_bundle_file(output_dir / "index.html", output_dir / "report" / "index.html")
     if copied_index:
