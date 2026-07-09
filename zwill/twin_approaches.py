@@ -191,7 +191,7 @@ def cmd_twin_approach_scaffold(args: argparse.Namespace) -> dict[str, Any]:
             "construction": construction,
         }
     )
-    path = Path(args.path or f"{approach['approach_id']}_approach.json")
+    path = resolve_output_path(args.path or f"{approach['approach_id']}_approach.json")
     write_json(path, approach)
     return envelope(
         "zwill twin-approach scaffold",
@@ -342,13 +342,13 @@ def cmd_twin_approach_diff(args: argparse.Namespace) -> None:
     if args.format == "json":
         output = json.dumps(payload, indent=2)
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.path).write_text(output + "\n")
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            resolve_output_path(args.path).write_text(output + "\n")
         print(output)
         return
     if args.format == "html":
         output = render_twin_approach_diff_html(payload)
-        path = Path(args.path or f"{args.left}_vs_{args.right}_approach_diff.html")
+        path = resolve_output_path(args.path or f"{args.left}_vs_{args.right}_approach_diff.html")
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(output, encoding="utf-8")
         print(str(path))

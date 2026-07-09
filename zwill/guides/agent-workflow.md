@@ -37,6 +37,22 @@ noise?" Do not report a positive result from a bare twin run.
 - Do **not** pass `temperature` to models. Newer Anthropic/OpenAI models reject it
   and error on every call; EDSL omits it automatically.
 
+## Where outputs go
+
+Reports, bundles, executive summaries, and exported CSVs are **contained under an
+output root** so they do not sprawl across the working directory. A relative
+`--path`/`--out` (and a command's CWD-relative default like `<survey>_report/`)
+is rebased under that root; the default root is `zwill_work/` beside `.zwill/`.
+Override it with the `ZWILL_OUT` environment variable or `zwill init
+--output-dir <dir>` (persisted in `.zwill/config.json`). An **absolute** path is
+written verbatim (an escape hatch) with a one-line warning that it left the root.
+
+Two things are deliberately *not* rebased: managed state stays in `.zwill/`, and
+intermediate EDSL plumbing that is read back by a later command — the job/results
+files from `edsl-export`/`edsl-run` (`--path`) and `--job-path` — stays at the
+current directory so `edsl-run --job <file>` still finds them. Input files you
+pass with `--input-path` are reads and are never rebased.
+
 ## Non-negotiable guardrails
 
 - Treat ingestion as a validation boundary, not a best-effort conversion. Convert

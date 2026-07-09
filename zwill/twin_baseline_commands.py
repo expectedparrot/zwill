@@ -176,7 +176,7 @@ def cmd_twin_baseline_run(args: argparse.Namespace, *, embedder: Embedder | None
     )
 
     if getattr(args, "path", None):
-        rewrite_jsonl(Path(args.path), rows)
+        rewrite_jsonl(resolve_output_path(args.path), rows)
 
     return envelope(
         "zwill twin-baseline run",

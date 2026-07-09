@@ -30,7 +30,7 @@ def cmd_report_generate_interpretations(args: argparse.Namespace) -> dict[str, A
             "Pass --job-id (twin executive summary) and/or --probability-job-id (one-shot analysis).",
         )
     require_survey(survey)
-    out_dir = Path(args.path) if getattr(args, "path", None) else Path(f"{survey}_report")
+    out_dir = resolve_output_path(args.path) if getattr(args, "path", None) else resolve_output_path(f"{survey}_report")
     out_dir.mkdir(parents=True, exist_ok=True)
     env_args = ["--env-path", args.env_path] if getattr(args, "env_path", None) else []
     steps: dict[str, Any] = {}
@@ -151,9 +151,9 @@ def build_report_catalog(survey: str) -> dict[str, Any]:
                 comparison_pair = [left, right]
     compare_jobs = ",".join(sorted(comparison_pair)) if len(comparison_pair) >= 2 else "<job1>,<job2>"
     experiment_jobs = ",".join(recorded_experiment_jobs[:2]) if len(recorded_experiment_jobs) >= 2 else "<recorded_job1>,<recorded_job2>"
-    executive_summary_path = Path("artifacts") / f"{base}_executive_summary.html"
+    executive_summary_path = resolve_output_path(Path("artifacts") / f"{base}_executive_summary.html", create_parents=False)
     if not executive_summary_path.exists():
-        executive_summary_path = Path(f"{base}_executive_summary.html")
+        executive_summary_path = resolve_output_path(Path(f"{base}_executive_summary.html"), create_parents=False)
 
     entries = [
         report_catalog_entry(
@@ -263,8 +263,8 @@ def cmd_report_list(args: argparse.Namespace) -> None:
     if args.format == "json":
         output = json.dumps(payload, indent=2)
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.path).write_text(output + "\n")
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            resolve_output_path(args.path).write_text(output + "\n")
         print(output)
         return
     table = Table(title=f"{args.survey} report catalog")
@@ -286,7 +286,7 @@ def cmd_report_list(args: argparse.Namespace) -> None:
 
 def report_bundle_default_dir(survey: str) -> Path:
     base = re.sub(r"[^A-Za-z0-9_.-]+", "_", survey).strip("_") or "survey"
-    return Path(f"{base}_report")
+    return resolve_output_path(f"{base}_report")
 
 
 def bundle_rel_link(path: str | Path, base: Path) -> str:
@@ -799,7 +799,7 @@ def render_report_bundle_index(payload: dict[str, Any]) -> str:
 def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
     survey = args.survey
     sdir = require_survey(survey)
-    output_dir = Path(args.path) if args.path else report_bundle_default_dir(survey)
+    output_dir = resolve_output_path(args.path) if args.path else report_bundle_default_dir(survey)
     output_dir.mkdir(parents=True, exist_ok=True)
     data_dir = output_dir / "data"
     audit_dir = output_dir / "audit"

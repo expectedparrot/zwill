@@ -61,7 +61,7 @@ def cmd_twin_validate(args: argparse.Namespace, *, embedder=None) -> dict[str, A
     heldout_questions = sorted({str(row["heldout_question"]) for row in twin_rows if row.get("heldout_question")})
     respondent_ids = sorted({str(row["respondent_id"]) for row in twin_rows if row.get("respondent_id")})
 
-    out_dir = Path(args.out)
+    out_dir = resolve_output_path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     steps: dict[str, Any] = {}

@@ -202,7 +202,7 @@ def cmd_numeric_results_report(args: argparse.Namespace) -> dict[str, Any]:
         payload = numeric_report_payload(rows, summary)
         html = render_numeric_report_html(payload)
         if getattr(args, "path", None):
-            Path(args.path).write_text(html)
+            resolve_output_path(args.path).write_text(html)
             return envelope("zwill numeric-results report", "ok", {"job_id": args.job_id, "format": "html", "path": str(args.path), "models": list(summary.get("models", {}))})
         print(html)
         return None  # type: ignore[return-value]

@@ -942,12 +942,12 @@ def write_twin_experiment_microdata(args: argparse.Namespace) -> dict[str, Any]:
     payload = build_experiment_microdata_audit(sdir, experiments, args.metric, args.model)
     microdata_id = args.microdata_id or experiment_microdata_id(args)
     if args.path:
-        html_path = Path(args.path)
+        html_path = resolve_output_path(args.path)
         output_dir = html_path.parent
     else:
         output_dir = digital_twin_jobs_dir(sdir) / "microdata" / microdata_id
         html_path = output_dir / "audit.html"
-    json_path = Path(args.json_path) if args.json_path else html_path.with_suffix(".json")
+    json_path = resolve_output_path(args.json_path) if args.json_path else html_path.with_suffix(".json")
     output_dir.mkdir(parents=True, exist_ok=True)
     title = args.title or f"{args.survey} Twin Experiment Microdata"
     html = render_experiment_microdata_audit_html(payload, title=title)

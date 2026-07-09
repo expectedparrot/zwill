@@ -100,8 +100,8 @@ def cmd_twin_results_report(args: argparse.Namespace) -> None:
     if args.format == "json":
         output = json.dumps(payload, indent=2)
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.path).write_text(output + "\n")
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            resolve_output_path(args.path).write_text(output + "\n")
         print(output)
         return
 
@@ -133,8 +133,8 @@ def cmd_twin_results_report(args: argparse.Namespace) -> None:
     ]
     if args.format == "csv":
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            with Path(args.path).open("w", newline="") as output_file:
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            with resolve_output_path(args.path).open("w", newline="") as output_file:
                 writer = csv.DictWriter(output_file, fieldnames=fieldnames)
                 writer.writeheader()
                 for row in report_rows:
@@ -152,8 +152,8 @@ def cmd_twin_results_report(args: argparse.Namespace) -> None:
         else:
             output = render_twin_report_html(args.survey, report_rows, summary, payload.get("diagnostics"), payload.get("health"))
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.path).write_text(output)
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            resolve_output_path(args.path).write_text(output)
         else:
             print(output)
         return
@@ -209,8 +209,8 @@ def cmd_twin_results_executive_summary(args: argparse.Namespace) -> dict[str, An
     rows = filtered_twin_prediction_rows(args)
     if not rows:
         raise ZwillError("not_found", "No digital twin predictions found for the requested filters.")
-    path = Path(args.path or (Path("artifacts") / f"{args.survey}_executive_summary.html"))
-    markdown_path = Path(args.markdown_path) if args.markdown_path else None
+    path = resolve_output_path(args.path or (Path("artifacts") / f"{args.survey}_executive_summary.html"))
+    markdown_path = resolve_output_path(args.markdown_path) if args.markdown_path else None
     result = build_executive_summary(
         rows,
         survey=args.survey,
@@ -253,8 +253,8 @@ def cmd_twin_results_executive_summary_export(args: argparse.Namespace) -> dict[
     rows = filtered_twin_prediction_rows(filter_args)
     if not rows:
         raise ZwillError("not_found", "No digital twin predictions found for the requested filters.")
-    path = Path(args.path or (Path("artifacts") / f"{args.survey}_executive_summary.html"))
-    markdown_path = Path(args.markdown_path) if args.markdown_path else None
+    path = resolve_output_path(args.path or (Path("artifacts") / f"{args.survey}_executive_summary.html"))
+    markdown_path = resolve_output_path(args.markdown_path) if args.markdown_path else None
     result = build_executive_summary(
         rows,
         survey=args.survey,
@@ -282,8 +282,8 @@ def cmd_twin_results_executive_summary_export(args: argparse.Namespace) -> dict[
         context,
         prompt,
         job_path=Path(args.job_path) if args.job_path else None,
-        prompt_path=Path(args.prompt_path) if args.prompt_path else None,
-        context_path_arg=Path(args.context_path) if args.context_path else None,
+        prompt_path=resolve_output_path(args.prompt_path) if args.prompt_path else None,
+        context_path_arg=resolve_output_path(args.context_path) if args.context_path else None,
     )
     return envelope(
         "zwill twin-results executive-summary-export",
@@ -357,8 +357,8 @@ def cmd_twin_results_executive_summary_render(args: argparse.Namespace) -> dict[
         "markdown_path": str(paths["markdown"]),
         "import_path": str(paths["import"]) if paths["import"].exists() else None,
     }
-    output_path = Path(args.path) if args.path else paths["html"]
-    markdown_path = Path(args.markdown_path) if args.markdown_path else output_path.with_suffix(".md")
+    output_path = resolve_output_path(args.path) if args.path else paths["html"]
+    markdown_path = resolve_output_path(args.markdown_path) if args.markdown_path else output_path.with_suffix(".md")
     result = build_executive_summary(
         rows,
         survey=survey,
@@ -389,15 +389,15 @@ def cmd_twin_results_compare_report(args: argparse.Namespace) -> None:
     if args.format == "json":
         output = json.dumps(payload, indent=2)
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.path).write_text(output + "\n")
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            resolve_output_path(args.path).write_text(output + "\n")
         print(output)
         return
     if args.format == "html":
         output = render_twin_job_comparison_report_html(payload)
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.path).write_text(output)
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            resolve_output_path(args.path).write_text(output)
         else:
             print(output)
         return
@@ -431,15 +431,15 @@ def cmd_twin_results_run_report(args: argparse.Namespace) -> None:
     if args.format == "json":
         output = json.dumps(payload, indent=2)
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.path).write_text(output + "\n")
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            resolve_output_path(args.path).write_text(output + "\n")
         print(output)
         return
     if args.format == "html":
         output = render_twin_run_report_html(payload)
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.path).write_text(output)
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            resolve_output_path(args.path).write_text(output)
         else:
             print(output)
         return

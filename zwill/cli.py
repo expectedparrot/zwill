@@ -328,6 +328,77 @@ def write_json(path: Path, value: Any) -> None:
     os.replace(tmp_path, path)
 
 
+DEFAULT_OUTPUT_DIR = "zwill_work"
+_warned_output_escapes: set[str] = set()
+
+
+def output_root() -> Path:
+    """Directory that user-facing outputs are contained under.
+
+    Precedence: ``ZWILL_OUT`` env var, then ``output_dir`` in ``.zwill/config.json``,
+    then the default ``zwill_work/`` beside the ``.zwill/`` state dir. Reports,
+    bundles, and exports land here instead of sprawling across the working dir;
+    managed state stays in ``.zwill/``.
+    """
+    env = os.environ.get("ZWILL_OUT")
+    if env:
+        return Path(env)
+    if ROOT.exists():
+        configured = read_json(ROOT / "config.json", {}).get("output_dir")
+        if configured:
+            return Path(configured)
+    return Path(DEFAULT_OUTPUT_DIR)
+
+
+def _is_under(path: Path, base: Path) -> bool:
+    # Compare on absolute forms so a relative path and a relative base still
+    # resolve consistently (e.g. "zwill_work/x" under "zwill_work").
+    if path.is_relative_to(base):
+        return True
+    try:
+        return path.resolve().is_relative_to(base.resolve())
+    except (OSError, ValueError):
+        return False
+
+
+def resolve_output_path(path: Any, *, create_parents: bool = True) -> Path | None:
+    """Resolve a user-supplied output path against the output root.
+
+    Relative paths are rebased under :func:`output_root` so a bare ``--path
+    report.html`` (or a command's CWD-relative default) lands inside
+    ``zwill_work/`` rather than the current directory. Absolute paths are left
+    as-is (an explicit escape hatch) but warn once if they fall outside the
+    root. Managed ``.zwill/`` state paths are never rebased.
+
+    When a path is rebased, its parent directory is created so callers that
+    assumed a CWD-relative parent still have a writable location. Pass
+    ``create_parents=False`` to resolve a path for an existence check without
+    the side effect.
+    """
+    if path is None:
+        return None
+    p = Path(path)
+    if _is_under(p, ROOT):
+        return p
+    root = output_root()
+    if p.is_absolute():
+        if not _is_under(p, root):
+            key = str(p)
+            if key not in _warned_output_escapes:
+                _warned_output_escapes.add(key)
+                print(
+                    f"warning: output path {p} is outside the {root}/ output root; writing there anyway.",
+                    file=sys.stderr,
+                )
+        return p
+    if _is_under(p, root):
+        return p
+    rebased = root / p
+    if create_parents:
+        rebased.parent.mkdir(parents=True, exist_ok=True)
+    return rebased
+
+
 def read_json_or_gzip(path: Path) -> Any:
     if path.suffix == ".gz":
         with gzip.open(path, "rt") as f:
@@ -659,9 +730,14 @@ def add_quarantine_issue(sdir: Path, issue: dict[str, Any]) -> dict[str, Any]:
     return full_issue
 
 
-def cmd_init(_: argparse.Namespace) -> dict[str, Any]:
+def cmd_init(args: argparse.Namespace) -> dict[str, Any]:
     ROOT.mkdir(exist_ok=True)
-    write_json(ROOT / "config.json", {"schema_version": SCHEMA_VERSION})
+    # Preserve any existing config (e.g. a configured output_dir) across re-init.
+    config = read_json(ROOT / "config.json", {}) if (ROOT / "config.json").exists() else {}
+    config["schema_version"] = SCHEMA_VERSION
+    if getattr(args, "output_dir", None):
+        config["output_dir"] = args.output_dir
+    write_json(ROOT / "config.json", config)
     pdir = ensure_project(DEFAULT_PROJECT_ID, title="Default")
     if not head_path().exists() or not head_path().read_text().strip():
         head_path().write_text(f"{DEFAULT_PROJECT_ID}\n")
@@ -671,6 +747,7 @@ def cmd_init(_: argparse.Namespace) -> dict[str, Any]:
         {
             "path": ".zwill",
             "schema_version": SCHEMA_VERSION,
+            "output_dir": str(output_root()),
             "active_project": active_project_id(),
             "project_path": str(pdir),
         },
@@ -800,7 +877,7 @@ def cmd_survey_report(args: argparse.Namespace) -> dict[str, Any] | None:
             # The file holds the raw report payload (survey/summary/questions/...);
             # stdout carries a parseable envelope pointing at it, so scripts get a
             # consistent {command,status,data,...} shape on stdout.
-            Path(args.path).write_text(output + "\n")
+            resolve_output_path(args.path).write_text(output + "\n")
             print_json(
                 envelope(
                     "zwill survey report",
@@ -814,7 +891,7 @@ def cmd_survey_report(args: argparse.Namespace) -> dict[str, Any] | None:
     if args.format == "html":
         output = render_survey_report_html(payload)
         if args.path:
-            Path(args.path).write_text(output)
+            resolve_output_path(args.path).write_text(output)
             # Mirror the json/csv branches: the file holds the rendered report and
             # stdout carries a parseable {command,status,data,...} envelope.
             print_json(
@@ -830,7 +907,7 @@ def cmd_survey_report(args: argparse.Namespace) -> dict[str, Any] | None:
     if args.format == "csv":
         if not args.path:
             raise ZwillError("invalid_input", "--path is required for survey report --format csv.")
-        paths = write_survey_report_csvs(payload, Path(args.path))
+        paths = write_survey_report_csvs(payload, resolve_output_path(args.path))
         return envelope("zwill survey report", "ok", {"survey": args.survey, **payload["summary"], **paths})
     table = Table(title=f"Survey Report: {args.survey}")
     for column in ["question", "type", "answers", "missing", "response", "options"]:

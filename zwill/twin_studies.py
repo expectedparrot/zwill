@@ -291,10 +291,10 @@ def cmd_twin_study_run(args: argparse.Namespace) -> dict[str, Any]:
         raise ZwillError("invalid_output", "Digital twin job export did not include a job id.")
 
     job_path = Path(args.job_path) if args.job_path else output_dir / f"{args.survey}_twin_{job_id}.edsl.json"
-    results_path = Path(args.results_path) if args.results_path else output_dir / f"{args.survey}_twin_{job_id}_results.json.gz"
-    report_html_path = Path(args.report_html) if args.report_html else output_dir / f"{args.survey}_twin_{job_id}_report.html"
-    report_json_path = Path(args.report_json) if args.report_json else None
-    report_csv_path = Path(args.report_csv) if args.report_csv else None
+    results_path = resolve_output_path(args.results_path) if args.results_path else output_dir / f"{args.survey}_twin_{job_id}_results.json.gz"
+    report_html_path = resolve_output_path(args.report_html) if args.report_html else output_dir / f"{args.survey}_twin_{job_id}_report.html"
+    report_json_path = resolve_output_path(args.report_json) if args.report_json else None
+    report_csv_path = resolve_output_path(args.report_csv) if args.report_csv else None
 
     job_path.parent.mkdir(parents=True, exist_ok=True)
     job_path.write_text(json.dumps(job_dict, indent=2) + "\n")
@@ -642,15 +642,15 @@ def cmd_twin_study_compare(args: argparse.Namespace) -> None:
     if args.format == "json":
         output = json.dumps(payload, indent=2)
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.path).write_text(output + "\n")
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            resolve_output_path(args.path).write_text(output + "\n")
         print(output)
         return
     if args.format == "csv":
         fieldnames = list(comparisons[0].keys())
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            with Path(args.path).open("w", newline="") as output_file:
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            with resolve_output_path(args.path).open("w", newline="") as output_file:
                 writer = csv.DictWriter(output_file, fieldnames=fieldnames)
                 writer.writeheader()
                 writer.writerows(comparisons)

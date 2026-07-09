@@ -248,15 +248,15 @@ def cmd_twin_benchmark_report(args: argparse.Namespace) -> None:
     if args.format == "json":
         output = json.dumps(payload, indent=2)
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            Path(args.path).write_text(output + "\n")
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            resolve_output_path(args.path).write_text(output + "\n")
         print(output)
         return
     if args.format == "csv":
         fieldnames = list(payload["rows"][0]) if payload["rows"] else []
         if args.path:
-            Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-            with Path(args.path).open("w", newline="") as output_file:
+            resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+            with resolve_output_path(args.path).open("w", newline="") as output_file:
                 writer = csv.DictWriter(output_file, fieldnames=fieldnames)
                 writer.writeheader()
                 writer.writerows(payload["rows"])
@@ -267,8 +267,8 @@ def cmd_twin_benchmark_report(args: argparse.Namespace) -> None:
         return
     output = render_twin_benchmark_report_html(payload)
     if args.path:
-        Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-        Path(args.path).write_text(output)
+        resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+        resolve_output_path(args.path).write_text(output)
     else:
         print(output)
 
@@ -565,8 +565,8 @@ def cmd_twin_benchmark_practitioner_report_export(args: argparse.Namespace) -> d
         context,
         prompt,
         job_path=Path(args.job_path) if args.job_path else None,
-        prompt_path=Path(args.prompt_path) if args.prompt_path else None,
-        context_path_arg=Path(args.context_path) if args.context_path else None,
+        prompt_path=resolve_output_path(args.prompt_path) if args.prompt_path else None,
+        context_path_arg=resolve_output_path(args.context_path) if args.context_path else None,
     )
     return envelope(
         "zwill twin-benchmark practitioner-report-export",
@@ -591,8 +591,8 @@ def cmd_twin_study_practitioner_report_export(args: argparse.Namespace) -> dict[
         context,
         prompt,
         job_path=Path(args.job_path) if args.job_path else None,
-        prompt_path=Path(args.prompt_path) if args.prompt_path else None,
-        context_path_arg=Path(args.context_path) if args.context_path else None,
+        prompt_path=resolve_output_path(args.prompt_path) if args.prompt_path else None,
+        context_path_arg=resolve_output_path(args.context_path) if args.context_path else None,
     )
     return envelope(
         "zwill twin-study practitioner-report-export",
@@ -699,7 +699,7 @@ def cmd_twin_benchmark_practitioner_report_render(args: argparse.Namespace) -> N
     }
     markdown = paths["markdown"].read_text()
     output = render_twin_practitioner_report_html(payload, markdown, generation)
-    output_path = Path(args.path) if args.path else paths["html"]
+    output_path = resolve_output_path(args.path) if args.path else paths["html"]
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(output)
     if not args.path:
@@ -715,8 +715,8 @@ def generate_practitioner_report_markdown(
     payload: dict[str, Any],
     studies: list[dict[str, Any]],
 ) -> tuple[str, dict[str, Any]]:
-    output_path = Path(args.path) if args.path else None
-    prompt_path = Path(args.prompt_path) if args.prompt_path else (output_path.with_suffix(".prompt.md") if output_path else None)
+    output_path = resolve_output_path(args.path) if args.path else None
+    prompt_path = resolve_output_path(args.prompt_path) if args.prompt_path else (output_path.with_suffix(".prompt.md") if output_path else None)
     job_path = Path(args.job_path) if args.job_path else (output_path.with_suffix(".report_job.edsl.json") if output_path else None)
     job_dict, context, prompt = _cli().build_edsl_practitioner_report_job_dict(args, payload, studies)
     report_id = job_dict["zwill"]["practitioner_report_id"]
@@ -729,7 +729,7 @@ def generate_practitioner_report_markdown(
         prompt_path=prompt_path,
     )
     default_paths = default_practitioner_report_paths(report_id)
-    results_path = Path(args.results_path) if args.results_path else default_paths["dir"] / "results.json.gz"
+    results_path = resolve_output_path(args.results_path) if args.results_path else default_paths["dir"] / "results.json.gz"
     run_result = _cli().cmd_edsl_run(
         argparse.Namespace(
             job=export_data["job_path"],
@@ -751,7 +751,7 @@ def generate_practitioner_report_markdown(
         argparse.Namespace(input_path=str(results_path), report_id=report_id, replace=True)
     )
     markdown = default_paths["markdown"].read_text().strip()
-    markdown_path = Path(args.markdown_path) if args.markdown_path else (output_path.with_suffix(".md") if output_path else None)
+    markdown_path = resolve_output_path(args.markdown_path) if args.markdown_path else (output_path.with_suffix(".md") if output_path else None)
     if markdown_path:
         markdown_path.parent.mkdir(parents=True, exist_ok=True)
         markdown_path.write_text(markdown + "\n")
@@ -789,8 +789,8 @@ def cmd_twin_benchmark_practitioner_report(args: argparse.Namespace) -> None:
     markdown, generation = _cli().generate_practitioner_report_markdown(args, payload, studies)
     output = render_twin_practitioner_report_html(payload, markdown, generation)
     if args.path:
-        Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-        Path(args.path).write_text(output)
+        resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+        resolve_output_path(args.path).write_text(output)
     else:
         print(output)
 
@@ -801,8 +801,8 @@ def cmd_twin_study_practitioner_report(args: argparse.Namespace) -> None:
     markdown, generation = _cli().generate_practitioner_report_markdown(args, payload, studies)
     output = render_twin_practitioner_report_html(payload, markdown, generation)
     if args.path:
-        Path(args.path).parent.mkdir(parents=True, exist_ok=True)
-        Path(args.path).write_text(output)
+        resolve_output_path(args.path).parent.mkdir(parents=True, exist_ok=True)
+        resolve_output_path(args.path).write_text(output)
     else:
         print(output)
 
@@ -1039,8 +1039,8 @@ def cmd_twin_experiment_report_export(args: argparse.Namespace) -> dict[str, Any
         context,
         prompt,
         job_path=Path(args.job_path) if args.job_path else None,
-        prompt_path=Path(args.prompt_path) if args.prompt_path else None,
-        context_path_arg=Path(args.context_path) if args.context_path else None,
+        prompt_path=resolve_output_path(args.prompt_path) if args.prompt_path else None,
+        context_path_arg=resolve_output_path(args.context_path) if args.context_path else None,
     )
     return envelope(
         "zwill twin-experiment report-export",
@@ -1073,8 +1073,8 @@ def cmd_twin_experiment_report_render(args: argparse.Namespace) -> None:
 def cmd_twin_experiment_report(args: argparse.Namespace) -> None:
     job_dict, context, prompt = build_edsl_twin_experiment_report_job_dict(args)
     report_id = job_dict["zwill"]["practitioner_report_id"]
-    output_path = Path(args.path) if args.path else None
-    prompt_path = Path(args.prompt_path) if args.prompt_path else (output_path.with_suffix(".prompt.md") if output_path else None)
+    output_path = resolve_output_path(args.path) if args.path else None
+    prompt_path = resolve_output_path(args.prompt_path) if args.prompt_path else (output_path.with_suffix(".prompt.md") if output_path else None)
     job_path = Path(args.job_path) if args.job_path else (output_path.with_suffix(".report_job.edsl.json") if output_path else None)
     export_data = write_practitioner_report_export(
         report_id,
@@ -1085,7 +1085,7 @@ def cmd_twin_experiment_report(args: argparse.Namespace) -> None:
         prompt_path=prompt_path,
     )
     default_paths = default_practitioner_report_paths(report_id)
-    results_path = Path(args.results_path) if args.results_path else default_paths["dir"] / "results.json.gz"
+    results_path = resolve_output_path(args.results_path) if args.results_path else default_paths["dir"] / "results.json.gz"
     cmd_edsl_run(
         argparse.Namespace(
             job=export_data["job_path"],
