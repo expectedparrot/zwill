@@ -1,6 +1,32 @@
 from __future__ import annotations
 
 from .cli import *  # noqa: F403
+from .twin_baseline import MODEL_LABEL as BASELINE_MODEL_LABEL
+
+
+def conditional_baseline_rows_for_questions(
+    all_rows: list[dict[str, Any]], twin_rows: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Conditional-baseline rows covering the twin's held-out questions.
+
+    The baseline is the deployable bar the twin must beat, so it belongs in the
+    report even when the caller selected only twin job ids. If several baseline
+    jobs cover these questions, keep the one with the most rows (avoids
+    double-counting the same model_label).
+    """
+    heldout = {str(row.get("heldout_question")) for row in twin_rows if row.get("heldout_question")}
+    if not heldout:
+        return []
+    candidates = [
+        row
+        for row in all_rows
+        if row.get("model_label") == BASELINE_MODEL_LABEL and str(row.get("heldout_question")) in heldout
+    ]
+    if not candidates:
+        return []
+    by_job = Counter(str(row.get("job_id")) for row in candidates)
+    best_job = by_job.most_common(1)[0][0]
+    return [row for row in candidates if str(row.get("job_id")) == best_job]
 
 
 def cmd_report_generate_interpretations(args: argparse.Namespace) -> dict[str, Any]:
@@ -930,17 +956,22 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
             )
         )
 
-    twin_rows = read_jsonl(digital_twin_predictions_path(sdir))
+    all_prediction_rows = read_jsonl(digital_twin_predictions_path(sdir))
     selected_job_ids = selected_twin_result_job_ids(args)
+    # Twin models only for selection/scoping; the conditional baseline is folded
+    # back in below as the deployable comparison bar regardless of selection.
+    twin_rows = [row for row in all_prediction_rows if row.get("model_label") != BASELINE_MODEL_LABEL]
     if selected_job_ids:
         selected_job_set = set(selected_job_ids)
         twin_rows = [row for row in twin_rows if row.get("job_id") in selected_job_set]
     if getattr(args, "model", None):
         twin_rows = [row for row in twin_rows if row.get("model") == args.model or row.get("model_label") == args.model]
     twin_job_ids = sorted({str(row.get("job_id")) for row in twin_rows if row.get("job_id")})
+    baseline_rows = conditional_baseline_rows_for_questions(all_prediction_rows, twin_rows)
+    report_rows = twin_rows + baseline_rows
     if twin_rows:
         executive_result = {}
-        twin_payload = build_twin_report(twin_rows)
+        twin_payload = build_twin_report(report_rows)
         attach_twin_set_descriptions(sdir, twin_payload, twin_rows)
         twin_payload["health"] = {"job_ids": twin_job_ids}
         twin_html_path = output_dir / "twin-validation.html"

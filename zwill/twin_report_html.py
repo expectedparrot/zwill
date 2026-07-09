@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .report_common import *  # noqa: F403
+from .twin_baseline import MODEL_LABEL as BASELINE_MODEL_LABEL
 from .twin_baseline import conditional_baseline_appendix_html, has_conditional_baseline
 from .twin_bootstrap import bootstrap_ci_section_html
 from .twin_scoring import probability_granularity_section_html, skill_score_section_html
@@ -1224,6 +1225,7 @@ def render_twin_summary_report_html(
         nll_vs_empirical: float | None,
         l1: float | None,
         calibration_gap: float | None,
+        nll_vs_conditional: float | None = None,
     ) -> str:
         if nll_vs_uniform is not None and nll_vs_uniform < -0.02:
             return "Worse than uniform"
@@ -1231,6 +1233,16 @@ def render_twin_summary_report_html(
             return "Overconfident"
         if l1 is not None and l1 >= 0.45:
             return "Marginal mismatch"
+        # The conditional baseline is the deployable bar — when it exists, judge
+        # the twin against it, not against the trivial uniform/marginal floors.
+        if nll_vs_conditional is not None:
+            if nll_vs_conditional >= 0.05:
+                return "Beats conditional baseline"
+            if nll_vs_conditional >= 0.01:
+                return "Edges conditional baseline"
+            if nll_vs_conditional <= -0.02:
+                return "Below conditional baseline"
+            return "Ties conditional baseline"
         if nll_vs_empirical is not None and nll_vs_empirical >= 0.10:
             return "Strong individual signal"
         if nll_vs_empirical is not None and nll_vs_empirical >= 0.02:
@@ -1311,26 +1323,47 @@ def render_twin_summary_report_html(
     for comparison in diagnostics.get("marginal_comparisons", []):
         if comparison.get("heldout_question") and comparison.get("heldout_question_text"):
             question_text_by_name[str(comparison.get("heldout_question"))] = str(comparison.get("heldout_question_text"))
-    for question, by_model in sorted((diagnostics.get("summary_by_question") or {}).items(), key=lambda item: natural_question_key(item[0])):
+    summary_by_question = diagnostics.get("summary_by_question") or {}
+    # The XGBoost conditional baseline is the deployable bar the twin must beat.
+    # When it is present, surface it as the primary per-question comparison
+    # (a "vs conditional baseline" column plus its own reference row) instead of
+    # leaning on the trivial uniform/marginal floors.
+    # summary_by_question keys are twin-set labels; the baseline job carries the
+    # conditional-baseline model_label, possibly prefixed with "<job_id> / ".
+    def _is_conditional_baseline(label: Any) -> bool:
+        return BASELINE_MODEL_LABEL in str(label)
+
+    show_conditional = any(
+        any(_is_conditional_baseline(model) for model in by_model) for by_model in summary_by_question.values()
+    )
+    conditional_header = "<th>NLL improvement vs conditional baseline</th>" if show_conditional else ""
+    for question, by_model in sorted(summary_by_question.items(), key=lambda item: natural_question_key(item[0])):
         question_text = question_text_by_name.get(str(question), "")
         chart_html = question_marginal_chart(str(question), by_model)
+        baseline_key = next((model for model in by_model if _is_conditional_baseline(model)), None)
+        baseline_values = by_model.get(baseline_key) if baseline_key is not None else None
+        baseline_nll = baseline_values.get("mean_negative_log_likelihood") if baseline_values else None
+        twin_models = [(model, values) for model, values in by_model.items() if not _is_conditional_baseline(model)]
         table_rows = []
-        for model, values in sorted(by_model.items()):
+        for model, values in sorted(twin_models):
             marginal_nll = values.get("mean_empirical_marginal_negative_log_likelihood", values.get("mean_marginal_negative_log_likelihood"))
             nll_vs_empirical = marginal_nll - values["mean_negative_log_likelihood"] if marginal_nll is not None else None
             nll_vs_uniform = values.get("mean_uniform_negative_log_likelihood") - values["mean_negative_log_likelihood"] if values.get("mean_uniform_negative_log_likelihood") is not None else None
+            nll_vs_conditional = baseline_nll - values["mean_negative_log_likelihood"] if baseline_nll is not None else None
             mean_confidence = values.get("mean_top_confidence")
             accuracy = values.get("top1_accuracy")
             calibration_gap = abs(mean_confidence - accuracy) if mean_confidence is not None and accuracy is not None else None
             comparison = marginal_comparison_by_key.get((str(question), str(model)), {})
             l1 = comparison.get("l1")
-            takeaway = question_takeaway(nll_vs_uniform, nll_vs_empirical, l1, calibration_gap)
+            takeaway = question_takeaway(nll_vs_uniform, nll_vs_empirical, l1, calibration_gap, nll_vs_conditional)
+            conditional_cell = signed_cell(nll_vs_conditional) if show_conditional else ""
             table_rows.append(
                 "<tr>"
                 f"{twin_set_cell(model)}"
                 f"<td class=\"numeric\">{values.get('rows', 0)}</td>"
                 f"<td class=\"numeric\">{values.get('top1_accuracy', 0.0):.3f}</td>"
                 f"<td class=\"numeric\">{values.get('mean_negative_log_likelihood', 0.0):.3f}</td>"
+                f"{conditional_cell}"
                 f"{signed_cell(nll_vs_uniform)}"
                 f"{signed_cell(nll_vs_empirical)}"
                 f"{numeric_cell(calibration_gap)}"
@@ -1338,21 +1371,47 @@ def render_twin_summary_report_html(
                 f"<td><b>{escape_html(takeaway)}</b></td>"
                 "</tr>"
             )
-        if by_model:
-            first_values = next(iter(by_model.values()))
+        # Conditional-baseline reference row (the bar), shown above uniform.
+        if show_conditional and baseline_values is not None:
+            b_marginal_nll = baseline_values.get(
+                "mean_empirical_marginal_negative_log_likelihood",
+                baseline_values.get("mean_marginal_negative_log_likelihood"),
+            )
+            b_uniform_nll = baseline_values.get("mean_uniform_negative_log_likelihood")
+            b_vs_uniform = b_uniform_nll - baseline_nll if b_uniform_nll is not None and baseline_nll is not None else None
+            b_vs_empirical = b_marginal_nll - baseline_nll if b_marginal_nll is not None and baseline_nll is not None else None
+            table_rows.append(
+                "<tr class=\"baseline-row\">"
+                "<td><b>Conditional baseline (XGBoost)</b><span>Embeddings + covariates, leave-one-question-out — the deployable bar</span></td>"
+                f"<td class=\"numeric\">{baseline_values.get('rows', 0)}</td>"
+                f"<td class=\"numeric\">{baseline_values.get('top1_accuracy', 0.0):.3f}</td>"
+                f"{numeric_cell(baseline_nll)}"
+                f"{signed_cell(0.0 if baseline_nll is not None else None)}"
+                f"{signed_cell(b_vs_uniform)}"
+                f"{signed_cell(b_vs_empirical)}"
+                "<td></td>"
+                "<td></td>"
+                "<td><b>Deployable bar</b></td>"
+                "</tr>"
+            )
+        if twin_models:
+            first_values = twin_models[0][1]
             uniform_nll = first_values.get("mean_uniform_negative_log_likelihood")
             marginal_nll = first_values.get(
                 "mean_empirical_marginal_negative_log_likelihood",
                 first_values.get("mean_marginal_negative_log_likelihood"),
             )
             uniform_vs_empirical = marginal_nll - uniform_nll if marginal_nll is not None and uniform_nll is not None else None
+            uniform_vs_conditional = baseline_nll - uniform_nll if baseline_nll is not None and uniform_nll is not None else None
             uniform_nll_cell = f"<td class=\"numeric\">{uniform_nll:.3f}</td>" if uniform_nll is not None else "<td></td>"
+            uniform_conditional_cell = signed_cell(uniform_vs_conditional) if show_conditional else ""
             table_rows.append(
                 "<tr class=\"baseline-row\">"
-                "<td><b>Uniform random</b><span>Deployable no-information baseline</span></td>"
+                "<td><b>Uniform random</b><span>No-information floor</span></td>"
                 f"<td class=\"numeric\">{first_values.get('rows', 0)}</td>"
                 "<td></td>"
                 f"{uniform_nll_cell}"
+                f"{uniform_conditional_cell}"
                 f"{signed_cell(0.0 if uniform_nll is not None else None)}"
                 f"{signed_cell(uniform_vs_empirical)}"
                 "<td></td>"
@@ -1366,7 +1425,7 @@ def render_twin_summary_report_html(
             f"{chart_html}"
             "<div class=\"table-wrap question-table-wrap\">"
             "<table>"
-            "<thead><tr><th>Twin set</th><th>Rows</th><th>Accuracy</th><th>NLL</th><th>NLL improvement vs uniform</th><th>NLL improvement vs empirical oracle</th><th>Confidence gap</th><th>Marginal L1</th><th>Takeaway</th></tr></thead>"
+            f"<thead><tr><th>Twin set</th><th>Rows</th><th>Accuracy</th><th>NLL</th>{conditional_header}<th>NLL improvement vs uniform</th><th>NLL improvement vs empirical oracle</th><th>Confidence gap</th><th>Marginal L1</th><th>Takeaway</th></tr></thead>"
             f"<tbody>{''.join(table_rows)}</tbody>"
             "</table>"
             "</div>"
