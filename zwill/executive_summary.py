@@ -319,6 +319,43 @@ def svg_header(width: int, height: int, title: str) -> list[str]:
     ]
 
 
+def conditional_baseline_comparison(
+    twin_rows: list[dict[str, Any]], baseline_rows: list[dict[str, Any]] | None
+) -> dict[str, Any] | None:
+    """Twin vs. the XGBoost conditional baseline — the deployable bar.
+
+    Returns aggregate baseline metrics (for the Main Evidence column) plus a
+    paired win-rate/delta over the (respondent, question) rows both scored, or
+    ``None`` when no baseline is present.
+    """
+    if not baseline_rows:
+        return None
+    baseline_metrics = {
+        "mean_probability_actual": float(weighted_row_mean(baseline_rows, "probability_actual") or 0.0),
+        "mean_negative_log_likelihood": float(weighted_row_mean(baseline_rows, "negative_log_likelihood") or 0.0),
+        "mean_brier": float(weighted_row_mean(baseline_rows, "brier") or 0.0),
+    }
+    baseline_p_by_key: dict[tuple[str, str], float] = {}
+    for row in baseline_rows:
+        key = (str(row.get("respondent_id")), str(row.get("heldout_question")))
+        baseline_p_by_key[key] = float(row.get("probability_actual") or 0.0)
+    deltas: list[float] = []
+    better = 0
+    for row in twin_rows:
+        key = (str(row.get("respondent_id")), str(row.get("heldout_question")))
+        if key in baseline_p_by_key:
+            delta = float(row.get("probability_actual") or 0.0) - baseline_p_by_key[key]
+            deltas.append(delta)
+            if delta > 0:
+                better += 1
+    return {
+        "baseline_metrics": baseline_metrics,
+        "matched_rows": len(deltas),
+        "mean_p_delta": (sum(deltas) / len(deltas)) if deltas else 0.0,
+        "share_twin_better": (better / len(deltas)) if deltas else 0.0,
+    }
+
+
 def render_html(
     *,
     survey: str,
@@ -332,6 +369,7 @@ def render_html(
     pairwise_svg: Path,
     pairwise: dict[str, Any],
     spearman_detail: dict[str, Any],
+    conditional: dict[str, Any] | None = None,
     generated_markdown: str | None = None,
     generation: dict[str, Any] | None = None,
 ) -> str:
@@ -372,6 +410,26 @@ def render_html(
     empirical_lift_block = ""
     if empirical_lift_svg and empirical_lift:
         empirical_lift_block = f"""<h3>Lift Versus Empirical Marginal Oracle</h3><p>Mean lift versus the empirical marginal oracle is {empirical_lift['mean_lift']:.2f}x. This stricter comparison is only available because the held-out target was observed in the validation data; it is not available for future unanswered questions.</p><img src="{escape(empirical_lift_svg.name)}" alt="Histogram of lift over empirical marginal probability assigned to the actual answer." style="width:100%;max-width:980px;height:auto;border:1px solid var(--line);border-radius:8px;background:white;margin-top:8px">"""
+    conditional_head = ""
+    conditional_p_cell = ""
+    conditional_nll_cell = ""
+    conditional_brier_cell = ""
+    conditional_lead = ""
+    if conditional:
+        bm = conditional["baseline_metrics"]
+        conditional_head = "<th class=\"num\">Conditional baseline (XGBoost)</th>"
+        conditional_p_cell = f"<td class=\"num\">{bm['mean_probability_actual']:.1%}</td>"
+        conditional_nll_cell = f"<td class=\"num\">{bm['mean_negative_log_likelihood']:.3f}</td>"
+        conditional_brier_cell = f"<td class=\"num\">{bm['mean_brier']:.3f}</td>"
+        delta = float(conditional.get("mean_p_delta", 0.0))
+        share = float(conditional.get("share_twin_better", 0.0))
+        verdict = "beats" if delta > 0.005 else ("ties" if delta >= -0.005 else "trails")
+        conditional_lead = (
+            f"<p><strong>Versus the deployable bar:</strong> the twin {verdict} the XGBoost conditional baseline "
+            f"(embeddings + demographics, leave-one-question-out) — it assigns {delta:+.1%} probability to the actual "
+            f"answer relative to that baseline and wins on {share:.0%} of matched predictions. This is the comparison "
+            f"that matters; uniform and the empirical oracle are context.</p>"
+        )
     per_question_rows = "".join(
         f"<tr><td><code>{escape(row['question'])}</code></td><td class=\"num\">{row['rows']}</td><td class=\"num\">{row['observed_mean_p_actual']:.3f}</td><td class=\"num\">{row['null_mean_p_actual_mean']:.3f}</td><td class=\"num\">{row['p_value_mean_p_actual']:.5f}</td></tr>"
         for row in individual.get("per_question", [])
@@ -421,7 +479,7 @@ td.num{{text-align:right;font-variant-numeric:tabular-nums}}
 <div class="panel span-4 metric"><div class="value">{metrics['row_count']:,.0f}</div><div class="label">Validation rows</div></div><div class="panel span-4 metric"><div class="value">{metrics['question_count']:,.0f}</div><div class="label">Held-out questions</div></div><div class="panel span-4 metric"><div class="value">{lift['share_above_1']:.0%}</div><div class="label">Rows above uniform</div></div>
 <div class="panel span-12"><h2>Decision Guidance</h2><table><thead><tr><th>Decision use</th><th>Recommendation</th><th>Why</th></tr></thead><tbody><tr><td>Exploratory concept screening</td><td><strong>Use cautiously</strong></td><td>The validation shows lift over uniform guessing, but {individual_signal_text.lower()}</td></tr><tr><td>Ranking options or messages</td><td><strong>Preliminary directional use</strong></td><td>{ranking_why}</td></tr><tr><td>Exact market sizing, targeting, or public claims</td><td><strong>Do not use alone</strong></td><td>Held-out validation supports aggregate/directional signal, not precise standalone estimates or individual-level action.</td></tr></tbody></table></div>
 <div class="panel span-12"><h2>What Was Held Out?</h2><p>The validation held out observed answers and predicted them from the remaining respondent context. Unless a run report records more specific exclusions, treat the context policy as all available observed answers except the current held-out target.</p><table><thead><tr><th>Question</th><th>Held-out target</th></tr></thead><tbody>{question_rows}</tbody></table></div>
-<div class="panel span-12"><h2>Main Evidence</h2><table><thead><tr><th>Metric</th><th class="num">Twin</th><th class="num">Uniform over options</th></tr></thead><tbody><tr><td>Mean probability assigned to actual answer</td><td class="num">{metrics['mean_probability_actual']:.1%}</td><td class="num">{metrics['mean_uniform_probability_actual']:.1%}</td></tr><tr><td>Negative log likelihood</td><td class="num">{metrics['mean_negative_log_likelihood']:.3f}</td><td class="num">{metrics['mean_uniform_negative_log_likelihood']:.3f}</td></tr><tr><td>Brier score</td><td class="num">{metrics['mean_brier']:.3f}</td><td class="num">{metrics['mean_uniform_brier']:.3f}</td></tr></tbody></table></div>
+<div class="panel span-12"><h2>Main Evidence</h2>{conditional_lead}<table><thead><tr><th>Metric</th><th class="num">Twin</th>{conditional_head}<th class="num">Uniform over options</th></tr></thead><tbody><tr><td>Mean probability assigned to actual answer</td><td class="num">{metrics['mean_probability_actual']:.1%}</td>{conditional_p_cell}<td class="num">{metrics['mean_uniform_probability_actual']:.1%}</td></tr><tr><td>Negative log likelihood</td><td class="num">{metrics['mean_negative_log_likelihood']:.3f}</td>{conditional_nll_cell}<td class="num">{metrics['mean_uniform_negative_log_likelihood']:.3f}</td></tr><tr><td>Brier score</td><td class="num">{metrics['mean_brier']:.3f}</td>{conditional_brier_cell}<td class="num">{metrics['mean_uniform_brier']:.3f}</td></tr></tbody></table></div>
 <div class="panel span-12"><h2>Accuracy Lift Distribution</h2><h3>Lift Versus Uniform</h3><p>Mean lift over uniform is {lift['mean_lift']:.2f}x, median lift is {lift['median_lift']:.2f}x, and {lift['share_above_1']:.1%} of rows are above the uniform baseline. This asks whether twins beat random guessing over answer options.</p><img src="{escape(lift_svg.name)}" alt="Histogram of lift over uniform probability assigned to the actual answer." style="width:100%;max-width:980px;height:auto;border:1px solid var(--line);border-radius:8px;background:white;margin-top:8px">{empirical_lift_block}</div>
 <div class="panel span-12"><h2>Individual Signal Beyond Marginals</h2><p>Within-question permutation keeps each prediction vector fixed and shuffles actual answers across respondents. It tests respondent-specific matching beyond question-level marginal structure; it does not test whether predictions beat uniform. A low p-value means respondent-specific matching is stronger than shuffled labels. A high p-value with good uniform lift means the model may be capturing aggregate or marginal structure rather than individual-level signal.</p><table><thead><tr><th>Statistic</th><th class="num">Observed</th><th class="num">Permutation null</th><th class="num">p-value</th></tr></thead><tbody><tr><td>Mean probability assigned to actual answer</td><td class="num">{individual['observed_mean_p_actual']:.3f}</td><td class="num">{individual['null_mean_p_actual_mean']:.3f}</td><td class="num">{individual['p_value_mean_p_actual']:.5f}</td></tr><tr><td>Mean negative log likelihood</td><td class="num">{individual['observed_mean_nll']:.3f}</td><td class="num">{individual['null_mean_nll_mean']:.3f}</td><td class="num">{individual['p_value_mean_nll']:.5f}</td></tr></tbody></table><h3>Per-question permutation results</h3><table><thead><tr><th>Question</th><th class="num">Rows</th><th class="num">Observed p(actual)</th><th class="num">Null p(actual)</th><th class="num">p-value</th></tr></thead><tbody>{per_question_rows}</tbody></table></div>
 <div class="panel span-12"><h2>Marginal Rank Order</h2><p><strong>Plain-English readout:</strong> {ranking_readout}</p><img src="{escape(pairwise_svg.name)}" alt="Bar chart showing pairwise option ordering accuracy by validation question." style="width:100%;max-width:980px;height:auto;border:1px solid var(--line);border-radius:8px;background:white;margin-top:8px"><p>{spearman_sentence}</p></div>
@@ -438,6 +496,7 @@ def build_executive_summary(
     markdown_path: Path | None,
     simulations: int,
     seed: int,
+    baseline_rows: list[dict[str, Any]] | None = None,
     generated_markdown: str | None = None,
     generation: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
@@ -497,6 +556,7 @@ def build_executive_summary(
     groups = aggregate_groups(rows)
     pairwise = write_pairwise_order_chart(groups, pairwise_svg)
     spearman_detail = write_spearman_detail(groups, base.with_name(f"{prefix}_marginal_rank_order.svg"), simulations=max(100, min(simulations, 5000)), seed=seed)
+    conditional = conditional_baseline_comparison(rows, baseline_rows)
     path.write_text(
         render_html(
             survey=survey,
@@ -510,6 +570,7 @@ def build_executive_summary(
             pairwise_svg=pairwise_svg,
             pairwise=pairwise,
             spearman_detail=spearman_detail,
+            conditional=conditional,
             generated_markdown=generated_markdown,
             generation=generation,
         )
@@ -538,6 +599,7 @@ def build_executive_summary(
         "metrics": metrics,
         "lift": lift,
         "empirical_lift": empirical_lift,
+        "conditional_comparison": conditional,
         "individual_signal": individual,
         "pairwise_ordering": pairwise,
         "spearman_rank_order": spearman_detail,
