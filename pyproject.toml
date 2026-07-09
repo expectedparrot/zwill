@@ -17,6 +17,16 @@ dependencies = [
 test = [
     "pytest>=8.0",
 ]
+# Local, API-key-free embeddings for the conditional baseline (--embedder sentence-transformers).
+local-embeddings = [
+    "sentence-transformers>=2.2",
+]
+# Everything needed to run the conditional baseline locally: the XGBoost model
+# plus local embeddings (no API key required).
+conditional-baseline = [
+    "xgboost>=2.0",
+    "sentence-transformers>=2.2",
+]
 dev = [
     "pytest>=8.0",
     "ruff>=0.6",
