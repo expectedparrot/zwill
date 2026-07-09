@@ -17,6 +17,31 @@ from .reporting import EP_REPORT_CSS, copy_markdown_control, report_display_titl
 
 _STYLE_RE = re.compile(r"<style>(.*?)</style>", re.S)
 _MAIN_RE = re.compile(r"<main[^>]*>(.*)</main>", re.S)
+_BODY_RE = re.compile(r"(<body[^>]*>)", re.I)
+
+_SECTION_BANNER_MARK = "This is one section of a larger report"
+_SECTION_BANNER = (
+    "<div style=\"max-width:1040px;margin:12px auto;padding:10px 14px;border:1px solid #f0c36d;"
+    "background:#fef7e6;border-radius:8px;font:14px/1.45 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;"
+    "color:#664d03\"><strong>" + _SECTION_BANNER_MARK + ".</strong> "
+    "Open the <a href=\"{index_href}\">full report</a> for all sections, the table of contents, "
+    "and the executive summary.</div>"
+)
+
+
+def mark_intermediate_page_html(html: str, index_href: str = "index.html") -> str:
+    """Insert a 'this is a section' banner after ``<body>``.
+
+    Placed outside ``<main>`` so :func:`render_consolidated_report` (which lifts
+    only the ``<main>`` body) never pulls it into the combined report. Idempotent.
+    """
+    if _SECTION_BANNER_MARK in html:
+        return html
+    match = _BODY_RE.search(html)
+    if not match:
+        return html
+    banner = _SECTION_BANNER.format(index_href=escape(index_href))
+    return html[: match.end()] + "\n" + banner + html[match.end() :]
 
 _CONSOLIDATED_CSS = """
 .report-shell { max-width: 1180px; margin: 0 auto; padding: 0 16px 4rem; }

@@ -94,6 +94,38 @@ def test_executive_summary_features_conditional_baseline(tmp_path) -> None:
     assert comp["share_twin_better"] == 1.0
 
 
+def test_stale_narrative_banner_when_model_set_changed(tmp_path) -> None:
+    twin = [_row("openai:gpt-5.5", "r1", "A", 0.20, 1), _row("openai:gpt-5.5", "r2", "B", 0.25, 1)]
+    build_executive_summary(
+        twin,
+        survey="demo",
+        path=tmp_path / "exec.html",
+        markdown_path=None,
+        simulations=25,
+        seed=1,
+        generated_markdown="The GPT-5.5 twin captures individual signal.",
+        generation={"report_id": "r", "stale": True, "stale_reason": "written for openai:gpt-5.5; current: anthropic:claude-opus-4-8, openai:gpt-5.5"},
+    )
+    html = (tmp_path / "exec.html").read_text()
+    assert "This written summary is out of date" in html
+    assert "anthropic:claude-opus-4-8" in html
+
+
+def test_no_stale_banner_for_fresh_narrative(tmp_path) -> None:
+    twin = [_row("openai:gpt-5.5", "r1", "A", 0.20, 1), _row("openai:gpt-5.5", "r2", "B", 0.25, 1)]
+    build_executive_summary(
+        twin,
+        survey="demo",
+        path=tmp_path / "exec.html",
+        markdown_path=None,
+        simulations=25,
+        seed=1,
+        generated_markdown="Fresh narrative.",
+        generation={"report_id": "r"},
+    )
+    assert "This written summary is out of date" not in (tmp_path / "exec.html").read_text()
+
+
 def test_executive_summary_unchanged_without_baseline(tmp_path) -> None:
     twin = [_row("openai:gpt-5.5", "r1", "A", 0.20, 1), _row("openai:gpt-5.5", "r2", "B", 0.25, 1)]
     result = build_executive_summary(

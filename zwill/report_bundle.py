@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from .cli import *  # noqa: F403
-from .consolidated_report import downloads_section_html, render_consolidated_report
+from .consolidated_report import (
+    downloads_section_html,
+    mark_intermediate_page_html,
+    render_consolidated_report,
+)
 from .twin_baseline import MODEL_LABEL as BASELINE_MODEL_LABEL
 
 # Bundle pages that fold into the single scrollable report as sections, in order.
@@ -1046,6 +1050,24 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
             model=getattr(args, "model", None),
             questions=heldout_questions_for_report,
         )
+        # Flag a cached narrative that predates the current model set: the prose
+        # is matched on jobs+questions but not on the models inside them, so an
+        # added/removed model can leave stale prose over fresh tables.
+        if generated_executive:
+            current_models = sorted(
+                {
+                    str(row.get("model_label"))
+                    for row in twin_rows
+                    if row.get("model_label") and not str(row.get("model_label")).startswith("baseline:")
+                }
+            )
+            narrative_models = generated_executive["generation"].get("narrative_model_labels")
+            if narrative_models is not None and sorted(narrative_models) != current_models:
+                generated_executive["generation"]["stale"] = True
+                generated_executive["generation"]["stale_reason"] = (
+                    f"written for {', '.join(narrative_models) or 'no models'}; "
+                    f"current: {', '.join(current_models) or 'no models'}"
+                )
         executive_result = build_executive_summary(
             twin_rows,
             survey=survey,
@@ -1255,12 +1277,24 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
     # it replaces the old digest index. When there is no ready twin validation
     # yet, fall back to the readiness/next-steps index so the bundle is still
     # navigable.
-    consolidated_report = build_consolidated_report_html(
-        output_dir, pages, survey, (manifest.get("executive_summary") or {}).get("path")
-    )
+    executive_html_path = (manifest.get("executive_summary") or {}).get("path")
+    consolidated_report = build_consolidated_report_html(output_dir, pages, survey, executive_html_path)
     if consolidated_report:
         (output_dir / "report.html").write_text(consolidated_report)
         (output_dir / "index.html").write_text(consolidated_report)
+        # Mark the folded-in pages as sections so they are not mistaken for the
+        # report when opened on their own (banner sits outside <main>, so it is
+        # never pulled into the consolidated report above).
+        mark_paths = [executive_html_path] if executive_html_path else []
+        by_id = {page.get("page_id"): page for page in pages}
+        for page_id in ("twin-validation", "survey-profile", "one-shot-marginals"):
+            page = by_id.get(page_id)
+            if page and page.get("path"):
+                mark_paths.append(page["path"])
+        for mark_path in mark_paths:
+            page_file = Path(mark_path)
+            if page_file.exists():
+                page_file.write_text(mark_intermediate_page_html(page_file.read_text()))
     else:
         (output_dir / "index.html").write_text(render_report_bundle_index(manifest))
     write_bundle_json(manifest_path, manifest)
@@ -1358,6 +1392,9 @@ def find_imported_executive_summary_report(
             "markdown_path": str(markdown_path),
             "import_path": str(import_path),
             "imported_at": imported.get("imported_at"),
+            # The model set this narrative was written against (None for narratives
+            # generated before fingerprinting existed).
+            "narrative_model_labels": filters.get("model_labels"),
         }
         candidates.append(
             {

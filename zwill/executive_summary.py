@@ -435,14 +435,24 @@ def render_html(
         for row in individual.get("per_question", [])
     )
     generation_note = ""
+    stale_banner = ""
     if generation:
         generation_note = (
             f"<p class=\"subtle\">Generated analysis: <code>{escape(str(generation.get('report_id') or ''))}</code>"
             f"{' · model: <code>' + escape(str(generation.get('model'))) + '</code>' if generation.get('model') else ''}</p>"
         )
+        if generation.get("stale"):
+            reason = escape(str(generation.get("stale_reason") or ""))
+            stale_banner = (
+                "<div class=\"panel span-12\" style=\"border-left:4px solid #b42318;background:#fef3f2\">"
+                "<strong>⚠ This written summary is out of date.</strong> It was generated for a different set of "
+                f"models than the tables below now show{f' ({reason})' if reason else ''}. Regenerate it with "
+                "<code>zwill twin-results executive-summary-export</code> → run → import, then rebuild the report.</div>"
+            )
     if generated_markdown:
         generated_body = markdown_to_html(remove_leading_executive_summary_heading(generated_markdown))
         executive_body = (
+            f"{stale_banner}"
             "<div class=\"panel span-12 callout\">"
             "<h2>Executive Summary</h2>"
             f"{generated_body}"
