@@ -665,6 +665,15 @@ def render_report_bundle_index(payload: dict[str, Any]) -> str:
         lift = executive.get("lift") or {}
         individual = executive.get("individual_signal") or {}
         pairwise = executive.get("pairwise_ordering") or {}
+        conditional = executive.get("conditional_comparison") or {}
+        conditional_row = ""
+        if conditional:
+            conditional_row = (
+                "<tr><th>Beats conditional baseline</th>"
+                f"<td class=\"num\">{float(conditional.get('share_twin_better', 0.0)):.0%}</td>"
+                "<th>p(actual) vs conditional baseline</th>"
+                f"<td class=\"num\">{float(conditional.get('mean_p_delta', 0.0)):+.1%}</td></tr>"
+            )
         executive_page = next((page for page in payload.get("pages", []) if page.get("page_id") == "executive-summary"), {})
         executive_href = bundle_rel_link(executive_page.get("path"), output_dir) if executive_page.get("path") else ""
         validation_page = next((page for page in payload.get("pages", []) if page.get("page_id") == "twin-validation"), {})
@@ -678,6 +687,7 @@ def render_report_bundle_index(payload: dict[str, Any]) -> str:
         <tbody>
           <tr><th>Validation rows</th><td class="num">{esc(int(metrics.get("row_count", 0)))}</td><th>Held-out questions</th><td class="num">{esc(int(metrics.get("question_count", 0)))}</td></tr>
           <tr><th>Mean p(actual)</th><td class="num">{float(metrics.get("mean_probability_actual", 0.0)):.1%}</td><th>Uniform p(actual)</th><td class="num">{float(metrics.get("mean_uniform_probability_actual", 0.0)):.1%}</td></tr>
+          {conditional_row}
           <tr><th>Rows above uniform</th><td class="num">{float(lift.get("share_above_1", 0.0)):.0%}</td><th>Mean lift vs uniform</th><td class="num">{float(lift.get("mean_lift", 0.0)):.2f}x</td></tr>
           <tr><th>Individual-signal p-value</th><td class="num">{float(individual.get("p_value_mean_p_actual", 0.0)):.5f}</td><th>Option-pair ordering accuracy</th><td class="num">{float((pairwise.get("summary") or {}).get("pairwise_order_accuracy", 0.0)):.0%}</td></tr>
         </tbody>
@@ -993,6 +1003,7 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
             markdown_path=executive_markdown_path,
             simulations=getattr(args, "permutations", DEFAULT_REPORT_PERMUTATIONS),
             seed=getattr(args, "seed", 20260701),
+            baseline_rows=baseline_rows,
             generated_markdown=generated_executive.get("markdown") if generated_executive else None,
             generation=generated_executive.get("generation") if generated_executive else None,
         )
