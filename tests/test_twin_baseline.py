@@ -119,6 +119,52 @@ def test_baseline_generalizes_to_held_out_question_and_beats_uniform() -> None:
     assert mean_p_actual > 0.6  # uniform would be 0.5
 
 
+def test_baseline_uses_respondent_covariates() -> None:
+    """A covariate that fully determines the answer must lift the baseline.
+
+    The held-out question's answer is decided *only* by a panel covariate, and the
+    embeddings carry no signal that separates the two options. A baseline that
+    ignored covariates could do no better than chance; one that uses them (the XGBoost
+    feature set) should key off the covariate and beat chance decisively.
+    """
+    num_questions = 6
+    questions = [
+        {
+            "question_name": f"q{i}",
+            "question_text": f"How do you feel about topic {i}?",
+            "question_options": ["option one", "option two"],
+        }
+        for i in range(1, num_questions + 1)
+    ]
+    answers = {}
+    metadata = {}
+    for r in range(80):
+        group = "alpha" if r % 2 == 0 else "beta"
+        metadata[f"resp{r}"] = {"group": group}
+        respondent = {}
+        for i in range(1, num_questions + 1):
+            # Group deterministically fixes the choice; wording gives no clue.
+            respondent[f"q{i}"] = "option one" if group == "alpha" else "option two"
+        answers[f"resp{r}"] = respondent
+
+    respondent_ids = list(answers)
+    rows, meta = build_conditional_baseline_predictions(
+        survey="demo",
+        questions=questions,
+        answers_by_respondent=answers,
+        respondent_ids=respondent_ids,
+        heldout_questions=["q6"],
+        truth={},
+        embedder=deterministic_embedder,
+        job_id="baseline_test",
+        imported_at="2026-07-07T00:00:00Z",
+        metadata_by_respondent=metadata,
+    )
+    assert meta["covariate_features"] == 2  # group=alpha, group=beta
+    mean_p_actual = statistics.mean(row["probability_actual"] for row in rows)
+    assert mean_p_actual > 0.8  # chance is 0.5; only covariates carry the signal
+
+
 def test_baseline_emits_marginal_metrics_when_truth_present() -> None:
     questions, answers = _two_type_dataset()
     truth = {
@@ -204,3 +250,31 @@ def test_twin_baseline_cli_stores_predictions_and_flows_through_report(tmp_path,
     report_path = tmp_path / "baseline_report.json"
     assert main(["twin-results", "report", "--survey", "demo", "--job-id", job_id, "--format", "json", "--path", str(report_path)]) == 0
     assert report_path.exists()
+
+
+def test_resolve_baseline_embedder_sentence_transformers_and_auto_fallback(monkeypatch) -> None:
+    import pytest
+
+    import zwill.twin_baseline_commands as tbc
+    from zwill.errors import ZwillError
+    from zwill.twin_baseline import DEFAULT_EMBEDDING_MODEL
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("EXPECTED_PARROT_API_KEY", raising=False)
+
+    # forced local backend resolves to a callable embedder without any API key
+    # (the model is loaded lazily inside the embedder, not at resolve time)
+    for choice in ("sentence-transformers", "local", "st"):
+        embedder = tbc.resolve_baseline_embedder(argparse.Namespace(embedder=choice), DEFAULT_EMBEDDING_MODEL)
+        assert callable(embedder)
+
+    # auto with no keys but sentence-transformers installed -> local fallback
+    monkeypatch.setattr(tbc, "sentence_transformers_available", lambda: True)
+    assert callable(tbc.resolve_baseline_embedder(argparse.Namespace(embedder="auto"), DEFAULT_EMBEDDING_MODEL))
+
+    # auto with no keys and no local embeddings -> a helpful error, not a crash
+    monkeypatch.setattr(tbc, "sentence_transformers_available", lambda: False)
+    with pytest.raises(ZwillError) as exc:
+        tbc.resolve_baseline_embedder(argparse.Namespace(embedder="auto"), DEFAULT_EMBEDDING_MODEL)
+    hint = getattr(exc.value, "hint", "") or ""
+    assert "local-embeddings" in hint or "sentence-transformers" in hint

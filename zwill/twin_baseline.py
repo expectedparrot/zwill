@@ -7,18 +7,23 @@ baseline that uses the *same* observed answers.
 
 A per-question regression cannot do this: a genuinely held-out target question has
 never been seen, so there are no per-question weights to learn. This baseline
-instead works entirely in embedding space. Every (question, option) pair and every
-option label is embedded once; a respondent is represented by the mean of the
-(question, selected-option) pairs they actually chose. A small logistic regression
-maps two similarity features -- how close a candidate option is to the respondent's
-profile -- to a select/not-select label.
+instead works in embedding space plus panel covariates. Every question text, every
+(question, option) pair, and every option label is embedded once; a respondent is
+represented by the mean of the (question, selected-option) pairs they actually
+chose. An XGBoost classifier scores each candidate option from a full feature set:
+the raw question and option embeddings, the respondent's one-hot covariates (panel
+metadata such as party or region), and embedding-similarity scalars (how close a
+candidate option is to the respondent's profile). Per-option scores are normalised
+into a distribution.
 
 Training is leave-one-question-out: each held-out target is scored by a model
 trained only on the *other* option-bearing questions, so the target question's own
-answer pattern never enters training. Because every feature is a semantic
-similarity rather than a question identity, the model transfers to target
+answer pattern never enters training. Because the features are semantic (embeddings
+and similarities) rather than question identities, the model transfers to target
 questions it has never seen -- exactly the deployment scenario a digital twin
-claims to handle.
+claims to handle. The covariates are what let a cheap model rival the LLM twin:
+they carry the demographic signal (party -> policy, age -> preference) that raw
+embedding similarity alone misses.
 
 Predictions are emitted in the same row schema as real twin predictions, tagged
 with a baseline ``model_label``, so they flow through the existing scoring,
@@ -34,6 +39,7 @@ from typing import Any, Callable
 
 import numpy as np
 
+from .errors import ZwillError
 from .probability import true_probabilities_for
 from .twin import one_hot_metrics
 
@@ -43,8 +49,11 @@ Embedder = Callable[[list[str]], list[list[float]]]
 MODEL_LABEL = "baseline:conditional-embedding"
 BASELINE_SERVICE = "baseline"
 BASELINE_MODEL = "conditional-embedding"
-FEATURE_VERSION = "v1"
+FEATURE_VERSION = "v2-xgboost"
 DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
+# A small, fast, widely-used local model. Runs on CPU; downloaded/cached on first
+# use. Used by the sentence-transformers embedder, which needs no API key.
+DEFAULT_LOCAL_EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
 # ---------------------------------------------------------------------------
@@ -150,6 +159,63 @@ def edsl_embedder(
         return vectors
 
     return embed
+
+
+# ---------------------------------------------------------------------------
+# Local sentence-transformers embedder (no API key; needs local compute). Lazy-
+# imported and the loaded model is cached, so importing this module never
+# requires sentence-transformers / torch.
+# ---------------------------------------------------------------------------
+_ST_MODEL_CACHE: dict[str, Any] = {}
+
+
+def sentence_transformers_available() -> bool:
+    import importlib.util
+
+    return importlib.util.find_spec("sentence_transformers") is not None
+
+
+def sentence_transformers_embedder(
+    *,
+    model: str = DEFAULT_LOCAL_EMBEDDING_MODEL,
+    batch_size: int = 256,
+) -> Embedder:
+    def embed(texts: list[str]) -> list[list[float]]:
+        try:
+            from sentence_transformers import SentenceTransformer
+        except ImportError as exc:
+            raise ZwillError(
+                "missing_dependency",
+                "sentence-transformers is required for local embeddings.",
+                hint="Install it with `pip install 'zwill[local-embeddings]'` (or `pip install sentence-transformers`).",
+            ) from exc
+        st_model = _ST_MODEL_CACHE.get(model)
+        if st_model is None:
+            st_model = SentenceTransformer(model)
+            _ST_MODEL_CACHE[model] = st_model
+        vectors = st_model.encode(
+            list(texts),
+            batch_size=batch_size,
+            normalize_embeddings=True,
+            show_progress_bar=False,
+            convert_to_numpy=True,
+        )
+        return [[float(x) for x in vector] for vector in vectors]
+
+    return embed
+
+
+def _load_xgboost() -> Any:
+    """Lazy-import XGBClassifier so importing this module never requires xgboost."""
+    try:
+        from xgboost import XGBClassifier
+    except ImportError as exc:
+        raise ZwillError(
+            "missing_dependency",
+            "xgboost is required for the conditional baseline.",
+            hint="Install it with `pip install 'zwill[conditional-baseline]'` (or `pip install xgboost`), or pass --skip-baseline.",
+        ) from exc
+    return XGBClassifier
 
 
 def embedding_index(texts: list[str], embedder: Embedder) -> dict[str, list[float]]:
@@ -271,12 +337,15 @@ def conditional_baseline_appendix_html() -> str:
   </p>
   <h3>How it is built</h3>
   <ul>
-    <li>Every (question, option) pair and every option label is embedded once.</li>
+    <li>Every question text, every (question, option) pair, and every option label
+      is embedded once.</li>
     <li>Each respondent is represented by the mean embedding of the options they
-      actually chose &mdash; a compact summary of "what this person is like".</li>
-    <li>A small logistic regression maps two similarity features (how close a
-      candidate option is to that respondent's profile) to a select / do-not-select
-      outcome, and the per-option scores are normalised into a distribution.</li>
+      actually chose &mdash; a compact summary of "what this person is like" &mdash;
+      alongside their one-hot panel covariates (metadata such as party or region).</li>
+    <li>An <strong>XGBoost</strong> classifier scores each candidate option from the
+      full feature set &mdash; the raw question and option embeddings, the respondent's
+      covariates, and the embedding-similarity scalars &mdash; and the per-option
+      scores are normalised into a distribution.</li>
   </ul>
   <h3>Why it is fair, not rigged</h3>
   <p>
@@ -284,15 +353,17 @@ def conditional_baseline_appendix_html() -> str:
     scored by a model trained only on the <em>other</em> questions. Nothing about the
     target &mdash; not a single respondent's answer to it, and not its marginal &mdash;
     ever enters training. The baseline therefore uses only what is genuinely available
-    when predicting a new question: the wording of that question and its options, and
-    the respondent's answers to <em>other</em> questions.
+    when predicting a new question: the wording of that question and its options, the
+    respondent's answers to <em>other</em> questions, and the respondent's panel
+    covariates &mdash; all of which the twin also has.
   </p>
   <p>
     In particular, the baseline does <strong>not</strong> use the target question's own
     empirical marginal. That would be leakage: for a real new question the marginal is
-    unknown, and the twin does not get it either. Because every feature is a semantic
-    similarity rather than a question identity, the fitted model transfers to target
-    questions it has never seen &mdash; the same generalisation the twin claims.
+    unknown, and the twin does not get it either. Because the features are semantic
+    (embeddings, similarities, and demographics) rather than question identities, the
+    fitted model transfers to target questions it has never seen &mdash; the same
+    generalisation the twin claims.
   </p>
   <h3>How to read the comparison</h3>
   <p>
@@ -338,6 +409,7 @@ def build_conditional_baseline_predictions(
     embedder: Embedder,
     job_id: str,
     imported_at: str,
+    metadata_by_respondent: dict[str, dict[str, Any]] | None = None,
     embedding_model: str = DEFAULT_EMBEDDING_MODEL,
     l2: float = 1.0,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
@@ -353,6 +425,7 @@ def build_conditional_baseline_predictions(
     texts: list[str] = []
     for name in option_question_names:
         question_text = str(question_by_name[name].get("question_text") or name)
+        texts.append(question_text)  # raw question embedding (a feature in its own right)
         for option in question_options[name]:
             texts.append(pair_text(question_text, option))
             texts.append(option_text(option))
@@ -360,17 +433,42 @@ def build_conditional_baseline_predictions(
     if not index:
         raise ValueError("No option-bearing questions to embed for the conditional baseline.")
 
-    # Per option-bearing question, unit-normalized matrices of pair and option vectors.
+    # Per option-bearing question: the question-text vector, and unit-normalized
+    # matrices of pair and option vectors.
+    question_vec: dict[str, np.ndarray] = {}
     pair_unit: dict[str, np.ndarray] = {}
     option_unit: dict[str, np.ndarray] = {}
     for name in option_question_names:
         question_text = str(question_by_name[name].get("question_text") or name)
+        question_vec[name] = np.asarray(index[question_text], dtype=float)
         pair_unit[name] = _unit(
             np.asarray([index[pair_text(question_text, option)] for option in question_options[name]], dtype=float)
         )
         option_unit[name] = _unit(
             np.asarray([index[option_text(option)] for option in question_options[name]], dtype=float)
         )
+
+    # Respondent covariates (panel metadata) one-hot encoded across the cohort --
+    # the signal the old logistic baseline ignored entirely (e.g. party -> policy).
+    covariate_keys: list[str] = []
+    seen_covariates: set[str] = set()
+    for metadata in (metadata_by_respondent or {}).values():
+        if isinstance(metadata, dict):
+            for key, value in metadata.items():
+                token = f"{key}={value}"
+                if token not in seen_covariates:
+                    seen_covariates.add(token)
+                    covariate_keys.append(token)
+    covariate_keys.sort()
+    covariate_pos = {token: i for i, token in enumerate(covariate_keys)}
+
+    def covariate_vector(respondent_id: str) -> np.ndarray:
+        vec = np.zeros(len(covariate_keys), dtype=float)
+        for key, value in (metadata_by_respondent or {}).get(respondent_id, {}).items():
+            pos = covariate_pos.get(f"{key}={value}")
+            if pos is not None:
+                vec[pos] = 1.0
+        return vec
 
     # Per respondent: unit pair/option vectors for the options they selected, plus
     # running sums so a profile that excludes any one question is an O(dim) update.
@@ -411,10 +509,24 @@ def build_conditional_baseline_predictions(
             option_profile = option_sum[respondent_id] / count
         return _unit(pair_profile), _unit(option_profile)
 
-    def feature_matrix(question_name: str, pair_profile: np.ndarray, option_profile: np.ndarray) -> np.ndarray:
-        # cosine(candidate, profile) == dot(unit candidate, unit profile)
-        return np.column_stack(
-            (pair_unit[question_name] @ pair_profile, option_unit[question_name] @ option_profile)
+    def feature_matrix(question_name: str, respondent_id: str, pair_profile: np.ndarray, option_profile: np.ndarray) -> np.ndarray:
+        # One row per candidate option. The full feature set: the raw question and
+        # option embeddings (so the model generalizes across questions), the
+        # respondent's covariates, plus the embedding-similarity scalars and the
+        # option index -- signals gradient-boosted trees can split on directly
+        # (trees cannot recover cosine similarity from raw embedding dims).
+        options = question_options[question_name]
+        qvec = question_vec[question_name]
+        option_vecs = option_unit[question_name]
+        sim_pair = pair_unit[question_name] @ pair_profile
+        sim_opt = option_unit[question_name] @ option_profile
+        covariates = covariate_vector(respondent_id)
+        return np.asarray(
+            [
+                np.concatenate((qvec, option_vecs[pos], covariates, [sim_pair[pos], sim_opt[pos], float(pos)]))
+                for pos in range(len(options))
+            ],
+            dtype=float,
         )
 
     # Training features grouped by source question (profile excludes its own question).
@@ -430,7 +542,7 @@ def build_conditional_baseline_predictions(
             profile = profile_excluding(respondent_id, question_name)
             if profile is None:
                 continue
-            feature_rows.append(feature_matrix(question_name, *profile))
+            feature_rows.append(feature_matrix(question_name, respondent_id, *profile))
             selected = answers_by_respondent[respondent_id][question_name]
             label_rows.append(np.asarray([1.0 if option == selected else 0.0 for option in options]))
         if feature_rows:
@@ -442,17 +554,33 @@ def build_conditional_baseline_predictions(
             "No training rows: need respondents with observed answers to option-bearing questions."
         )
 
-    # Leave-one-question-out models.
-    models: dict[str, LogisticRegression] = {}
+    # Leave-one-question-out gradient-boosted models: for each held-out question,
+    # train on every OTHER question's rows, so the model must generalize to a
+    # genuinely new question (it never sees the target's labels) -- the property
+    # that makes this a *deployable* baseline, not an oracle.
+    XGBClassifier = _load_xgboost()
+    models: dict[str, Any] = {}
     training_rows_by_question: dict[str, int] = {}
     for heldout_question in heldout_questions:
         if heldout_question not in features_by_question:
             continue
         train_x = np.vstack([m for q, m in features_by_question.items() if q != heldout_question])
         train_y = np.concatenate([labels_by_question[q] for q in features_by_question if q != heldout_question])
-        if train_x.size == 0:
+        if train_x.size == 0 or len(np.unique(train_y)) < 2:
             continue
-        models[heldout_question] = LogisticRegression(l2=l2).fit(train_x, train_y)
+        classifier = XGBClassifier(
+            n_estimators=300,
+            max_depth=6,
+            learning_rate=0.1,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            reg_lambda=max(1.0, float(l2)),
+            tree_method="hist",
+            eval_metric="logloss",
+            n_jobs=0,
+        )
+        classifier.fit(train_x, train_y)
+        models[heldout_question] = classifier
         training_rows_by_question[heldout_question] = int(train_x.shape[0])
 
     rows: list[dict[str, Any]] = []
@@ -466,7 +594,6 @@ def build_conditional_baseline_predictions(
         options = question_options[heldout_question]
         heldout_text = str(question.get("question_text") or heldout_question)
         marginal_probabilities = true_probabilities_for(heldout_question, truth, options) if truth else {}
-        weights = np.asarray(model.weights)
         for respondent_id in respondent_ids:
             answers = answers_by_respondent.get(respondent_id, {})
             actual_answer = answers.get(heldout_question)
@@ -477,8 +604,10 @@ def build_conditional_baseline_predictions(
             if profile is None:
                 skipped_no_profile += 1
                 continue
-            standardized = (feature_matrix(heldout_question, *profile) - model._mean) / model._std
-            raw_scores = 1.0 / (1.0 + np.exp(-(standardized @ weights + model.bias)))
+            # P(option selected) per candidate, then normalize across options.
+            raw_scores = np.asarray(
+                model.predict_proba(feature_matrix(heldout_question, respondent_id, *profile))[:, 1], dtype=float
+            )
             total = float(raw_scores.sum())
             probabilities = (
                 [1.0 / len(options)] * len(options) if total <= 0 else (raw_scores / total).tolist()
@@ -506,7 +635,7 @@ def build_conditional_baseline_predictions(
                     "probabilities": probabilities_by_option,
                     "raw_probabilities": raw_scores.tolist(),
                     "raw_probability_sum": total,
-                    "notes": f"Conditional embedding baseline ({FEATURE_VERSION}), leave-one-question-out.",
+                    "notes": f"Conditional baseline ({FEATURE_VERSION}): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
                     **metrics,
                     "empirical_marginal_probabilities": marginal_probabilities,
                     "empirical_marginal_probability_actual": marginal_metrics.get("probability_actual"),
@@ -533,7 +662,9 @@ def build_conditional_baseline_predictions(
         "prediction_rows": len(rows),
         "heldout_questions": scored_questions,
         "unscored_questions": [q for q in heldout_questions if q not in models],
-        "feature_weights_by_question": {q: models[q].weights for q in scored_questions},
+        "model_type": "xgboost",
+        "covariate_features": len(covariate_keys),
+        "feature_dimension": int(next(iter(features_by_question.values())).shape[1]) if features_by_question else 0,
         "skipped_no_profile": skipped_no_profile,
         "skipped_no_actual": skipped_no_actual,
         "unique_texts_embedded": len(index),

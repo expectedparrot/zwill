@@ -24,11 +24,15 @@ accuracy rewards confident mode-guessing.
 ## 3. The conditional baseline is the bar
 
 The `baseline:conditional-embedding` row is a cheap "individual information, no
-frontier model" baseline, fit on the same respondents using only what is available
-for a genuinely new question (question/option wording + the respondent's other
-answers, leave-one-question-out — it never sees the target's marginal). A twin
-earns a positive recommendation only if it **beats this baseline**, not merely
-uniform or the group average. If it only beats those, the added value over a cheap
+frontier model" baseline: an XGBoost classifier over question/option embeddings,
+the respondent's panel covariates, and embedding-similarity scalars. It is fit on
+the same respondents using only what is available for a genuinely new question
+(question/option wording + the respondent's other answers + covariates,
+leave-one-question-out — it never sees the target's marginal). A twin earns a
+positive recommendation only if it **beats this baseline**, not merely uniform or
+the group average. This is a strong bar: with demographic covariates the baseline
+often rivals or beats the LLM twin on accuracy, so clearing it is real evidence the
+twin adds individual-level signal. If it only beats those, the added value over a cheap
 model is unproven — say so.
 
 ## 4. Is the gap real? (`bootstrap.json` / report bootstrap panel)

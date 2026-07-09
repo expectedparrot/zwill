@@ -26,10 +26,14 @@ noise?" Do not report a positive result from a bare twin run.
   editable checkout). Running twins uses EDSL.
 - Running twins uses **Expected Parrot remote inference**: `EXPECTED_PARROT_API_KEY`
   in a `.env` that `zwill edsl-run` can find (it loads the nearest `.env`).
-- The **conditional baseline** embeds question/option text and needs
-  `OPENAI_API_KEY` (for `text-embedding-3-small`). Without it the baseline is
-  skipped and the comparison loses its point — set the key, or accept a weaker
-  readout.
+- The **conditional baseline** embeds question/option text. It picks an embedding
+  backend from `--embedder auto` (default): a direct `OPENAI_API_KEY`, then Expected
+  Parrot (`EXPECTED_PARROT_API_KEY`, `--embedder edsl`), then a local
+  sentence-transformers model when installed (`--embedder sentence-transformers`, no
+  API key — `pip install 'zwill[conditional-baseline]'`). The baseline itself is an
+  XGBoost model, so install that extra to run it fully offline. Without any backend
+  the baseline is skipped and the comparison loses its point — set a key or install
+  local embeddings, or accept a weaker readout.
 - Do **not** pass `temperature` to models. Newer Anthropic/OpenAI models reject it
   and error on every call; EDSL omits it automatically.
 

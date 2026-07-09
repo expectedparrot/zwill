@@ -4,25 +4,33 @@ from .cli import *  # noqa: F403
 from .twin import normalize_name_list
 from .twin_baseline import (
     DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_LOCAL_EMBEDDING_MODEL,
     MODEL_LABEL,
     Embedder,
     baseline_job_id,
     build_conditional_baseline_predictions,
     edsl_embedder,
     openai_embedder,
+    sentence_transformers_available,
+    sentence_transformers_embedder,
 )
 
 
 def resolve_baseline_embedder(args: Any, embedding_model: str) -> Embedder:
     """Pick the embedding backend for the conditional baseline.
 
-    `--embedder auto` (the default) uses a direct OpenAI key when one is present,
-    otherwise routes embeddings through Expected Parrot (remote EDSL), which needs
-    only an EXPECTED_PARROT_API_KEY. `openai` and `edsl`/`expected-parrot` force a
-    backend. This lets the gated `--require-baseline` validation run for users who
-    only have Expected Parrot credentials.
+    `--embedder auto` (the default) prefers a direct OpenAI key, then Expected
+    Parrot (remote EDSL, needs only EXPECTED_PARROT_API_KEY), then a local
+    sentence-transformers model when it is installed -- so the gated
+    `--require-baseline` validation can run with compute and no API keys at all.
+    `openai`, `edsl`/`expected-parrot`, and `sentence-transformers`/`local` force
+    a backend.
     """
     choice = (getattr(args, "embedder", None) or "auto").lower()
+    # A local sentence-transformers model uses its own default, not the OpenAI one.
+    local_model = embedding_model if embedding_model != DEFAULT_EMBEDDING_MODEL else DEFAULT_LOCAL_EMBEDDING_MODEL
+    if choice in {"sentence-transformers", "sentence_transformers", "sentence", "local", "st"}:
+        return sentence_transformers_embedder(model=local_model)
     if choice in {"edsl", "expected-parrot", "ep", "remote"}:
         return edsl_embedder(model=embedding_model)
     if choice == "openai":
@@ -32,13 +40,16 @@ def resolve_baseline_embedder(args: Any, embedding_model: str) -> Embedder:
         return openai_embedder(model=embedding_model)
     if os.environ.get("EXPECTED_PARROT_API_KEY"):
         return edsl_embedder(model=embedding_model)
+    if sentence_transformers_available():
+        return sentence_transformers_embedder(model=local_model)
     raise ZwillError(
         "missing_dependency",
-        "No embedding credentials found for the conditional baseline.",
+        "No embedding backend available for the conditional baseline.",
         hint=(
-            "Set OPENAI_API_KEY for direct OpenAI embeddings, or "
-            "EXPECTED_PARROT_API_KEY to route embeddings through Expected Parrot "
-            "(--embedder edsl). Or pass --skip-baseline."
+            "Set OPENAI_API_KEY (direct OpenAI), or EXPECTED_PARROT_API_KEY "
+            "(route through Expected Parrot, --embedder edsl), or install local "
+            "embeddings with `pip install 'zwill[local-embeddings]'` "
+            "(--embedder sentence-transformers). Or pass --skip-baseline."
         ),
     )
 
@@ -108,6 +119,13 @@ def cmd_twin_baseline_run(args: argparse.Namespace, *, embedder: Embedder | None
             hint="Use --replace to overwrite.",
         )
 
+    # Respondent covariates (panel metadata) feed the baseline as features.
+    metadata_by_respondent = {
+        str(row["respondent_id"]): row["metadata"]
+        for row in respondents
+        if isinstance(row.get("metadata"), dict)
+    }
+
     imported_at = utc_now()
     rows, meta = build_conditional_baseline_predictions(
         survey=args.survey,
@@ -119,6 +137,7 @@ def cmd_twin_baseline_run(args: argparse.Namespace, *, embedder: Embedder | None
         embedder=active_embedder,
         job_id=job_id,
         imported_at=imported_at,
+        metadata_by_respondent=metadata_by_respondent,
         embedding_model=embedding_model,
         l2=float(getattr(args, "l2", 1.0) or 1.0),
     )
@@ -170,7 +189,9 @@ def cmd_twin_baseline_run(args: argparse.Namespace, *, embedder: Embedder | None
             "training_rows": meta["training_rows"],
             "scored_questions": meta["heldout_questions"],
             "unscored_questions": meta["unscored_questions"],
-            "feature_weights_by_question": meta["feature_weights_by_question"],
+            "model_type": meta.get("model_type"),
+            "covariate_features": meta.get("covariate_features"),
+            "feature_dimension": meta.get("feature_dimension"),
             "skipped_no_actual": meta["skipped_no_actual"],
             "skipped_no_profile": meta["skipped_no_profile"],
         },
