@@ -902,13 +902,16 @@ def test_report_build_creates_incremental_bundle(tmp_path: Path, monkeypatch) ->
     assert "frontier-model executive twin validation Markdown" in stage_manifest["stages"]["generated_analysis"]["missing"]
     assert len(stage_manifest["required_generated_interpretations"]) == 2
     assert main(["report", "render", "--survey", "demo", "--path", str(report_dir), "--job-id", "fixture-twin", "--final"]) != 0
+    # index.html is now the single consolidated report (the digest index is gone),
+    # with a table of contents and the pages folded in as sections.
+    assert (report_dir / "report.html").exists()
     index_html = (report_dir / "index.html").read_text()
-    assert "report-bundle-data" in index_html
-    assert "Facts → Analysis → Report" not in index_html
+    assert 'class="report-toc"' in index_html                 # sticky table of contents
+    assert "Decision &amp; Evidence" in index_html            # executive summary folded in
+    assert "Technical Validation" in index_html               # twin validation folded in
     assert "Copy as Markdown" in index_html
-    assert 'href="executive-summary.html"' not in index_html
-    assert 'href="audit/twin-run-fixture-twin.html"' in index_html
-    assert index_html.count('class="step ready"') + index_html.count('class="step not_ready"') == 3
+    assert 'href="executive-summary.html"' not in index_html  # folded in as a section, not linked
+    assert 'href="audit/twin-run-fixture-twin.html"' in index_html  # row-level audit linked as a download
     checklist = (report_dir / "CHECKLIST.md").read_text()
     assert ".zwill` remains the system of record" in checklist
     assert "Twin Validation (primary): ready" in checklist
