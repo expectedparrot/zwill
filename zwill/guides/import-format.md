@@ -1,12 +1,12 @@
 # Import file formats (questions / respondents / answers)
 
 `zwill question import`, `zwill respondent import`, and `zwill answer import` each
-read a JSONL file (one JSON object per line) passed with `--path`. Every row is
+read a JSONL file (one JSON object per line) passed with `--input-path`. Every row is
 stored keyed by its id (`question_name` / `respondent_id`), so re-importing a row
 with the same id overwrites the previous one. Extra fields you include are
 preserved verbatim; the fields below are the ones zwill reads.
 
-## questions.jsonl — `zwill question import --survey <s> --path questions.jsonl`
+## questions.jsonl — `zwill question import --survey <s> --input-path questions.jsonl`
 
 One row per question.
 
@@ -34,7 +34,7 @@ Example row:
 {"question_name": "q3_seniority", "question_type": "multiple_choice", "question_text": "What is your seniority level?", "question_options": ["Junior", "Mid", "Senior", "Executive"], "role": "demographic", "source": {"raw_id": "smb_workbook", "note": "Q3"}}
 ```
 
-## respondents.jsonl — `zwill respondent import --survey <s> --path respondents.jsonl`
+## respondents.jsonl — `zwill respondent import --survey <s> --input-path respondents.jsonl`
 
 One row per respondent.
 
@@ -55,7 +55,7 @@ Example row:
 {"respondent_id": "R017", "weight": 1.0, "metadata": {"region": "US"}, "source": {"raw_id": "smb_workbook"}}
 ```
 
-## answers.jsonl — `zwill answer import --survey <s> --path answers.jsonl`
+## answers.jsonl — `zwill answer import --survey <s> --input-path answers.jsonl`
 
 One row per (respondent, question) cell.
 

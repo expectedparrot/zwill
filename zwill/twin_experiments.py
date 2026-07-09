@@ -389,7 +389,7 @@ def approved_plan_metadata(path: str | None) -> dict[str, Any] | None:
             "approval_required",
             "Twin validation plan is not approved.",
             context={"plan_path": str(plan_path), "plan_id": plan.get("plan_id")},
-            hint=f"Review the plan, then run `zwill twin-experiment approve --path {plan_path}`.",
+            hint=f"Review the plan, then run `zwill twin-experiment approve --input-path {plan_path}`.",
         )
     return {
         "plan_id": plan.get("plan_id") or plan_id_from_config(plan, plan_path),
@@ -411,7 +411,7 @@ def require_twin_plan_approval(args: argparse.Namespace, *, command: str) -> dic
     raise ZwillError(
         "approval_required",
         f"{command} requires an approved validation plan.",
-        hint="Pass `--approved-plan <plan.json>` after `zwill twin-experiment approve --path <plan.json>`, or pass `--allow-unapproved` for an explicit ad hoc/leakage/debug run.",
+        hint="Pass `--approved-plan <plan.json>` after `zwill twin-experiment approve --input-path <plan.json>`, or pass `--allow-unapproved` for an explicit ad hoc/leakage/debug run.",
     )
 
 
@@ -553,12 +553,12 @@ def cmd_twin_experiment_init_plan(args: argparse.Namespace) -> dict[str, Any]:
         "ok",
         {"path": str(path), "plan": plan},
         warnings=warnings or None,
-        next_steps=[f"zwill twin-experiment approve --path {path}", f"zwill twin-experiment export-plan --path {path}"],
+        next_steps=[f"zwill twin-experiment approve --input-path {path}", f"zwill twin-experiment export-plan --input-path {path}"],
     )
 
 
 def cmd_twin_experiment_approve(args: argparse.Namespace) -> dict[str, Any]:
-    plan_path = Path(args.path)
+    plan_path = Path(args.input_path)
     plan = load_object_file(plan_path, kind="Twin experiment plan")
     survey = args.survey or plan.get("survey")
     sdir = require_survey(str(survey)) if survey else None
@@ -598,12 +598,12 @@ def cmd_twin_experiment_approve(args: argparse.Namespace) -> dict[str, Any]:
             "prediction_count_estimate": estimate,
         },
         warnings=[warning] if warning else None,
-        next_steps=[f"zwill twin-experiment export-plan --path {plan_path}"],
+        next_steps=[f"zwill twin-experiment export-plan --input-path {plan_path}"],
     )
 
 
 def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
-    plan_path = Path(args.path)
+    plan_path = Path(args.input_path)
     plan = load_object_file(plan_path, kind="Twin experiment plan")
     survey = args.survey or plan.get("survey")
     if not survey:
@@ -615,7 +615,7 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
             "approval_required",
             "Twin experiment plan must be approved before export.",
             context={"plan_path": str(plan_path), "plan_id": plan_id},
-            hint=f"Review the plan, then run `zwill twin-experiment approve --path {plan_path}`.",
+            hint=f"Review the plan, then run `zwill twin-experiment approve --input-path {plan_path}`.",
         )
     output_dir = Path(args.output_dir) if args.output_dir else digital_twin_jobs_dir(sdir) / "plans" / plan_id
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -751,13 +751,13 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
         warnings=warnings or None,
         next_steps=[
             (
-                f"zwill twin-experiment approve --path {plan_path}"
+                f"zwill twin-experiment approve --input-path {plan_path}"
                 if export_count_check.get("requires_reapproval")
                 else f"zwill edsl-run --job {exported[0]['job_path']} --path <results.json.gz>"
             )
             if exported
             else "",
-            f"zwill twin-results import --survey {survey} --path <results.json.gz>",
+            f"zwill twin-results import --survey {survey} --input-path <results.json.gz>",
             f"zwill twin-experiment compare --survey {survey} --metric {manifest['primary_metric']}",
         ],
     )
@@ -766,7 +766,7 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
 def cmd_twin_experiment_validate(args: argparse.Namespace) -> dict[str, Any]:
     """Lint a plan file before approve/export: resolve questions, models, and
     counts, and surface problems/warnings without writing any jobs."""
-    plan_path = Path(args.path)
+    plan_path = Path(args.input_path)
     plan = load_object_file(plan_path, kind="Twin experiment plan")
     survey = args.survey or plan.get("survey")
     if not survey:
@@ -833,9 +833,9 @@ def cmd_twin_experiment_validate(args: argparse.Namespace) -> dict[str, Any]:
     count_check = prediction_count_check(approved_estimate, exported_prediction_count) if valid else None
 
     if valid and not is_plan_approved(plan):
-        next_steps = [f"zwill twin-experiment approve --path {plan_path}"]
+        next_steps = [f"zwill twin-experiment approve --input-path {plan_path}"]
     elif valid:
-        next_steps = [f"zwill twin-experiment export-plan --path {plan_path}"]
+        next_steps = [f"zwill twin-experiment export-plan --input-path {plan_path}"]
     else:
         next_steps = ["Fix the reported problems, then re-run validate."]
     return envelope(
@@ -968,7 +968,7 @@ def cmd_twin_experiment_import_plan_results(args: argparse.Namespace) -> dict[st
         result = cmd_twin_results_import(
             argparse.Namespace(
                 survey=str(survey),
-                path=str(path),
+                input_path=str(path),
                 job_id=job_id,
                 replace=args.replace,
             )

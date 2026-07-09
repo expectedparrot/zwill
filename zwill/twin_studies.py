@@ -352,7 +352,7 @@ def cmd_twin_study_run(args: argparse.Namespace) -> dict[str, Any]:
     import_result = cli.cmd_twin_results_import(
         argparse.Namespace(
             survey=args.survey,
-            path=str(results_path),
+            input_path=str(results_path),
             job_id=job_id,
             replace=args.replace,
         )
@@ -517,7 +517,7 @@ def cmd_twin_study_import_results_dir(args: argparse.Namespace) -> dict[str, Any
         result = _cli().cmd_twin_results_import(
             argparse.Namespace(
                 survey=args.survey,
-                path=str(path),
+                input_path=str(path),
                 job_id=job_id,
                 replace=args.replace,
                 allow_missing_actual=args.allow_missing_actual,

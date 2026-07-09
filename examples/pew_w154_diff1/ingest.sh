@@ -19,12 +19,12 @@ cd "$WORKDIR"
 
 zwill init
 zwill survey create --name pew_w154_diff1
-zwill context add --survey pew_w154_diff1 --path "$REPO_ROOT/examples/pew_w154_diff1/context.md"
-zwill raw add --survey pew_w154_diff1 --id w154_diff1_metadata --path "$SOURCE_DIR/W154_DIFF1_metadata.json" --kind metadata --title "Pew W154 DIFF1 Normalized Metadata"
-zwill raw add --survey pew_w154_diff1 --id w154_diff1_respondents --path "$SOURCE_DIR/W154_DIFF1_respondents.csv" --kind respondent_data --title "Pew W154 DIFF1 Normalized Respondents"
-zwill question import --survey pew_w154_diff1 --path "$IMPORT_DIR/questions.jsonl"
-zwill respondent import --survey pew_w154_diff1 --path "$IMPORT_DIR/respondents.jsonl"
-zwill answer import --survey pew_w154_diff1 --path "$IMPORT_DIR/answers.jsonl"
+zwill context add --survey pew_w154_diff1 --input-path "$REPO_ROOT/examples/pew_w154_diff1/context.md"
+zwill raw add --survey pew_w154_diff1 --id w154_diff1_metadata --input-path "$SOURCE_DIR/W154_DIFF1_metadata.json" --kind metadata --title "Pew W154 DIFF1 Normalized Metadata"
+zwill raw add --survey pew_w154_diff1 --id w154_diff1_respondents --input-path "$SOURCE_DIR/W154_DIFF1_respondents.csv" --kind respondent_data --title "Pew W154 DIFF1 Normalized Respondents"
+zwill question import --survey pew_w154_diff1 --input-path "$IMPORT_DIR/questions.jsonl"
+zwill respondent import --survey pew_w154_diff1 --input-path "$IMPORT_DIR/respondents.jsonl"
+zwill answer import --survey pew_w154_diff1 --input-path "$IMPORT_DIR/answers.jsonl"
 zwill commit --survey pew_w154_diff1
 zwill status
 zwill table --survey pew_w154_diff1 --limit 12

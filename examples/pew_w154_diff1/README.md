@@ -31,7 +31,7 @@ zwill table --survey pew_w154_diff1 --limit 12
 It also adds source documentation with:
 
 ```bash
-zwill context add --survey pew_w154_diff1 --path examples/pew_w154_diff1/context.md
+zwill context add --survey pew_w154_diff1 --input-path examples/pew_w154_diff1/context.md
 ```
 
 Export the imported questions as an EDSL survey serialization:
@@ -124,7 +124,7 @@ Import EDSL Results and extract one-shot probability predictions:
 ```bash
 zwill prob-results import \
   --survey pew_w154_diff1 \
-  --path pew_w154_diff1_probability_results.json.gz
+  --input-path pew_w154_diff1_probability_results.json.gz
 ```
 
 Compare elicited probabilities to committed respondent marginals:

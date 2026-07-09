@@ -424,7 +424,7 @@ def test_twin_results_retry_malformed_recovers_dropped_rows(tmp_path: Path, monk
     with gzip.open(results_path, "wt") as f:
         json.dump(results, f)
     imported = cli.cmd_twin_results_import(
-        argparse.Namespace(survey="demo", path=str(results_path), job_id=job_id, replace=False, merge=False, allow_missing_actual=False)
+        argparse.Namespace(survey="demo", input_path=str(results_path), job_id=job_id, replace=False, merge=False, allow_missing_actual=False)
     )
     assert imported["data"]["extracted_count"] == 1
     assert imported["data"]["issue_count"] == 1
@@ -453,7 +453,7 @@ def test_twin_results_retry_malformed_recovers_dropped_rows(tmp_path: Path, monk
     with gzip.open(retry_results_path, "wt") as f:
         json.dump(retry_results, f)
     merged = cli.cmd_twin_results_import(
-        argparse.Namespace(survey="demo", path=str(retry_results_path), job_id=job_id, replace=False, merge=True, allow_missing_actual=False)
+        argparse.Namespace(survey="demo", input_path=str(retry_results_path), job_id=job_id, replace=False, merge=True, allow_missing_actual=False)
     )
     assert merged["data"]["issue_count"] == 0
     rows = [r for r in cli.read_jsonl(cli.digital_twin_predictions_path(zwill_survey_path(tmp_path))) if r["job_id"] == job_id]
@@ -643,8 +643,8 @@ def test_report_catalog_lists_readiness_and_commands(tmp_path: Path, monkeypatch
     second_path = tmp_path / "second.json"
     first_path.write_text(json.dumps(first))
     second_path.write_text(json.dumps(second))
-    run_cli("twin-results", "import", "--survey", "demo", "--path", str(first_path))
-    run_cli("twin-results", "import", "--survey", "demo", "--path", str(second_path))
+    run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(first_path))
+    run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(second_path))
 
     ready_catalog = cli.build_report_catalog("demo")
     ready_reports = {row["report_id"]: row for row in ready_catalog["reports"]}
@@ -795,7 +795,7 @@ def test_practitioner_report_import_concatenates_multiple_sections(tmp_path: Pat
     with gzip.open(results_path, "wt") as f:
         json.dump(results, f)
 
-    run_cli("twin-benchmark", "practitioner-report-import", "--report-id", "multi-report", "--path", str(results_path))
+    run_cli("twin-benchmark", "practitioner-report-import", "--report-id", "multi-report", "--input-path", str(results_path))
 
     markdown = (report_dir / "report.md").read_text()
     assert "## Section A" in markdown
@@ -848,12 +848,12 @@ def test_report_build_creates_incremental_bundle(tmp_path: Path, monkeypatch) ->
     }
     probability_path = tmp_path / "probability_results.json"
     probability_path.write_text(json.dumps(probability_results))
-    run_cli("prob-results", "import", "--survey", "demo", "--path", str(probability_path))
+    run_cli("prob-results", "import", "--survey", "demo", "--input-path", str(probability_path))
 
     twin_results = json.loads((FIXTURES / "twin_results.json").read_text())
     twin_path = tmp_path / "twin_results.json"
     twin_path.write_text(json.dumps(twin_results))
-    run_cli("twin-results", "import", "--survey", "demo", "--path", str(twin_path))
+    run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(twin_path))
 
     run_cli(
         "report",
@@ -936,7 +936,7 @@ def test_agent_material_quarantine_blocks_commit_until_resolved(tmp_path: Path, 
         ],
     )
 
-    cli.cmd_agent_material_import(argparse.Namespace(survey="demo", path=str(path)))
+    cli.cmd_agent_material_import(argparse.Namespace(survey="demo", input_path=str(path)))
     try:
         cli.cmd_commit(argparse.Namespace(survey="demo"))
     except cli.ZwillError as exc:
@@ -988,7 +988,7 @@ def test_agent_material_import_quarantines_invalid_rows_and_normalizes_tags(tmp_
         ],
     )
 
-    result = cli.cmd_agent_material_import(argparse.Namespace(survey="demo", path=str(path)))
+    result = cli.cmd_agent_material_import(argparse.Namespace(survey="demo", input_path=str(path)))
     rows = cli.agent_material_rows(zwill_survey_path(tmp_path))
     issues = cli.read_jsonl(zwill_survey_path(tmp_path) / "quarantine.jsonl")
 
@@ -1072,7 +1072,7 @@ def test_checkbox_answer_import_validates_each_selection(tmp_path: Path, monkeyp
             }
         ],
     )
-    run_cli("question", "import", "--survey", "demo", "--path", str(questions))
+    run_cli("question", "import", "--survey", "demo", "--input-path", str(questions))
     answers = tmp_path / "answers.jsonl"
     write_jsonl(
         answers,
@@ -1081,7 +1081,7 @@ def test_checkbox_answer_import_validates_each_selection(tmp_path: Path, monkeyp
             {"respondent_id": "r2", "question": "q_channels", "answer": "Email|Fax"},
         ],
     )
-    result = cli.cmd_answer_import(argparse.Namespace(survey="demo", path=str(answers)))
+    result = cli.cmd_answer_import(argparse.Namespace(survey="demo", input_path=str(answers)))
     assert result["data"]["imported_count"] == 1
     assert result["data"]["quarantined_count"] == 1
     issues = cli.read_jsonl(zwill_survey_path(tmp_path) / "quarantine.jsonl")
@@ -1119,8 +1119,8 @@ def test_agent_material_import_duplicate_material_id_replaces_row(tmp_path: Path
         ],
     )
 
-    cli.cmd_agent_material_import(argparse.Namespace(survey="demo", path=str(first)))
-    cli.cmd_agent_material_import(argparse.Namespace(survey="demo", path=str(second)))
+    cli.cmd_agent_material_import(argparse.Namespace(survey="demo", input_path=str(first)))
+    cli.cmd_agent_material_import(argparse.Namespace(survey="demo", input_path=str(second)))
 
     rows = cli.agent_material_rows(zwill_survey_path(tmp_path))
     assert len(rows) == 1
@@ -1147,7 +1147,7 @@ def test_agent_material_cli_path_list_filters_and_show(tmp_path: Path, monkeypat
         "profile",
         "--title",
         "Profile",
-        "--path",
+        "--input-path",
         str(body_path),
         "--tag",
         "profile,preference",
@@ -1423,7 +1423,7 @@ def test_agent_list_inspect_through_parser_writes_json(tmp_path: Path, monkeypat
         )
     )
 
-    run_cli("agent-list", "inspect", "--path", str(path), "--format", "json")
+    run_cli("agent-list", "inspect", "--input-path", str(path), "--format", "json")
 
     payload = json.loads(capsys.readouterr().out)
     assert payload["command"] == "zwill agent-list inspect"
@@ -1448,7 +1448,7 @@ def test_agent_list_inspect_summarizes_traits_and_instructions(tmp_path: Path, m
         )
     )
 
-    summary = cli.cmd_agent_list_inspect(argparse.Namespace(path=str(path), format="json"))["data"]
+    summary = cli.cmd_agent_list_inspect(argparse.Namespace(input_path=str(path), format="json"))["data"]
 
     assert summary["agent_count"] == 2
     assert summary["trait_keys"] == ["q1"]
@@ -1467,13 +1467,13 @@ def test_agent_list_inspect_failure_cases_and_empty_list(tmp_path: Path, monkeyp
 
     for path in [not_agent_list, bad_agent_list]:
         try:
-            cli.cmd_agent_list_inspect(argparse.Namespace(path=str(path), format="json"))
+            cli.cmd_agent_list_inspect(argparse.Namespace(input_path=str(path), format="json"))
         except cli.ZwillError as exc:
             assert exc.code == "invalid_input"
         else:
             raise AssertionError(f"Expected invalid_input for {path}")
 
-    summary = cli.cmd_agent_list_inspect(argparse.Namespace(path=str(empty_agent_list), format="json"))["data"]
+    summary = cli.cmd_agent_list_inspect(argparse.Namespace(input_path=str(empty_agent_list), format="json"))["data"]
     assert summary["agent_count"] == 0
     assert summary["trait_keys"] == []
     assert summary["sample_agents"] == []
@@ -1831,17 +1831,17 @@ def test_agent_study_import_report_list_show_and_replace(tmp_path: Path, monkeyp
     with gzip.open(results_path, "wt") as f:
         json.dump(agent_study_results("agent-job"), f)
 
-    import_result = cli.cmd_agent_study_import(argparse.Namespace(path=str(results_path), job_id=None, replace=False))
+    import_result = cli.cmd_agent_study_import(argparse.Namespace(input_path=str(results_path), job_id=None, replace=False))
     assert import_result["data"]["job_id"] == "agent-job"
     assert import_result["data"]["extracted_count"] == 1
 
     try:
-        cli.cmd_agent_study_import(argparse.Namespace(path=str(results_path), job_id=None, replace=False))
+        cli.cmd_agent_study_import(argparse.Namespace(input_path=str(results_path), job_id=None, replace=False))
     except cli.ZwillError as exc:
         assert exc.code == "already_exists"
     else:
         raise AssertionError("Expected duplicate import to require --replace.")
-    cli.cmd_agent_study_import(argparse.Namespace(path=str(results_path), job_id=None, replace=True))
+    cli.cmd_agent_study_import(argparse.Namespace(input_path=str(results_path), job_id=None, replace=True))
 
     answers = cli.read_jsonl(zwill_project_path(tmp_path) / "agent_studies" / "answers.jsonl")
     assert len(answers) == 1
@@ -1877,7 +1877,7 @@ def test_agent_study_import_records_malformed_rows_as_issues(tmp_path: Path, mon
     results_path = tmp_path / "bad_agent_results.json"
     results_path.write_text(json.dumps({"edsl_class_name": "Results", "zwill": {"agent_study_job_id": "bad"}, "data": [{"answer": {}}]}))
 
-    result = cli.cmd_agent_study_import(argparse.Namespace(path=str(results_path), job_id=None, replace=False))
+    result = cli.cmd_agent_study_import(argparse.Namespace(input_path=str(results_path), job_id=None, replace=False))
 
     assert result["data"]["extracted_count"] == 0
     assert result["data"]["issue_count"] == 1
@@ -2083,7 +2083,7 @@ def test_twin_experiment_validate_lints_plan(tmp_path: Path, monkeypatch) -> Non
         return path
 
     def _validate(path: Path) -> dict:
-        return cli.cmd_twin_experiment_validate(argparse.Namespace(path=str(path), survey=None, plan_id=None))
+        return cli.cmd_twin_experiment_validate(argparse.Namespace(input_path=str(path), survey=None, plan_id=None))
 
     good = _validate(
         _write(
@@ -2135,7 +2135,7 @@ def test_twin_context_includes_respondent_metadata_by_default(tmp_path: Path, mo
     create_tiny_binary_survey()
     md_path = tmp_path / "md.jsonl"
     write_jsonl(md_path, [{"respondent_id": "r1", "metadata": {"age_group": "35-44", "party": "Independent"}}])
-    run_cli("respondent", "import", "--survey", "demo", "--path", str(md_path))
+    run_cli("respondent", "import", "--survey", "demo", "--input-path", str(md_path))
     monkeypatch.setattr(
         cli,
         "load_edsl_job_classes",
@@ -2325,7 +2325,7 @@ def test_twin_approach_and_experiment_plan_export_jobs(tmp_path: Path, monkeypat
             survey="demo",
             approach_id="baseline",
             text="Hypothesis: one prior answer should be enough for this toy survey.",
-            path=None,
+            input_path=None,
             clear=False,
         )
     )
@@ -2358,9 +2358,9 @@ def test_twin_approach_and_experiment_plan_export_jobs(tmp_path: Path, monkeypat
             }
         )
     )
-    run_cli("twin-experiment", "approve", "--path", str(plan_path), "--approved-by", "test-user")
+    run_cli("twin-experiment", "approve", "--input-path", str(plan_path), "--approved-by", "test-user")
     output_dir = tmp_path / "exports"
-    run_cli("twin-experiment", "export-plan", "--path", str(plan_path), "--output-dir", str(output_dir))
+    run_cli("twin-experiment", "export-plan", "--input-path", str(plan_path), "--output-dir", str(output_dir))
 
     manifest = json.loads((output_dir / "manifest.json").read_text())
     assert manifest["kind"] == "twin_experiment_plan_export"
@@ -2406,7 +2406,7 @@ def test_twin_approach_and_experiment_plan_export_jobs(tmp_path: Path, monkeypat
                 survey="demo",
                 approach_id=approach_id,
                 text=f"Concurrent note for {approach_id}",
-                path=None,
+                input_path=None,
                 clear=False,
             )
         )
@@ -2507,7 +2507,7 @@ def test_twin_plan_authoring_helpers(tmp_path: Path, monkeypatch, capsys) -> Non
     assert plan["approval"]["approved"] is False
     approval = cli.cmd_twin_experiment_approve(
         argparse.Namespace(
-            path=str(plan_path),
+            input_path=str(plan_path),
             survey=None,
             approved_by="reviewer",
             note="Looks right.",
@@ -2591,7 +2591,7 @@ def test_twin_experiment_export_requires_approved_plan(tmp_path: Path, monkeypat
 
     with pytest.raises(cli.ZwillError, match="approved"):
         cli.cmd_twin_experiment_export_plan(
-            argparse.Namespace(path=str(plan_path), survey=None, output_dir=str(tmp_path / "jobs"), plan_id=None, allow_unapproved=False)
+            argparse.Namespace(input_path=str(plan_path), survey=None, output_dir=str(tmp_path / "jobs"), plan_id=None, allow_unapproved=False)
         )
 
 
@@ -2622,9 +2622,9 @@ def test_twin_experiment_plan_status_import_and_bundle(tmp_path: Path, monkeypat
             }
         )
     )
-    run_cli("twin-experiment", "approve", "--path", str(plan_path))
+    run_cli("twin-experiment", "approve", "--input-path", str(plan_path))
     output_dir = tmp_path / "jobs"
-    run_cli("twin-experiment", "export-plan", "--path", str(plan_path), "--output-dir", str(output_dir))
+    run_cli("twin-experiment", "export-plan", "--input-path", str(plan_path), "--output-dir", str(output_dir))
     manifest = json.loads((output_dir / "manifest.json").read_text())
     status_payload = cli.twin_plan_status_payload(zwill_survey_path(tmp_path), "bundle-plan")
     assert status_payload["imported_count"] == 0
@@ -2658,7 +2658,7 @@ def test_twin_experiment_plan_status_import_and_bundle(tmp_path: Path, monkeypat
             survey="demo",
             plan_id="bundle-plan",
             text="Compare whether calibrated context improves probability quality.",
-            path=None,
+            input_path=None,
             clear=False,
         )
     )
@@ -2874,7 +2874,7 @@ def test_probability_results_import_and_reports(tmp_path: Path, monkeypatch) -> 
     with gzip.open(results_path, "wt") as f:
         json.dump(results, f)
 
-    run_cli("prob-results", "import", "--survey", "demo", "--path", str(results_path))
+    run_cli("prob-results", "import", "--survey", "demo", "--input-path", str(results_path))
     predictions = (zwill_survey_path(tmp_path) / "probability_predictions.jsonl").read_text()
     assert '"yes":0.6' in predictions
 
@@ -2954,7 +2954,7 @@ def test_probability_results_import_and_reports(tmp_path: Path, monkeypatch) -> 
     with gzip.open(analysis_results_path, "wt") as f:
         json.dump(analysis_results, f)
 
-    run_cli("prob-results", "analysis-import", "--report-id", "one-shot-report-demo", "--path", str(analysis_results_path))
+    run_cli("prob-results", "analysis-import", "--report-id", "one-shot-report-demo", "--input-path", str(analysis_results_path))
     run_cli("prob-results", "analysis-render", "--report-id", "one-shot-report-demo", "--path", str(generated_html_path))
     rendered = generated_html_path.read_text()
     assert "The one-shot baseline tracks this aggregate split" in rendered
@@ -3048,7 +3048,7 @@ def test_twin_results_import_and_reports(tmp_path: Path, monkeypatch) -> None:
     with gzip.open(results_path, "wt") as f:
         json.dump(results, f)
 
-    run_cli("twin-results", "import", "--survey", "demo", "--path", str(results_path))
+    run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(results_path))
     predictions = (zwill_survey_path(tmp_path) / "digital_twin_predictions.jsonl").read_text()
     assert '"probability_actual":0.8' in predictions
     assert '"marginal_probability_actual":1.0' in predictions
@@ -3273,7 +3273,7 @@ def test_rank_battery_uses_joint_rank_twin_workflow(tmp_path: Path, monkeypatch)
     results_path = tmp_path / "rank_results.json.gz"
     with gzip.open(results_path, "wt") as f:
         json.dump(results, f)
-    run_cli("twin-results", "import", "--survey", "demo", "--path", str(results_path))
+    run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(results_path))
     rank_rows = cli.read_jsonl(cli.rank_twin_predictions_path(sdir))
     assert len(rank_rows) == 2
     assert rank_rows[0]["spearman"] == pytest.approx(1.0)
@@ -3339,7 +3339,7 @@ def test_twin_results_true_holdout_import_export_and_marginal_diagnostics(tmp_pa
     }
     twin_path = tmp_path / "true_holdout_results.json"
     twin_path.write_text(json.dumps(twin_results))
-    run_cli("twin-results", "import", "--survey", "demo", "--path", str(twin_path), "--allow-missing-actual")
+    run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(twin_path), "--allow-missing-actual")
 
     predictions = (zwill_survey_path(tmp_path) / "digital_twin_predictions.jsonl").read_text()
     assert '"actual_answer":null' in predictions
@@ -3370,7 +3370,7 @@ def test_twin_results_true_holdout_import_export_and_marginal_diagnostics(tmp_pa
     }
     probability_path = tmp_path / "probability_results.json"
     probability_path.write_text(json.dumps(probability_results))
-    run_cli("prob-results", "import", "--survey", "demo", "--path", str(probability_path))
+    run_cli("prob-results", "import", "--survey", "demo", "--input-path", str(probability_path))
 
     summary_path = tmp_path / "marginal_summary.csv"
     option_path = tmp_path / "marginal_options.csv"
@@ -3612,7 +3612,7 @@ def test_twin_results_calibrate_marginal_to_probability_job(tmp_path: Path, monk
     twin_path = tmp_path / "twin_results.json.gz"
     with gzip.open(twin_path, "wt") as f:
         json.dump(twin_results, f)
-    run_cli("twin-results", "import", "--survey", "demo", "--path", str(twin_path))
+    run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(twin_path))
 
     target_results = {
         "edsl_class_name": "Results",
@@ -3632,7 +3632,7 @@ def test_twin_results_calibrate_marginal_to_probability_job(tmp_path: Path, monk
     target_path = tmp_path / "target_results.json.gz"
     with gzip.open(target_path, "wt") as f:
         json.dump(target_results, f)
-    run_cli("prob-results", "import", "--survey", "demo", "--path", str(target_path))
+    run_cli("prob-results", "import", "--survey", "demo", "--input-path", str(target_path))
 
     run_cli(
         "twin-results",
@@ -3742,7 +3742,7 @@ def test_twin_study_run_orchestrates_export_run_import_report(tmp_path: Path, mo
         return {"data": {"results_path": args.path, "digital_twin_job_id": "twin-demo"}}
 
     def fake_import(args: argparse.Namespace) -> dict:
-        calls.append(("import", args.path, args.job_id, args.replace))
+        calls.append(("import", args.input_path, args.job_id, args.replace))
         return {"data": {"job_id": args.job_id, "extracted_count": 1}}
 
     def fake_report(args: argparse.Namespace) -> None:
@@ -3898,7 +3898,7 @@ def test_edsl_run_twin_job_suggests_twin_import(tmp_path: Path, monkeypatch) -> 
             dry_run=False,
         )
     )
-    assert result["next_steps"] == [f"zwill twin-results import --survey <survey> --path {results_path}"]
+    assert result["next_steps"] == [f"zwill twin-results import --survey <survey> --input-path {results_path}"]
 
 
 def test_edsl_run_agent_study_job_suggests_results_written(tmp_path: Path, monkeypatch) -> None:
@@ -3947,7 +3947,7 @@ def test_edsl_run_agent_study_job_suggests_results_written(tmp_path: Path, monke
     )
 
     assert result["data"]["agent_study_job_id"] == "agent-study-demo"
-    assert result["next_steps"] == [f"zwill agent-study import --path {results_path}"]
+    assert result["next_steps"] == [f"zwill agent-study import --input-path {results_path}"]
 
 
 def test_edsl_run_enforces_approved_validation_count_delta(tmp_path: Path, monkeypatch) -> None:
@@ -4059,7 +4059,7 @@ def test_twin_results_fixture_generates_golden_reports(tmp_path: Path, monkeypat
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()
 
-    run_cli("twin-results", "import", "--survey", "demo", "--path", str(FIXTURES / "twin_results.json"))
+    run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(FIXTURES / "twin_results.json"))
     json_path = tmp_path / "fixture_report.json"
     csv_path = tmp_path / "fixture_report.csv"
     html_path = tmp_path / "fixture_report.html"
@@ -4097,8 +4097,8 @@ def test_twin_study_list_show_and_compare(tmp_path: Path, monkeypatch) -> None:
     first_path.write_text(json.dumps(first))
     second_path.write_text(json.dumps(second))
 
-    run_cli("twin-results", "import", "--survey", "demo", "--path", str(first_path))
-    run_cli("twin-results", "import", "--survey", "demo", "--path", str(second_path))
+    run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(first_path))
+    run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(second_path))
 
     runs = cli.read_twin_run_manifest(zwill_survey_path(tmp_path))
     assert {run["job_id"] for run in runs} == {"fixture-twin", "fixture-twin-2"}
@@ -4191,8 +4191,8 @@ def test_twin_experiment_records_compares_and_selects_approaches(tmp_path: Path,
     first_path.write_text(json.dumps(first))
     second_path.write_text(json.dumps(second))
 
-    run_cli("twin-results", "import", "--survey", "demo", "--path", str(first_path))
-    run_cli("twin-results", "import", "--survey", "demo", "--path", str(second_path))
+    run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(first_path))
+    run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(second_path))
     run_cli(
         "twin-experiment",
         "record",
@@ -4310,8 +4310,8 @@ def test_twin_experiment_report_export_import_render(tmp_path: Path, monkeypatch
     second_path = tmp_path / "second.json"
     first_path.write_text(json.dumps(first))
     second_path.write_text(json.dumps(second))
-    run_cli("twin-results", "import", "--survey", "demo", "--path", str(first_path))
-    run_cli("twin-results", "import", "--survey", "demo", "--path", str(second_path))
+    run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(first_path))
+    run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(second_path))
     job_with_material = tmp_path / "calibrated_job.edsl.json"
     job_with_material.write_text(
         json.dumps(
@@ -4418,7 +4418,7 @@ def test_twin_experiment_report_export_import_render(tmp_path: Path, monkeypatch
             }
         )
     )
-    run_cli("twin-experiment", "report-import", "--path", str(results_path))
+    run_cli("twin-experiment", "report-import", "--input-path", str(results_path))
     html_path = tmp_path / "experiment_report.html"
     run_cli("twin-experiment", "report-render", "--report-id", report_id, "--path", str(html_path))
     html = html_path.read_text()
@@ -4432,7 +4432,7 @@ def test_twin_experiment_report_export_import_render(tmp_path: Path, monkeypatch
 def test_twin_benchmark_report_from_config(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()
-    run_cli("twin-results", "import", "--survey", "demo", "--path", str(FIXTURES / "twin_results.json"))
+    run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(FIXTURES / "twin_results.json"))
 
     config = json.loads((FIXTURES / "twin_benchmark.json").read_text())
     config_path = tmp_path / "benchmark.json"
@@ -4482,7 +4482,7 @@ def test_twin_benchmark_report_from_config(tmp_path: Path, monkeypatch) -> None:
 def test_twin_benchmark_practitioner_report_export_import_render(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()
-    run_cli("twin-results", "import", "--survey", "demo", "--path", str(FIXTURES / "twin_results.json"))
+    run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(FIXTURES / "twin_results.json"))
 
     config = json.loads((FIXTURES / "twin_benchmark.json").read_text())
     config_path = tmp_path / "benchmark.json"
@@ -4539,7 +4539,7 @@ def test_twin_benchmark_practitioner_report_export_import_render(tmp_path: Path,
     with gzip.open(results_path, "wt") as f:
         json.dump(results, f)
 
-    run_cli("twin-benchmark", "practitioner-report-import", "--path", str(results_path))
+    run_cli("twin-benchmark", "practitioner-report-import", "--input-path", str(results_path))
     assert "# Practitioner Report" in (report_dir / "report.md").read_text()
 
     html_path = tmp_path / "rendered.html"
@@ -4553,7 +4553,7 @@ def test_twin_benchmark_practitioner_report_export_import_render(tmp_path: Path,
 def test_twin_study_practitioner_report_export_import_render(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()
-    run_cli("twin-results", "import", "--survey", "demo", "--path", str(FIXTURES / "twin_results.json"))
+    run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(FIXTURES / "twin_results.json"))
 
     def fake_build_report_job(args, payload, studies):
         assert payload["report_kind"] == "single_survey_twin_validation"
@@ -4609,7 +4609,7 @@ def test_twin_study_practitioner_report_export_import_render(tmp_path: Path, mon
     with gzip.open(results_path, "wt") as f:
         json.dump(results, f)
 
-    run_cli("twin-study", "practitioner-report-import", "--path", str(results_path))
+    run_cli("twin-study", "practitioner-report-import", "--input-path", str(results_path))
     html_path = tmp_path / "single_rendered.html"
     run_cli("twin-study", "practitioner-report-render", "--report-id", "single-report-demo", "--path", str(html_path))
     html = html_path.read_text()
@@ -4621,7 +4621,7 @@ def test_twin_study_practitioner_report_export_import_render(tmp_path: Path, mon
 def test_twin_results_executive_summary_export_import_render(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()
-    run_cli("twin-results", "import", "--survey", "demo", "--path", str(FIXTURES / "twin_results.json"))
+    run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(FIXTURES / "twin_results.json"))
     filter_args = argparse.Namespace(survey="demo", job_id=["fixture-twin"], jobs=None, model=None, question=None, questions=None)
     rows = cli.filtered_twin_prediction_rows(filter_args)
     diagnostics = cli.build_executive_summary(
@@ -4716,7 +4716,7 @@ def test_twin_results_executive_summary_export_import_render(tmp_path: Path, mon
     with gzip.open(results_path, "wt") as f:
         json.dump(results, f)
 
-    run_cli("twin-results", "executive-summary-import", "--report-id", "exec-report-demo", "--path", str(results_path))
+    run_cli("twin-results", "executive-summary-import", "--report-id", "exec-report-demo", "--input-path", str(results_path))
     rendered_html = tmp_path / "executive_rendered.html"
     run_cli("twin-results", "executive-summary-render", "--report-id", "exec-report-demo", "--path", str(rendered_html))
     html = rendered_html.read_text()
@@ -4844,7 +4844,7 @@ def test_twin_results_import_records_malformed_row_issues(tmp_path: Path, monkey
     results_path = tmp_path / "bad_twin_results.json"
     results_path.write_text(json.dumps(results))
 
-    result = cli.cmd_twin_results_import(argparse.Namespace(survey="demo", path=str(results_path), job_id=None, replace=False))
+    result = cli.cmd_twin_results_import(argparse.Namespace(survey="demo", input_path=str(results_path), job_id=None, replace=False))
 
     assert result["data"]["extracted_count"] == 1
     assert result["data"]["issue_count"] == 3

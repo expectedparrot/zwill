@@ -91,7 +91,7 @@ zwill survey create --name hello_world
 zwill raw add \
   --survey hello_world \
   --id questionnaire \
-  --path "$ZWILL_REPO/examples/hello_world/raw/questionnaire.md" \
+  --input-path "$ZWILL_REPO/examples/hello_world/raw/questionnaire.md" \
   --kind questionnaire \
   --title "Hello World Questionnaire"
 ```
@@ -131,7 +131,7 @@ For normal use, put those records in JSONL and import the file instead. The comm
 ```bash
 zwill respondent import \
   --survey hello_world \
-  --path "$ZWILL_REPO/examples/hello_world/respondents.jsonl"
+  --input-path "$ZWILL_REPO/examples/hello_world/respondents.jsonl"
 ```
 
 Answers work the same way. You can add them one at a time, and each answer is validated against both the respondent id and the question's declared options.
@@ -151,7 +151,7 @@ Or load the same answer records from JSONL:
 ```bash
 zwill answer import \
   --survey hello_world \
-  --path "$ZWILL_REPO/examples/hello_world/answers.jsonl"
+  --input-path "$ZWILL_REPO/examples/hello_world/answers.jsonl"
 ```
 
 Inspect the respondent-by-question table:
@@ -297,7 +297,7 @@ One-shot generated analysis uses the same staged pattern as the executive report
 ```bash
 zwill prob-results analysis-export --survey <survey> --job-id <probability_job_id> --path reports/<survey>/one-shot-marginals.html
 zwill edsl-run --job .zwill/projects/default/practitioner_reports/<report_id>/job.edsl.json --path .zwill/projects/default/practitioner_reports/<report_id>/results.json.gz
-zwill prob-results analysis-import --report-id <report_id> --path .zwill/projects/default/practitioner_reports/<report_id>/results.json.gz
+zwill prob-results analysis-import --report-id <report_id> --input-path .zwill/projects/default/practitioner_reports/<report_id>/results.json.gz
 zwill prob-results analysis-render --report-id <report_id> --path reports/<survey>/one-shot-marginals.html
 ```
 
@@ -350,7 +350,7 @@ For AgentList exports, choose answer traits with `--question` or `--questions`; 
 Inspect an exported AgentList:
 
 ```bash
-zwill agent-list inspect --path agent_list.edsl.json
+zwill agent-list inspect --input-path agent_list.edsl.json
 ```
 
 Ask constructed agents a new question by exporting an EDSL job from the AgentList:
@@ -367,7 +367,7 @@ zwill agent-study export \
   --path agent_study_job.edsl.json
 
 zwill edsl-run --job agent_study_job.edsl.json --path agent_study_results.json.gz
-zwill agent-study import --path agent_study_results.json.gz
+zwill agent-study import --input-path agent_study_results.json.gz
 zwill agent-study report --format table
 ```
 
@@ -404,7 +404,7 @@ Use `--leakage-exclusion <heldout_question>:<context_question>` for target-speci
 Run with `zwill edsl-run`, then import and score:
 
 ```bash
-zwill twin-results import --survey w158_ccpolicy --path twin_results.json.gz
+zwill twin-results import --survey w158_ccpolicy --input-path twin_results.json.gz
 zwill twin-results report --survey w158_ccpolicy --job-id <job_id>
 zwill twin-results report --survey w158_ccpolicy --job-id <job_id> --format html --path twin_report.html
 ```
@@ -535,7 +535,7 @@ zwill twin-approach scaffold \
 
 zwill twin-approach add \
   --survey w158_ccpolicy \
-  --path baseline_context.approach.json
+  --input-path baseline_context.approach.json
 
 zwill twin-approach add \
   --survey w158_ccpolicy \
@@ -586,16 +586,16 @@ zwill twin-experiment init-plan \
   --path policy_holdout_v1.json
 
 zwill twin-experiment approve \
-  --path policy_holdout_v1.json \
+  --input-path policy_holdout_v1.json \
   --approved-by <reviewer> \
   --note "Approved held-out targets, context policy, leakage exclusions, sample size, models, and seed."
 
 zwill twin-experiment export-plan \
-  --path policy_holdout_v1.json \
+  --input-path policy_holdout_v1.json \
   --output-dir policy_holdout_v1_jobs
 ```
 
-Plans start as drafts and must be approved before export. `export-plan` writes a `manifest.json`, one EDSL job JSON per arm, approved-plan provenance, and planned experiment records in `experiments.json`. Running remains explicit: use `zwill edsl-run --job <job>` for each exported job, then `zwill twin-results import --survey <survey> --path <results>`. After import, the existing comparison, plot, microdata, and report commands use the planned experiment records.
+Plans start as drafts and must be approved before export. `export-plan` writes a `manifest.json`, one EDSL job JSON per arm, approved-plan provenance, and planned experiment records in `experiments.json`. Running remains explicit: use `zwill edsl-run --job <job>` for each exported job, then `zwill twin-results import --survey <survey> --input-path <results>`. After import, the existing comparison, plot, microdata, and report commands use the planned experiment records.
 
 The approval review should check the held-out targets, construction approaches, context policy, target-specific leakage exclusions, respondent sample and seed, model list, and the prediction count formula: `respondents x held-out questions x approaches x models`. If a draft plan must be exported only for debugging, pass `--allow-unapproved`; this is intentionally visible in the command history.
 
@@ -723,7 +723,7 @@ zwill edsl-run \
 
 zwill twin-experiment report-import \
   --report-id <report_id> \
-  --path .zwill/projects/default/practitioner_reports/<report_id>/results.json.gz
+  --input-path .zwill/projects/default/practitioner_reports/<report_id>/results.json.gz
 
 zwill twin-experiment report-render \
   --report-id <report_id> \
@@ -792,7 +792,7 @@ zwill edsl-run \
 
 zwill twin-results executive-summary-import \
   --report-id <report_id> \
-  --path .zwill/projects/default/practitioner_reports/<report_id>/results.json.gz
+  --input-path .zwill/projects/default/practitioner_reports/<report_id>/results.json.gz
 
 zwill twin-results executive-summary-render \
   --report-id <report_id> \
@@ -819,7 +819,7 @@ zwill edsl-run \
   --path .zwill/projects/default/practitioner_reports/<report_id>/results.json.gz
 
 zwill twin-study practitioner-report-import \
-  --path .zwill/projects/default/practitioner_reports/<report_id>/results.json.gz
+  --input-path .zwill/projects/default/practitioner_reports/<report_id>/results.json.gz
 
 zwill twin-study practitioner-report-render \
   --report-id <report_id> \
@@ -843,7 +843,7 @@ zwill edsl-run \
   --path .zwill/projects/default/practitioner_reports/<report_id>/results.json.gz
 
 zwill twin-benchmark practitioner-report-import \
-  --path .zwill/projects/default/practitioner_reports/<report_id>/results.json.gz
+  --input-path .zwill/projects/default/practitioner_reports/<report_id>/results.json.gz
 
 zwill twin-benchmark practitioner-report-render \
   --report-id <report_id> \

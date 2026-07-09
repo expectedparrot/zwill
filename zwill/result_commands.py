@@ -6,9 +6,9 @@ from .costs import results_cost_summary
 
 def cmd_twin_results_import(args: argparse.Namespace) -> dict[str, Any]:
     sdir = require_survey(args.survey)
-    source = Path(args.path)
+    source = Path(args.input_path)
     if not source.exists():
-        raise ZwillError("not_found", f"Results file does not exist: {args.path}.")
+        raise ZwillError("not_found", f"Results file does not exist: {args.input_path}.")
     results = read_json_or_gzip(source)
     if not isinstance(results, dict) or results.get("edsl_class_name") != "Results":
         raise ZwillError("invalid_input", "Expected an EDSL Results serialization.")
@@ -158,7 +158,7 @@ def cmd_twin_results_retry_malformed(args: argparse.Namespace) -> dict[str, Any]
         raise ZwillError(
             "not_found",
             f"No import record found for twin job id {job_id}.",
-            hint=f"Import the results first: `zwill twin-results import --survey {args.survey} --path <results>`.",
+            hint=f"Import the results first: `zwill twin-results import --survey {args.survey} --input-path <results>`.",
         )
     issues = read_json(import_path, {}).get("issues", [])
     if not issues:
@@ -196,16 +196,16 @@ def cmd_twin_results_retry_malformed(args: argparse.Namespace) -> dict[str, Any]
         },
         next_steps=[
             f"zwill edsl-run --job {out_path} --path {results_path}",
-            f"zwill twin-results import --survey {args.survey} --job-id {job_id} --merge --path {results_path}",
+            f"zwill twin-results import --survey {args.survey} --job-id {job_id} --merge --input-path {results_path}",
         ],
     )
 
 
 def cmd_rank_results_import(args: argparse.Namespace) -> dict[str, Any]:
     sdir = require_survey(args.survey)
-    source = Path(args.path)
+    source = Path(args.input_path)
     if not source.exists():
-        raise ZwillError("not_found", f"Results file does not exist: {args.path}.")
+        raise ZwillError("not_found", f"Results file does not exist: {args.input_path}.")
     results = read_json_or_gzip(source)
     if not isinstance(results, dict) or results.get("edsl_class_name") != "Results":
         raise ZwillError("invalid_input", "Expected an EDSL Results serialization.")

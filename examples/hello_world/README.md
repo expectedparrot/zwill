@@ -7,7 +7,7 @@ This is the smallest useful `zwill` example: one survey question and five respon
 ```bash
 zwill init
 zwill survey create --name hello_world
-zwill raw add --survey hello_world --id questionnaire --path examples/hello_world/raw/questionnaire.md --kind questionnaire --title "Hello World Questionnaire"
+zwill raw add --survey hello_world --id questionnaire --input-path examples/hello_world/raw/questionnaire.md --kind questionnaire --title "Hello World Questionnaire"
 zwill question add --survey hello_world --question-name favorite_color --question-type multiple_choice --question-text "Which color do you like best?" --question-option red --question-option blue --question-option green --role survey_item --source-raw questionnaire --source-note "Single hello-world test question."
 zwill respondent add --survey hello_world --respondent-id r001 --weight 1.0 --metadata "sample_source=demo"
 zwill respondent add --survey hello_world --respondent-id r002 --weight 1.0 --metadata "sample_source=demo"

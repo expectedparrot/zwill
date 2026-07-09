@@ -12,9 +12,9 @@ def _cli():
 
 def cmd_probability_results_import(args: argparse.Namespace) -> dict[str, Any]:
     sdir = require_survey(args.survey)
-    source = Path(args.path)
+    source = Path(args.input_path)
     if not source.exists():
-        raise ZwillError("not_found", f"Results file does not exist: {args.path}.")
+        raise ZwillError("not_found", f"Results file does not exist: {args.input_path}.")
     results = read_json_or_gzip(source)
     if not isinstance(results, dict) or results.get("edsl_class_name") != "Results":
         raise ZwillError("invalid_input", "Expected an EDSL Results serialization.")
@@ -250,7 +250,7 @@ def cmd_probability_results_analysis_export(args: argparse.Namespace) -> dict[st
         },
         next_steps=[
             f"zwill edsl-run --job {data['job_path']} --path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
-            f"zwill prob-results analysis-import --report-id {report_id} --path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
+            f"zwill prob-results analysis-import --report-id {report_id} --input-path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
             f"zwill prob-results analysis-render --report-id {report_id} --path {path}",
         ],
     )
@@ -276,7 +276,7 @@ def cmd_probability_results_analysis_render(args: argparse.Namespace) -> dict[st
         raise ZwillError(
             "not_found",
             f"No imported generated one-shot analysis Markdown found for report id {args.report_id}.",
-            hint=f"Run `zwill prob-results analysis-import --report-id {args.report_id} --path <results.json.gz>`.",
+            hint=f"Run `zwill prob-results analysis-import --report-id {args.report_id} --input-path <results.json.gz>`.",
         )
     context = read_json(paths["context"], {})
     report_context = context.get("one_shot_analysis_context", {})

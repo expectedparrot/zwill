@@ -131,7 +131,7 @@ def _stage_for_survey(survey: str) -> dict[str, Any]:
             "stage": "import_data",
             "why": f"Survey '{survey}' has no imported questions/answers yet.",
             "next_command": (
-                f"zwill question import --survey {survey} --path questions.jsonl  "
+                f"zwill question import --survey {survey} --input-path questions.jsonl  "
                 f"# then respondent import + answer import"
             ),
         }

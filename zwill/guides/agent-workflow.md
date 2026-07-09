@@ -102,7 +102,7 @@ next command. The full path:
    zwill edsl-export --survey <survey> --target probability-job \
      --questions <q1,q2,...> --model <service:model> --path one_shot.edsl.json
    zwill edsl-run --job one_shot.edsl.json --path one_shot_results.json.gz
-   zwill prob-results import --survey <survey> --path one_shot_results.json.gz
+   zwill prob-results import --survey <survey> --input-path one_shot_results.json.gz
    zwill prob-results report --survey <survey> --job-id <probability_job_id> \
      --format html --path one-shot-marginals.html
    ```
@@ -111,7 +111,7 @@ next command. The full path:
    zwill prob-results analysis-export --survey <survey> --job-id <probability_job_id> \
      --path report_out/one-shot-marginals.html
    zwill edsl-run --job <generated_report_job.edsl.json> --path <generated_report_results.json.gz>
-   zwill prob-results analysis-import --report-id <report_id> --path <generated_report_results.json.gz>
+   zwill prob-results analysis-import --report-id <report_id> --input-path <generated_report_results.json.gz>
    zwill prob-results analysis-render --report-id <report_id> --path report_out/one-shot-marginals.html
    ```
 8. **Run the twin jobs** — pick 5–10 held-out questions spanning different use
@@ -125,7 +125,7 @@ next command. The full path:
      --allow-unapproved \
      --path twin.edsl.json
    zwill edsl-run --job twin.edsl.json --path twin_results.json.gz
-   zwill twin-results import --survey <survey> --path twin_results.json.gz
+   zwill twin-results import --survey <survey> --input-path twin_results.json.gz
    ```
    Respondent metadata (panel covariates like age/party/region) is included as
    twin context **by default** — rendered as a "Respondent profile" block — for
@@ -151,7 +151,7 @@ next command. The full path:
    ```bash
    zwill twin-results retry-malformed --survey <survey> --job-id <twin_job_id> --job twin.edsl.json
    zwill edsl-run --job <retry.edsl.json> --path <retry_results.json.gz>
-   zwill twin-results import --survey <survey> --job-id <twin_job_id> --merge --path <retry_results.json.gz>
+   zwill twin-results import --survey <survey> --job-id <twin_job_id> --merge --input-path <retry_results.json.gz>
    ```
    For validation runs beyond one-off debugging, prefer `twin-experiment` plans:
    the plan must specify held-out targets, all eligible questions considered,
@@ -209,7 +209,7 @@ Validate them separately:
 zwill edsl-export --survey <survey> --target rank-utility-twin-job \
   --rank-task-id <rank_task_id> --allow-unapproved --path rank.edsl.json
 zwill edsl-run --job rank.edsl.json --path rank_results.json.gz
-zwill twin-results import --survey <survey> --path rank_results.json.gz
+zwill twin-results import --survey <survey> --input-path rank_results.json.gz
 zwill twin-results rank-report --survey <survey> --rank-task-id <rank_task_id> \
   --format html --path report_out/rank-<rank_task_id>.html
 ```
@@ -230,7 +230,7 @@ quantile climatology baseline:
 zwill edsl-export --survey <survey> --target numeric-twin-job \
   --heldout-question <numeric_q> --allow-unapproved --path numeric.edsl.json
 zwill edsl-run --job numeric.edsl.json --path numeric_results.json.gz
-zwill numeric-results import --survey <survey> --path numeric_results.json.gz
+zwill numeric-results import --survey <survey> --input-path numeric_results.json.gz
 zwill numeric-results report --survey <survey> --job-id <job_id> \
   --format html --path report_out/numeric.html
 ```
@@ -249,13 +249,13 @@ export → run → import cycles:
 zwill edsl-export --survey <survey> --target open-codebook-job \
   --heldout-question <free_text_q> --n-themes 8 --model openai:gpt-5.5 --path cb.json
 zwill edsl-run --job cb.json --path cb_results.json.gz
-zwill open-coding codebook-import --survey <survey> --path cb_results.json.gz
+zwill open-coding codebook-import --survey <survey> --input-path cb_results.json.gz
 
 # 2. Code every respondent's answer into one theme -> new multiple_choice question
 zwill edsl-export --survey <survey> --target open-coding-job \
   --heldout-question <free_text_q> --model openai:gpt-5.5 --path coding.json
 zwill edsl-run --job coding.json --path coding_results.json.gz
-zwill open-coding import --survey <survey> --path coding_results.json.gz \
+zwill open-coding import --survey <survey> --input-path coding_results.json.gz \
   --coded-question-name <free_text_q>_coded
 ```
 

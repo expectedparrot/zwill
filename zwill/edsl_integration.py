@@ -582,7 +582,7 @@ def inspect_agent_list_dict(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def cmd_agent_list_inspect(args: argparse.Namespace) -> dict[str, Any]:
-    data = read_json_or_gzip(Path(args.path))
+    data = read_json_or_gzip(Path(args.input_path))
     summary = inspect_agent_list_dict(data)
     if args.format == "json":
         print_json(envelope("zwill agent-list inspect", "ok", summary))
@@ -1185,17 +1185,17 @@ def cmd_edsl_run(args: argparse.Namespace) -> dict[str, Any]:
         },
         next_steps=[
             (
-                f"zwill twin-benchmark practitioner-report-import --path {output_path}"
+                f"zwill twin-benchmark practitioner-report-import --input-path {output_path}"
                 if results_dict.get("zwill", {}).get("practitioner_report_id")
-                else f"zwill twin-results import --survey <survey> --path {output_path}"
+                else f"zwill twin-results import --survey <survey> --input-path {output_path}"
                 if results_dict.get("zwill", {}).get("digital_twin_job_id")
-                else f"zwill twin-results import --survey <survey> --path {output_path}"
+                else f"zwill twin-results import --survey <survey> --input-path {output_path}"
                 if results_dict.get("zwill", {}).get("rank_utility_twin_job_id")
-                else f"zwill prob-results import --survey <survey> --path {output_path}"
+                else f"zwill prob-results import --survey <survey> --input-path {output_path}"
                 if results_dict.get("zwill", {}).get("probability_job_id")
-                else f"zwill agent-study import --path {output_path}"
+                else f"zwill agent-study import --input-path {output_path}"
                 if results_dict.get("zwill", {}).get("agent_study_job_id")
-                else f"zwill prob-results import --survey <survey> --path {output_path}"
+                else f"zwill prob-results import --survey <survey> --input-path {output_path}"
             )
         ],
     )
