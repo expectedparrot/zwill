@@ -36,6 +36,12 @@ noise?" Do not report a positive result from a bare twin run.
   local embeddings, or accept a weaker readout.
 - Do **not** pass `temperature` to models. Newer Anthropic/OpenAI models reject it
   and error on every call; EDSL omits it automatically.
+- Validate twins on a **current frontier model**. `edsl-export --target
+  twin-probability-job` defaults to `gpt-5.5` when `--model` is omitted, and names
+  the chosen model in its output; if you pass a superseded model (e.g. `gpt-4o`,
+  `gpt-4.1`, `claude-3-*`) it emits a `superseded_twin_model` warning, because a
+  weak model understates twin capability and makes the whole validation
+  uninformative. Only use an older model when you are deliberately benchmarking it.
 
 ## Where outputs go
 

@@ -349,10 +349,13 @@ def option_key(index: int) -> str:
     return key
 
 
+DEFAULT_EXPORT_MODEL = "gpt-5.5"
+
+
 def parse_model_specs(args: argparse.Namespace) -> list[tuple[str, str | None]]:
     values = normalize_name_list(args.model) + normalize_name_list(args.models)
     if not values:
-        values = ["gpt-5.5"]
+        values = [DEFAULT_EXPORT_MODEL]
 
     specs = []
     for value in values:
@@ -419,6 +422,50 @@ def model_label(service_name: str | None, model_name: str | None) -> str:
     if service_name and model_name:
         return f"{service_name}:{model_name}"
     return str(model_name or "")
+
+
+# Model families that are clearly superseded for twin validation as of this
+# release. Validating a twin on one understates its capability (a research-agent
+# run once validated on gpt-4.1 while frontier was gpt-5.5), so the twin-job
+# export warns. Advisory only, never blocking. Keep current as models evolve.
+SUPERSEDED_TWIN_MODEL_MARKERS = (
+    "gpt-4o", "gpt-4.1", "gpt-4.5", "gpt-4-", "gpt-4", "gpt-3.5", "gpt-35",
+    "claude-3", "claude-2", "claude-instant",
+    "gemini-1", "gemini-pro",
+    "text-davinci", "text-bison", "davinci", "babbage", "ada",
+)
+RECOMMENDED_TWIN_MODELS = ("openai:gpt-5.5", "anthropic:claude-opus-4-8", "google:gemini-2.5-pro")
+
+# --target values whose export bakes in the model that will predict held-out
+# answers, i.e. where model choice is validation-critical.
+TWIN_VALIDATION_TARGETS = frozenset({"twin-probability-job", "rank-utility-twin-job", "numeric-twin-job"})
+
+
+def superseded_twin_model_labels(specs: list[tuple[str, str | None]]) -> list[str]:
+    """Labels among ``specs`` that match a superseded model family."""
+    flagged: list[str] = []
+    for model_name, service_name in specs:
+        lowered = str(model_name).lower()
+        if any(marker in lowered for marker in SUPERSEDED_TWIN_MODEL_MARKERS):
+            flagged.append(model_label(service_name, model_name))
+    return flagged
+
+
+def superseded_twin_model_warning(specs: list[tuple[str, str | None]]) -> dict[str, Any] | None:
+    """A loud warning envelope when a twin will be validated on a weak model."""
+    superseded = superseded_twin_model_labels(specs)
+    if not superseded:
+        return None
+    plural = "is a superseded model" if len(superseded) == 1 else "are superseded models"
+    return {
+        "code": "superseded_twin_model",
+        "message": (
+            f"This twin validation will run on {', '.join(superseded)}, which {plural} for this release — "
+            f"results may understate twin capability. Use a current frontier model (e.g. {RECOMMENDED_TWIN_MODELS[0]}) "
+            f"via --model unless you are deliberately benchmarking an older model. zwill defaults to "
+            f"{DEFAULT_EXPORT_MODEL} when --model is omitted."
+        ),
+    }
 
 
 
@@ -1245,15 +1292,29 @@ def cmd_edsl_export(args: argparse.Namespace) -> None:
                 ),
             }
         )
+
+    # For validation-critical exports, name the model the twin will run on and
+    # warn loudly if it is a superseded model (understating twin capability).
+    model_labels = None
+    if args.target in TWIN_VALIDATION_TARGETS:
+        specs = parse_model_specs(args)
+        model_labels = [model_label(service_name, model_name) for model_name, service_name in specs]
+        model_warning = superseded_twin_model_warning(specs)
+        if model_warning:
+            warnings.append(model_warning)
+
+    export_data = {
+        "target": args.target,
+        "survey": args.survey,
+        "scenario_count": scenario_count,
+        "model_count": len(export_dict.get("models", []) or []) or None,
+    }
+    if model_labels is not None:
+        export_data["models"] = model_labels
     emit_raw_export(
         "zwill edsl-export",
         args,
         output,
-        {
-            "target": args.target,
-            "survey": args.survey,
-            "scenario_count": scenario_count,
-            "model_count": len(export_dict.get("models", []) or []) or None,
-        },
+        export_data,
         warnings=warnings,
     )
