@@ -43,7 +43,7 @@ Core rule: always expand survey codebooks before import/export. Use human-readab
 
    `twin-validate` runs, in order:
    - **Leakage audit** over the held-out targets — flags any context question that near-deterministically predicts a target (bias-corrected Cramér's V). Leakage is the top validity threat; a "twin" that only works on leaky targets is copying, not modelling.
-   - **Conditional baseline** — a cheap embedding + logistic model fit on the *same respondents* the twins scored, using only what is available for a genuinely new question (question/option wording + the respondent's other answers, leave-one-question-out; it never sees the target's own marginal). This is the fair yardstick. Needs `OPENAI_API_KEY` for embeddings; pass `--skip-baseline` to omit it, or `--require-baseline` to fail rather than warn.
+   - **Conditional baseline** — an **XGBoost** model over question/option embeddings **plus the respondent's panel covariates**, fit on the *same respondents* the twins scored, leave-one-question-out (it never sees the target's own marginal). This is the fair, deployable yardstick, and with covariates it is a *strong* bar. The embedder auto-selects a working backend — Expected Parrot first (behind a short health probe, so an unavailable endpoint fails over in seconds instead of hanging), then a direct `OPENAI_API_KEY`, then a local sentence-transformers model, then a built-in lexical embedder — so it **runs even with no key and never hangs**. Install `zwill[conditional-baseline]` for the strongest (semantic) baseline. Pass `--skip-baseline` to omit it, or `--require-baseline` to fail rather than warn.
    - **Bootstrap confidence intervals** on each model's scores and on the paired twin-minus-baseline deltas, resampling respondents. This answers "is the gap real or sampling noise?"
    - **HTML report** embedding skill scores, the bootstrap panel, the probability-granularity check, the correlation-attenuation verdict, and the baseline appendix.
 
@@ -56,6 +56,16 @@ Core rule: always expand survey codebooks before import/export. Use human-readab
    - **Bootstrap paired deltas**: a twin beats the baseline only if its delta interval clears zero in the improving direction. A ✗ on the NLL delta (worse, interval clears zero) flags overconfidence even when accuracy improves.
    - **Probability granularity**: a model flagged "coarse" (mass piled on round numbers) has quantization-limited Brier/calibration — read those scores with that ceiling.
    - **Correlation attenuation**: if the twin's implied cross-question association is systematically below the empirical association, the twin is over-shrinking toward a common distribution — its marginals can look fine while its joint structure is washed out.
+
+6. **Build and deliver the full report — do not stop before this.**
+
+   The validation bundle above is the technical readout. The *full* report — survey profile, one-shot marginals, twin validation, and executive summary as **one scrollable page with a table of contents** — comes from:
+
+   ```bash
+   zwill report build --survey <survey_id> --path report_out
+   ```
+
+   This writes `report_out/report.html` (also `report_out/index.html`). **The task is not complete until that file exists and you have told the user its path.** Never end a validation request with "standing by" or "here when you need me" — run the command, confirm the file was written, and report where it is. If the frontier-model executive narrative has not been generated, the report is still complete and viewable (the narrative is optional and can be added later); say so rather than treating a "blocked" interpretation stage as "no report."
 
 ## Useful single-step commands
 
@@ -82,4 +92,4 @@ Do not proceed to a practitioner report or make a positive claim until:
 - calibration is inspected: a model with high accuracy but poor NLL/ECE (overconfident misses) is not reported as good without that caveat;
 - the held-out questions are documented well enough to interpret successes and failures.
 
-If the conditional baseline cannot run (no embedding key) and the study still needs a readout, say so explicitly: without it you can only claim the twin beats uniform/marginal, not that it beats a cheap individual model.
+The conditional baseline now **always runs** — with no embedding key it falls back to a built-in lexical embedder. If only that lexical fallback was available (a stderr warning says so), note the baseline is a *weaker* bar leaning mostly on covariates — install `zwill[conditional-baseline]` for the semantic model — but you can still make the twin-vs-baseline claim.
