@@ -252,7 +252,7 @@ def test_twin_baseline_cli_stores_predictions_and_flows_through_report(tmp_path,
     assert report_path.exists()
 
 
-def test_resolve_baseline_embedder_prefers_local_and_never_hangs(monkeypatch, capsys) -> None:
+def test_resolve_baseline_embedder_ep_first_with_failover(monkeypatch, capsys) -> None:
     import zwill.twin_baseline_commands as tbc
     from zwill.twin_baseline import DEFAULT_EMBEDDING_MODEL
 
@@ -263,23 +263,30 @@ def test_resolve_baseline_embedder_prefers_local_and_never_hangs(monkeypatch, ca
     for choice in ("sentence-transformers", "local", "st", "hashing", "lexical"):
         assert callable(tbc.resolve_baseline_embedder(argparse.Namespace(embedder=choice), DEFAULT_EMBEDDING_MODEL))
 
-    # auto prefers local sentence-transformers when installed...
-    monkeypatch.setattr(tbc, "sentence_transformers_available", lambda: True)
-    assert callable(tbc.resolve_baseline_embedder(argparse.Namespace(embedder="auto"), DEFAULT_EMBEDDING_MODEL))
-
-    # ...and even with an Expected Parrot key set, auto must NOT pick the remote
-    # endpoint (which can hang) — it stays on the local model.
+    # auto with an Expected Parrot key + a HEALTHY endpoint -> use the remote first.
     monkeypatch.setenv("EXPECTED_PARROT_API_KEY", "x")
+    healthy = lambda *a, **k: (lambda texts: [[1.0] for _ in texts])  # noqa: E731
+    monkeypatch.setattr(tbc, "edsl_embedder", healthy)
+    embedder = tbc.resolve_baseline_embedder(argparse.Namespace(embedder="auto"), DEFAULT_EMBEDDING_MODEL)
+    assert embedder(["x"]) == [[1.0]]  # the remote embedder was chosen
+
+    # auto with an UNAVAILABLE endpoint (probe raises) -> fail over fast to local.
+    def _dead(*a, **k):
+        def _embed(texts):
+            raise RuntimeError("endpoint down")
+        return _embed
+
+    monkeypatch.setattr(tbc, "edsl_embedder", _dead)
+    monkeypatch.setattr(tbc, "sentence_transformers_available", lambda: True)
     embedder = tbc.resolve_baseline_embedder(argparse.Namespace(embedder="auto"), DEFAULT_EMBEDDING_MODEL)
     assert embedder.__qualname__.startswith("sentence_transformers_embedder")
+    assert "did not respond" in capsys.readouterr().err
 
-    # auto with no keys and no local embeddings -> the built-in lexical embedder
-    # (always runs) plus a warning, never an error / hang.
+    # auto, endpoint down, no keys, no local embeddings -> built-in lexical embedder
+    # (always runs) plus a warning; never an error or hang.
     monkeypatch.delenv("EXPECTED_PARROT_API_KEY", raising=False)
     monkeypatch.setattr(tbc, "sentence_transformers_available", lambda: False)
     embedder = tbc.resolve_baseline_embedder(argparse.Namespace(embedder="auto"), DEFAULT_EMBEDDING_MODEL)
-    assert callable(embedder)
-    # It actually embeds (zero-dependency, instant).
     vectors = embedder(["hello world", "hello"])
     assert len(vectors) == 2 and len(vectors[0]) == len(vectors[1]) > 0
     assert "built-in lexical embedder" in capsys.readouterr().err

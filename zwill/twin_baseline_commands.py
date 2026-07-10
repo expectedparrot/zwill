@@ -16,18 +16,50 @@ from .twin_baseline import (
     sentence_transformers_embedder,
 )
 
+# How long to wait for a one-text health probe before deciding the Expected
+# Parrot embeddings endpoint is unavailable and failing over to a local backend.
+EP_PROBE_TIMEOUT_SECONDS = 20.0
+
+
+def _probe_embedder(factory: Any, *, timeout: float) -> Embedder | None:
+    """Return the embedder if a tiny probe embed succeeds within ``timeout``.
+
+    Runs the probe on a daemon thread so a hung/slow endpoint fails over quickly
+    (bounded by ``timeout``) instead of stalling the whole validation, and never
+    blocks process exit. Returns None on error, timeout, or an empty result.
+    """
+    import threading
+
+    try:
+        embedder = factory()
+    except Exception:  # pragma: no cover - construction rarely fails
+        return None
+    result: dict[str, Any] = {}
+
+    def _run() -> None:
+        try:
+            result["vectors"] = embedder(["health check"])
+        except Exception as exc:  # noqa: BLE001
+            result["error"] = exc
+
+    thread = threading.Thread(target=_run, daemon=True)
+    thread.start()
+    thread.join(timeout)
+    if thread.is_alive() or "error" in result or not result.get("vectors"):
+        return None
+    return embedder
+
 
 def resolve_baseline_embedder(args: Any, embedding_model: str) -> Embedder:
     """Pick the embedding backend for the conditional baseline.
 
-    `--embedder auto` (the default) prefers *reliable, local* backends so the
-    gated `--require-baseline` validation never hangs: a direct OpenAI key, then
-    a local sentence-transformers model, then a zero-dependency built-in lexical
-    embedder that always works (weaker, so it leans on covariates). The remote
-    Expected Parrot embeddings endpoint is intentionally NOT in the auto path --
-    it can hang the validation when unavailable -- but stays reachable via
-    `--embedder edsl`. `openai`, `sentence-transformers`/`local`, and
-    `hashing`/`lexical` force a backend.
+    `--embedder auto` (the default) tries the Expected Parrot embeddings endpoint
+    first (behind a bounded health probe, so an unavailable endpoint fails over in
+    seconds instead of hanging the validation), then a direct OpenAI key, then a
+    local sentence-transformers model, then a zero-dependency built-in lexical
+    embedder that always works (weaker -- it leans on covariates). `edsl`,
+    `openai`, `sentence-transformers`/`local`, and `hashing`/`lexical` force a
+    backend (`edsl` with no failover).
     """
     choice = (getattr(args, "embedder", None) or "auto").lower()
     # A local sentence-transformers model uses its own default, not the OpenAI one.
@@ -40,7 +72,18 @@ def resolve_baseline_embedder(args: Any, embedding_model: str) -> Embedder:
         return openai_embedder(model=embedding_model)
     if choice in {"hashing", "lexical", "builtin", "hash"}:
         return hashing_embedder()
-    # auto -- reliable/local only; never the remote endpoint (opt in with --embedder edsl).
+    # auto -- Expected Parrot endpoint first, but health-probed so it can't hang.
+    if os.environ.get("EXPECTED_PARROT_API_KEY"):
+        remote = _probe_embedder(
+            lambda: edsl_embedder(model=embedding_model), timeout=EP_PROBE_TIMEOUT_SECONDS
+        )
+        if remote is not None:
+            return remote
+        print(
+            "warning: the Expected Parrot embeddings endpoint did not respond within "
+            f"{EP_PROBE_TIMEOUT_SECONDS:.0f}s; falling back to a local embedder for the conditional baseline.",
+            file=sys.stderr,
+        )
     if os.environ.get("OPENAI_API_KEY"):
         return openai_embedder(model=embedding_model)
     if sentence_transformers_available():
