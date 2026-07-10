@@ -26,14 +26,15 @@ noise?" Do not report a positive result from a bare twin run.
   editable checkout). Running twins uses EDSL.
 - Running twins uses **Expected Parrot remote inference**: `EXPECTED_PARROT_API_KEY`
   in a `.env` that `zwill edsl-run` can find (it loads the nearest `.env`).
-- The **conditional baseline** embeds question/option text. It picks an embedding
-  backend from `--embedder auto` (default): a direct `OPENAI_API_KEY`, then Expected
-  Parrot (`EXPECTED_PARROT_API_KEY`, `--embedder edsl`), then a local
-  sentence-transformers model when installed (`--embedder sentence-transformers`, no
-  API key — `pip install 'zwill[conditional-baseline]'`). The baseline itself is an
-  XGBoost model, so install that extra to run it fully offline. Without any backend
-  the baseline is skipped and the comparison loses its point — set a key or install
-  local embeddings, or accept a weaker readout.
+- The **conditional baseline** embeds question/option text and is an XGBoost model.
+  `--embedder auto` (default) picks a *reliable, local* backend so the gated
+  `--require-baseline` validation never hangs: a direct `OPENAI_API_KEY`, else a
+  local sentence-transformers model when installed (`pip install
+  'zwill[conditional-baseline]'`), else a built-in lexical embedder that always
+  runs (weaker — it leans on covariates). The remote Expected Parrot embeddings
+  endpoint is **not** in `auto` (it can hang when unavailable); reach it explicitly
+  with `--embedder edsl`. For the strongest baseline, install the extra so `auto`
+  uses the semantic sentence-transformers model.
 - Do **not** pass `temperature` to models. Newer Anthropic/OpenAI models reject it
   and error on every call; EDSL omits it automatically.
 - Validate twins on a **current frontier model**. `edsl-export --target

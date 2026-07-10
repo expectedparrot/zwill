@@ -10,6 +10,7 @@ from .twin_baseline import (
     baseline_job_id,
     build_conditional_baseline_predictions,
     edsl_embedder,
+    hashing_embedder,
     openai_embedder,
     sentence_transformers_available,
     sentence_transformers_embedder,
@@ -19,12 +20,14 @@ from .twin_baseline import (
 def resolve_baseline_embedder(args: Any, embedding_model: str) -> Embedder:
     """Pick the embedding backend for the conditional baseline.
 
-    `--embedder auto` (the default) prefers a direct OpenAI key, then Expected
-    Parrot (remote EDSL, needs only EXPECTED_PARROT_API_KEY), then a local
-    sentence-transformers model when it is installed -- so the gated
-    `--require-baseline` validation can run with compute and no API keys at all.
-    `openai`, `edsl`/`expected-parrot`, and `sentence-transformers`/`local` force
-    a backend.
+    `--embedder auto` (the default) prefers *reliable, local* backends so the
+    gated `--require-baseline` validation never hangs: a direct OpenAI key, then
+    a local sentence-transformers model, then a zero-dependency built-in lexical
+    embedder that always works (weaker, so it leans on covariates). The remote
+    Expected Parrot embeddings endpoint is intentionally NOT in the auto path --
+    it can hang the validation when unavailable -- but stays reachable via
+    `--embedder edsl`. `openai`, `sentence-transformers`/`local`, and
+    `hashing`/`lexical` force a backend.
     """
     choice = (getattr(args, "embedder", None) or "auto").lower()
     # A local sentence-transformers model uses its own default, not the OpenAI one.
@@ -35,23 +38,21 @@ def resolve_baseline_embedder(args: Any, embedding_model: str) -> Embedder:
         return edsl_embedder(model=embedding_model)
     if choice == "openai":
         return openai_embedder(model=embedding_model)
-    # auto
+    if choice in {"hashing", "lexical", "builtin", "hash"}:
+        return hashing_embedder()
+    # auto -- reliable/local only; never the remote endpoint (opt in with --embedder edsl).
     if os.environ.get("OPENAI_API_KEY"):
         return openai_embedder(model=embedding_model)
-    if os.environ.get("EXPECTED_PARROT_API_KEY"):
-        return edsl_embedder(model=embedding_model)
     if sentence_transformers_available():
         return sentence_transformers_embedder(model=local_model)
-    raise ZwillError(
-        "missing_dependency",
-        "No embedding backend available for the conditional baseline.",
-        hint=(
-            "Set OPENAI_API_KEY (direct OpenAI), or EXPECTED_PARROT_API_KEY "
-            "(route through Expected Parrot, --embedder edsl), or install local "
-            "embeddings with `pip install 'zwill[local-embeddings]'` "
-            "(--embedder sentence-transformers). Or pass --skip-baseline."
-        ),
+    print(
+        "warning: no semantic embedding backend available; using the built-in lexical embedder "
+        "for the conditional baseline (weaker — it leans on covariates). Install "
+        "`zwill[local-embeddings]` or set OPENAI_API_KEY for a semantic baseline, or pass "
+        "`--embedder sentence-transformers` once installed.",
+        file=sys.stderr,
     )
+    return hashing_embedder()
 
 
 def selected_baseline_heldout_questions(args: Any, questions: list[dict[str, Any]]) -> list[str]:
