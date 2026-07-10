@@ -252,29 +252,34 @@ def test_twin_baseline_cli_stores_predictions_and_flows_through_report(tmp_path,
     assert report_path.exists()
 
 
-def test_resolve_baseline_embedder_sentence_transformers_and_auto_fallback(monkeypatch) -> None:
-    import pytest
-
+def test_resolve_baseline_embedder_prefers_local_and_never_hangs(monkeypatch, capsys) -> None:
     import zwill.twin_baseline_commands as tbc
-    from zwill.errors import ZwillError
     from zwill.twin_baseline import DEFAULT_EMBEDDING_MODEL
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("EXPECTED_PARROT_API_KEY", raising=False)
 
-    # forced local backend resolves to a callable embedder without any API key
-    # (the model is loaded lazily inside the embedder, not at resolve time)
-    for choice in ("sentence-transformers", "local", "st"):
-        embedder = tbc.resolve_baseline_embedder(argparse.Namespace(embedder=choice), DEFAULT_EMBEDDING_MODEL)
-        assert callable(embedder)
+    # Forced local / hashing backends resolve to a callable without any API key.
+    for choice in ("sentence-transformers", "local", "st", "hashing", "lexical"):
+        assert callable(tbc.resolve_baseline_embedder(argparse.Namespace(embedder=choice), DEFAULT_EMBEDDING_MODEL))
 
-    # auto with no keys but sentence-transformers installed -> local fallback
+    # auto prefers local sentence-transformers when installed...
     monkeypatch.setattr(tbc, "sentence_transformers_available", lambda: True)
     assert callable(tbc.resolve_baseline_embedder(argparse.Namespace(embedder="auto"), DEFAULT_EMBEDDING_MODEL))
 
-    # auto with no keys and no local embeddings -> a helpful error, not a crash
+    # ...and even with an Expected Parrot key set, auto must NOT pick the remote
+    # endpoint (which can hang) — it stays on the local model.
+    monkeypatch.setenv("EXPECTED_PARROT_API_KEY", "x")
+    embedder = tbc.resolve_baseline_embedder(argparse.Namespace(embedder="auto"), DEFAULT_EMBEDDING_MODEL)
+    assert embedder.__qualname__.startswith("sentence_transformers_embedder")
+
+    # auto with no keys and no local embeddings -> the built-in lexical embedder
+    # (always runs) plus a warning, never an error / hang.
+    monkeypatch.delenv("EXPECTED_PARROT_API_KEY", raising=False)
     monkeypatch.setattr(tbc, "sentence_transformers_available", lambda: False)
-    with pytest.raises(ZwillError) as exc:
-        tbc.resolve_baseline_embedder(argparse.Namespace(embedder="auto"), DEFAULT_EMBEDDING_MODEL)
-    hint = getattr(exc.value, "hint", "") or ""
-    assert "local-embeddings" in hint or "sentence-transformers" in hint
+    embedder = tbc.resolve_baseline_embedder(argparse.Namespace(embedder="auto"), DEFAULT_EMBEDDING_MODEL)
+    assert callable(embedder)
+    # It actually embeds (zero-dependency, instant).
+    vectors = embedder(["hello world", "hello"])
+    assert len(vectors) == 2 and len(vectors[0]) == len(vectors[1]) > 0
+    assert "built-in lexical embedder" in capsys.readouterr().err

@@ -205,6 +205,28 @@ def sentence_transformers_embedder(
     return embed
 
 
+def hashing_embedder(*, dim: int = 256) -> Embedder:
+    """Zero-dependency lexical embedder (bag-of-words feature hashing).
+
+    No model download, no network, instant — so the gated ``--require-baseline``
+    validation can always run. It captures lexical overlap, not meaning, so the
+    conditional baseline built on it leans mostly on respondent covariates; it is
+    a weaker bar than a semantic embedder but always available.
+    """
+
+    def embed(texts: list[str]) -> list[list[float]]:
+        vectors: list[list[float]] = []
+        for text in texts:
+            vector = [0.0] * dim
+            for token in str(text).lower().split():
+                bucket = int(hashlib.sha1(token.encode()).hexdigest(), 16) % dim
+                vector[bucket] += 1.0
+            vectors.append(vector)
+        return vectors
+
+    return embed
+
+
 def _load_xgboost() -> Any:
     """Lazy-import XGBClassifier so importing this module never requires xgboost."""
     try:
