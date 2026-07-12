@@ -758,6 +758,14 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
             if exported
             else "",
             f"zwill twin-results import --survey {survey} --input-path <results.json.gz>",
+            (
+                f"zwill twin-validate --survey {survey} "
+                f"--jobs {','.join(e.get('job_id', '') for e in exported)} "
+                f"--out validation_bundle  "
+                f"# decisive: leakage audit + conditional baseline + bootstrap CIs + HTML report"
+                if exported
+                else ""
+            ),
             f"zwill twin-experiment compare --survey {survey} --metric {manifest['primary_metric']}",
         ],
     )
