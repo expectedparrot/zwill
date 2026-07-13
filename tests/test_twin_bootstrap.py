@@ -61,6 +61,20 @@ def test_single_job_per_model_arm_label_is_unchanged() -> None:
     assert list(res["models"]) == ["gpt-5.5"]
 
 
+def test_rotated_heldout_jobs_are_one_arm() -> None:
+    # One construction run as one job per held-out question (disjoint questions)
+    # is a single arm, not one arm per question.
+    rows = (
+        _rows_job("gpt-5.5", "jobQ1xxxxx", "q1", [0.7] * 20)
+        + _rows_job("gpt-5.5", "jobQ2xxxxx", "q2", [0.6] * 20)
+        + _rows_job("gpt-5.5", "jobQ3xxxxx", "q3", [0.8] * 20)
+    )
+    res = bootstrap_summary(rows, n_boot=100, seed=1)
+    assert list(res["models"]) == ["gpt-5.5"]
+    # all three questions scored under the one arm
+    assert set(res["models"]["gpt-5.5"]["questions"]) == {"q1", "q2", "q3"}
+
+
 def test_paired_delta_ci_excludes_zero_for_a_real_effect() -> None:
     # model A scores 0.7 on every respondent, baseline scores 0.3 on the same ones.
     rows = _rows("modelA", "q1", [0.7] * 200) + _rows("baseline", "q1", [0.3] * 200)

@@ -181,7 +181,10 @@ def cmd_twin_validate(args: argparse.Namespace, *, embedder=None) -> dict[str, A
         )
         bootstrap_result = cmd_twin_results_bootstrap(bootstrap_args)
         data = bootstrap_result["data"]
-        bootstrap_data_full = data
+        # The envelope carries only a macro summary; read the written file for the
+        # full per-arm/per-question models + deltas_vs_baseline (with CIs) so
+        # report_data.json is self-contained.
+        bootstrap_data_full = read_json(bootstrap_path, data)
         steps["bootstrap"] = {
             "path": str(bootstrap_path),
             "n_boot": data["n_boot"],
