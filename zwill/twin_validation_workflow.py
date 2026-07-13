@@ -66,6 +66,7 @@ def cmd_twin_validate(args: argparse.Namespace, *, embedder=None) -> dict[str, A
 
     steps: dict[str, Any] = {}
     warnings: list[dict[str, Any]] = []
+    bootstrap_data_full: dict[str, Any] = {}
 
     # The empirical-frequency baseline is attached at import time from committed
     # truth marginals. If the survey was committed AFTER these predictions were
@@ -180,6 +181,10 @@ def cmd_twin_validate(args: argparse.Namespace, *, embedder=None) -> dict[str, A
         )
         bootstrap_result = cmd_twin_results_bootstrap(bootstrap_args)
         data = bootstrap_result["data"]
+        # The envelope carries only a macro summary; read the written file for the
+        # full per-arm/per-question models + deltas_vs_baseline (with CIs) so
+        # report_data.json is self-contained.
+        bootstrap_data_full = read_json(bootstrap_path, data)
         steps["bootstrap"] = {
             "path": str(bootstrap_path),
             "n_boot": data["n_boot"],
@@ -201,6 +206,30 @@ def cmd_twin_validate(args: argparse.Namespace, *, embedder=None) -> dict[str, A
     )
     cmd_twin_results_report(report_args)
     steps["report"] = {"path": str(report_path), "view": getattr(args, "view", "full")}
+
+    # 5. Machine-readable report data ----------------------------------------
+    # One structured JSON so downstream report generators don't scrape bootstrap
+    # + raw predictions + source + HTML.
+    from .twin_report_data import build_report_data
+
+    report_data_path = out_dir / "report_data.json"
+    report_rows = [
+        row for row in read_jsonl(digital_twin_predictions_path(sdir))
+        if row.get("job_id") in set(report_job_ids)
+    ]
+    report_data = build_report_data(
+        survey=args.survey,
+        rows=report_rows,
+        heldout_questions=heldout_questions,
+        respondent_count=len(respondent_ids),
+        twin_job_ids=twin_job_ids,
+        baseline_job_id=baseline_job_id,
+        bootstrap_data=bootstrap_data_full,
+        leakage_summary=steps.get("leakage_audit"),
+        baseline_embedding_model=(steps.get("baseline") or {}).get("embedding_model"),
+    )
+    write_json(report_data_path, report_data)
+    steps["report_data"] = {"path": str(report_data_path), "schema_version": report_data["schema_version"]}
 
     # Rank batteries are validated through a separate rank-utility flow, not this
     # probability-job gate. If the survey has rank tasks, say so loudly and point

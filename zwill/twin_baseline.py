@@ -47,6 +47,29 @@ from .twin import one_hot_metrics
 Embedder = Callable[[list[str]], list[list[float]]]
 
 MODEL_LABEL = "baseline:conditional-embedding"
+
+# XGBoost hyperparameters for the conditional baseline, exposed so report tooling
+# can document the fitted model without hardcoding a drifting copy. `reg_lambda`
+# is overridden per run by max(1.0, --l2).
+CONDITIONAL_BASELINE_HYPERPARAMS = {
+    "n_estimators": 300,
+    "max_depth": 6,
+    "learning_rate": 0.1,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "reg_lambda": 1.0,
+    "tree_method": "hist",
+    "eval_metric": "logloss",
+}
+CONDITIONAL_BASELINE_FEATURES = (
+    "question-text embedding; option-text embedding; respondent one-hot covariates; "
+    "two embedding-similarity scalars from the respondent's other-answer profile "
+    "(pair and option), excluding the target question; option index"
+)
+CONDITIONAL_BASELINE_TRAINING = (
+    "leave-one-question-out (each target trained only on the other questions' rows; "
+    "the target question's answers and marginal never enter training)"
+)
 BASELINE_SERVICE = "baseline"
 BASELINE_MODEL = "conditional-embedding"
 FEATURE_VERSION = "v2-xgboost"
@@ -591,14 +614,7 @@ def build_conditional_baseline_predictions(
         if train_x.size == 0 or len(np.unique(train_y)) < 2:
             continue
         classifier = XGBClassifier(
-            n_estimators=300,
-            max_depth=6,
-            learning_rate=0.1,
-            subsample=0.8,
-            colsample_bytree=0.8,
-            reg_lambda=max(1.0, float(l2)),
-            tree_method="hist",
-            eval_metric="logloss",
+            **{**CONDITIONAL_BASELINE_HYPERPARAMS, "reg_lambda": max(1.0, float(l2))},
             n_jobs=0,
         )
         classifier.fit(train_x, train_y)

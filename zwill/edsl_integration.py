@@ -1207,7 +1207,15 @@ def cmd_edsl_run(args: argparse.Namespace) -> dict[str, Any]:
             },
         )
 
-    results = job.run(**run_parameters) if run_parameters else job.run()
+    # EDSL prints remote-inference progress ("Initializing.../Progress: <url>") to
+    # stdout during the run. Redirect it to stderr so stdout carries only the
+    # JSON envelope emitted below -- otherwise `json.load(<stdout>)` fails and
+    # scripts must grep for fields.
+    import contextlib as _contextlib
+    import sys as _sys
+
+    with _contextlib.redirect_stdout(_sys.stderr):
+        results = job.run(**run_parameters) if run_parameters else job.run()
     if results is None:
         raise ZwillError("edsl_run_failed", "EDSL job did not return a Results object.")
     results_dict = results.to_dict()

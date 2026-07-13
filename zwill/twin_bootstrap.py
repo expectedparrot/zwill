@@ -42,11 +42,71 @@ def _percentile_ci(samples: np.ndarray, ci: float) -> tuple[float, float]:
     return float(np.percentile(samples, lo)), float(np.percentile(samples, hi))
 
 
+def _base_label(row: dict[str, Any]) -> str:
+    return str(row.get("model_label") or row.get("model") or "")
+
+
+def arm_labels(rows: list[dict[str, Any]]) -> dict[str, str]:
+    """Map job_id -> display arm label.
+
+    An "arm" is a twin construction (model + strategy/context). The same
+    construction is often run as one job per held-out question (a rotation), so
+    several jobs share a model_label yet are the SAME arm. A different construction
+    on the SAME question (e.g. a prompt-pipeline strategy, or with-context vs
+    covariates-only) is a DIFFERENT arm.
+
+    We therefore group a model's jobs so that jobs whose held-out questions are
+    disjoint stay together (rotation), while jobs that share a held-out question
+    are split into separate arms. A model with a single arm keeps the bare model
+    label; split arms get a short job suffix for traceability.
+    """
+    questions_by_job: dict[str, tuple[str, set[str]]] = {}
+    for row in rows:
+        label = _base_label(row)
+        job = str(row.get("job_id") or "")
+        question = str(row.get("heldout_question") or "")
+        if not label or not job:
+            continue
+        entry = questions_by_job.setdefault(job, (label, set()))
+        entry[1].add(question)
+
+    jobs_by_label: dict[str, list[str]] = {}
+    for job, (label, _questions) in questions_by_job.items():
+        jobs_by_label.setdefault(label, []).append(job)
+
+    arm_of_job: dict[str, str] = {}
+    for label, jobs in jobs_by_label.items():
+        arms: list[dict[str, Any]] = []  # each: {"questions": set, "jobs": [job]}
+        for job in sorted(jobs):
+            questions = questions_by_job[job][1]
+            placed = next((arm for arm in arms if arm["questions"].isdisjoint(questions)), None)
+            if placed is None:
+                arms.append({"questions": set(questions), "jobs": [job]})
+            else:
+                placed["questions"] |= questions
+                placed["jobs"].append(job)
+        if len(arms) == 1:
+            for job in jobs:
+                arm_of_job[job] = label
+        else:
+            for arm in arms:
+                suffix = sorted(arm["jobs"])[0][:8]
+                for job in arm["jobs"]:
+                    arm_of_job[job] = f"{label} [{suffix}]"
+    return arm_of_job
+
+
 def _group_rows(rows: list[dict[str, Any]]) -> dict[tuple[str, str], dict[str, dict[str, Any]]]:
-    """Group prediction rows by (model_label, question) -> {respondent_id: row}."""
+    """Group prediction rows by (arm, question) -> {respondent_id: row}.
+
+    The arm is the model label, disambiguated by job when one model spans several
+    jobs (see ``arm_labels``), so same-model construction variants stay separate.
+    """
+    arm_of_job = arm_labels(rows)
     grouped: dict[tuple[str, str], dict[str, dict[str, Any]]] = {}
     for row in rows:
-        label = str(row.get("model_label") or row.get("model") or "")
+        job = str(row.get("job_id") or "")
+        label = arm_of_job.get(job) or _base_label(row)
         question = str(row.get("heldout_question") or "")
         respondent_id = str(row.get("respondent_id") or "")
         if not label or not question or not respondent_id:

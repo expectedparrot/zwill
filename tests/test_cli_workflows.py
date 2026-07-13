@@ -195,6 +195,7 @@ def default_twin_export_args(**overrides) -> argparse.Namespace:
         "complete_cases": False,
         "limit_respondents": None,
         "context_question_count": 1,
+        "allow_empty_context": False,
         "model": ["openai:gpt-5.5"],
         "models": None,
         "service_name": None,
@@ -2269,6 +2270,33 @@ def test_twin_job_export_applies_target_specific_leakage_exclusions(tmp_path: Pa
     assert job["zwill"]["leakage_exclusions"] == {"q1": ["q2"]}
 
 
+def test_twin_export_blocks_multi_heldout_empty_context(tmp_path: Path, monkeypatch) -> None:
+    # Holding out every question at once leaves twins with no observed answers
+    # (covariates only) -- almost always an accident. It must error by default,
+    # and succeed only with the explicit --allow-empty-context opt-in.
+    monkeypatch.chdir(tmp_path)
+    create_tiny_binary_survey()
+    monkeypatch.setattr(
+        cli,
+        "load_edsl_job_classes",
+        lambda: (FakeJobs, FakeModel, FakeModelList, FakeQuestionFreeText, FakeScenario, FakeScenarioList, FakeSurvey),
+    )
+    with pytest.raises(cli.ZwillError) as excinfo:
+        cli.build_edsl_digital_twin_job_dict(
+            "demo",
+            default_twin_export_args(heldout_question=["q1", "q2"], respondent=["r1"]),
+        )
+    assert excinfo.value.code == "invalid_input"
+    # opt-in makes the deliberate covariate-only ablation succeed
+    job = cli.build_edsl_digital_twin_job_dict(
+        "demo",
+        default_twin_export_args(
+            heldout_question=["q1", "q2"], respondent=["r1"], allow_empty_context=True
+        ),
+    )
+    assert job["scenarios"]
+
+
 def test_twin_export_excludes_all_heldout_questions_from_context(tmp_path: Path, monkeypatch) -> None:
     # Holding out several questions must exclude EVERY held-out answer from each
     # target's context -- using one held-out answer to predict another leaks, and
@@ -2281,9 +2309,13 @@ def test_twin_export_excludes_all_heldout_questions_from_context(tmp_path: Path,
         lambda: (FakeJobs, FakeModel, FakeModelList, FakeQuestionFreeText, FakeScenario, FakeScenarioList, FakeSurvey),
     )
 
+    # Holding out both questions of a two-question survey leaves no context by
+    # design; that is the deliberate covariate-only case, opted into explicitly.
     job = cli.build_edsl_digital_twin_job_dict(
         "demo",
-        default_twin_export_args(heldout_question=["q1", "q2"], respondent=["r1"]),
+        default_twin_export_args(
+            heldout_question=["q1", "q2"], respondent=["r1"], allow_empty_context=True
+        ),
     )
 
     by_target = {scenario["heldout_question_name"]: scenario for scenario in job["scenarios"]}
