@@ -11,17 +11,18 @@ example predictions (misses + confident hits).
 
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import Any
 
+from .executive_summary import spearman
 from .twin_baseline import (
     CONDITIONAL_BASELINE_FEATURES,
     CONDITIONAL_BASELINE_HYPERPARAMS,
     CONDITIONAL_BASELINE_TRAINING,
+)
+from .twin_baseline import (
     MODEL_LABEL as BASELINE_MODEL_LABEL,
 )
-from collections import defaultdict
-
-from .executive_summary import spearman
 from .twin_report import build_twin_report
 from .twin_scoring import skill_score_summary
 
