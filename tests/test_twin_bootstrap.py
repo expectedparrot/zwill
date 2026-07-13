@@ -33,6 +33,34 @@ def test_ci_brackets_the_point_estimate_and_narrows_with_n() -> None:
     assert (lrg["hi"] - lrg["lo"]) < (s["hi"] - s["lo"])
 
 
+def _rows_job(model_label, job_id, question, values, *, metric="probability_actual"):
+    rows = _rows(model_label, question, values, metric=metric)
+    for row in rows:
+        row["job_id"] = job_id
+    return rows
+
+
+def test_same_model_different_jobs_are_kept_as_separate_arms() -> None:
+    # Two constructions (e.g. two prompt strategies) share model label "m" but
+    # differ by job_id. They must not collapse into one arm.
+    rows = (
+        _rows_job("m", "jobAAAAAAAA", "q1", [0.9] * 50)
+        + _rows_job("m", "jobBBBBBBBB", "q1", [0.2] * 50)
+    )
+    res = bootstrap_summary(rows, n_boot=200, seed=1)
+    arms = sorted(res["models"])
+    assert arms == ["m [jobAAAAA]", "m [jobBBBBB]"]
+    assert abs(res["models"]["m [jobAAAAA]"]["macro"]["probability_actual"]["mean"] - 0.9) < 1e-9
+    assert abs(res["models"]["m [jobBBBBB]"]["macro"]["probability_actual"]["mean"] - 0.2) < 1e-9
+
+
+def test_single_job_per_model_arm_label_is_unchanged() -> None:
+    # The common case (one job per model) keeps the bare model label.
+    rows = _rows_job("gpt-5.5", "onlyjob0", "q1", [0.5] * 20)
+    res = bootstrap_summary(rows, n_boot=100, seed=1)
+    assert list(res["models"]) == ["gpt-5.5"]
+
+
 def test_paired_delta_ci_excludes_zero_for_a_real_effect() -> None:
     # model A scores 0.7 on every respondent, baseline scores 0.3 on the same ones.
     rows = _rows("modelA", "q1", [0.7] * 200) + _rows("baseline", "q1", [0.3] * 200)

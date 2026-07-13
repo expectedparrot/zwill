@@ -42,11 +42,46 @@ def _percentile_ci(samples: np.ndarray, ci: float) -> tuple[float, float]:
     return float(np.percentile(samples, lo)), float(np.percentile(samples, hi))
 
 
+def _base_label(row: dict[str, Any]) -> str:
+    return str(row.get("model_label") or row.get("model") or "")
+
+
+def arm_labels(rows: list[dict[str, Any]]) -> dict[str, str]:
+    """Map job_id -> display arm label.
+
+    Two twin jobs with the same model but a different construction (e.g. a prompt
+    pipeline, or a with-context vs covariates-only run) share a model_label. Left
+    alone they collapse into one arm and their scores merge. When a model_label
+    spans more than one job_id, disambiguate the arm by a short job suffix so each
+    construction is scored separately; the common one-job-per-model case is
+    unchanged (arm label == model_label).
+    """
+    jobs_by_label: dict[str, set[str]] = {}
+    label_of_job: dict[str, str] = {}
+    for row in rows:
+        label = _base_label(row)
+        job = str(row.get("job_id") or "")
+        if not label or not job:
+            continue
+        label_of_job[job] = label
+        jobs_by_label.setdefault(label, set()).add(job)
+    return {
+        job: (f"{label} [{job[:8]}]" if len(jobs_by_label[label]) > 1 else label)
+        for job, label in label_of_job.items()
+    }
+
+
 def _group_rows(rows: list[dict[str, Any]]) -> dict[tuple[str, str], dict[str, dict[str, Any]]]:
-    """Group prediction rows by (model_label, question) -> {respondent_id: row}."""
+    """Group prediction rows by (arm, question) -> {respondent_id: row}.
+
+    The arm is the model label, disambiguated by job when one model spans several
+    jobs (see ``arm_labels``), so same-model construction variants stay separate.
+    """
+    arm_of_job = arm_labels(rows)
     grouped: dict[tuple[str, str], dict[str, dict[str, Any]]] = {}
     for row in rows:
-        label = str(row.get("model_label") or row.get("model") or "")
+        job = str(row.get("job_id") or "")
+        label = arm_of_job.get(job) or _base_label(row)
         question = str(row.get("heldout_question") or "")
         respondent_id = str(row.get("respondent_id") or "")
         if not label or not question or not respondent_id:
