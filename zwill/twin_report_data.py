@@ -19,10 +19,51 @@ from .twin_baseline import (
     CONDITIONAL_BASELINE_TRAINING,
     MODEL_LABEL as BASELINE_MODEL_LABEL,
 )
+from collections import defaultdict
+
+from .executive_summary import spearman
 from .twin_report import build_twin_report
 from .twin_scoring import skill_score_summary
 
-REPORT_DATA_SCHEMA_VERSION = 1
+REPORT_DATA_SCHEMA_VERSION = 2
+
+
+def _norm_arm(model_label: str) -> str:
+    """`job_id / model_label` (build_twin_report) -> plain model_label."""
+    return model_label.split(" / ")[-1]
+
+
+def _rank_correlation(marginal_options: list[dict[str, Any]]) -> dict[str, Any]:
+    """Per twin arm, per question: Spearman rank correlation between the twin's
+    predicted option distribution and the true one (does the twin order the
+    options the same way the population does?). Macro-averaged per arm."""
+    by: dict[tuple[str, str], dict[str, list[float]]] = defaultdict(lambda: {"pred": [], "target": []})
+    for mo in marginal_options:
+        key = (_norm_arm(mo["model_label"]), mo["heldout_question"])
+        by[key]["pred"].append(float(mo.get("predicted_probability") or 0.0))
+        by[key]["target"].append(float(mo.get("target_probability") or 0.0))
+    per_arm: dict[str, dict[str, Any]] = defaultdict(lambda: {"per_question": {}})
+    for (arm, question), pair in by.items():
+        if len(pair["pred"]) >= 2:
+            per_arm[arm]["per_question"][question] = spearman(pair["pred"], pair["target"])
+    for arm, block in per_arm.items():
+        vals = [v for v in block["per_question"].values() if v is not None]
+        block["mean_spearman"] = (sum(vals) / len(vals)) if vals else None
+    return dict(per_arm)
+
+
+def _survey_instrument(marginal_options: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Per held-out question: text, and the real option distribution (target)."""
+    by_q: dict[str, dict[str, Any]] = {}
+    for mo in marginal_options:
+        q = mo["heldout_question"]
+        entry = by_q.setdefault(q, {"question": q, "question_text": mo.get("heldout_question_text"), "options": {}})
+        entry["options"].setdefault(mo["option_label"], round(float(mo.get("target_probability") or 0.0), 4))
+    return [
+        {"question": q, "question_text": e["question_text"],
+         "options": [{"option": o, "real_share": p} for o, p in e["options"].items()]}
+        for q, e in by_q.items()
+    ]
 
 
 def _confident_hits(rows: list[dict[str, Any]], limit: int = 5) -> list[dict[str, Any]]:
@@ -93,7 +134,12 @@ def build_report_data(
         "marginal_options": diagnostics.get("marginal_options", []),
         "examples": {
             "worst_misses": diagnostics.get("worst_misses", [])[:10],
+            "overconfident_misses": diagnostics.get("overconfident_misses", [])[:10],
             "confident_hits": _confident_hits(rows),
         },
-        "summary_by_question": report.get("summary_by_question", {}),
+        "per_question": report.get("summary_by_question", {}),
+        "rank_correlation": _rank_correlation(diagnostics.get("marginal_options", [])),
+        "calibration": {"expected_calibration_error": diagnostics.get("expected_calibration_error", {})},
+        "attenuation": (diagnostics.get("joint_structure") or {}).get("attenuation", {}),
+        "survey_instrument": _survey_instrument(diagnostics.get("marginal_options", [])),
     }
