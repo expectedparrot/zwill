@@ -169,6 +169,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--context-question-count", type=int, help="Maximum number of context questions per respondent.")
     p.add_argument("--exclude-metadata-context", action="store_true", help="Do not include respondent metadata (panel covariates) in twin context. Included by default.")
     p.add_argument("--exclude-metadata-key", action="append", help="Respondent metadata key to exclude from twin context. Repeatable.")
+    p.add_argument("--allow-empty-context", action="store_true", help="Allow twins with no observed answers (covariates only), e.g. when every candidate context question is held out. Off by default so holding out all questions at once is caught, not run silently.")
     p.add_argument("--include-survey-context", action="store_true", help="Include survey context markdown in exported EDSL Agent instructions.")
     p.add_argument("--include-agent-material", action="store_true", help="Include non-survey agent construction material in agent-list or twin job exports.")
     p.add_argument("--agent-material-kind", action="append", help="Only include agent material of this kind. Repeatable or comma-separated.")

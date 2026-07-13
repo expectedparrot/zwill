@@ -551,6 +551,24 @@ def build_edsl_digital_twin_job_dict(survey_name: str, args: Any, deps: DigitalT
     context_args.questions = args.context_questions
     context_args.exclude_question = args.exclude_context_question or []
     context_question_names = deps.selected_question_names(context_args, questions)
+    # A twin's whole point is predicting a held-out answer from the respondent's
+    # OTHER answers. Holding out MULTIPLE questions such that none remain as
+    # context (e.g. holding out all questions at once) leaves every twin with no
+    # observed answers -- covariates only -- a different, weaker experiment that
+    # is almost always an accident. (A single held-out question with no other
+    # answerable questions -- e.g. a one-question survey -- is legitimate and not
+    # flagged.) Require an explicit opt-in for the multi-held-out empty-context case.
+    answer_context_pool = [name for name in context_question_names if name not in set(heldout_names)]
+    if len(heldout_names) > 1 and not answer_context_pool and not getattr(args, "allow_empty_context", False):
+        raise ZwillError(
+            "invalid_input",
+            "Every candidate context question is held out, so all twins would have "
+            "no observed answers (covariates only). To hold out each question in "
+            "turn with the others as context, export one held-out question at a "
+            "time. Pass --allow-empty-context to run covariate-only twins on purpose.",
+            context={"heldout_questions": heldout_names, "context_question_names": context_question_names},
+            hint="Hold out a single question per job, or pass --allow-empty-context.",
+        )
     raw_leakage_exclusions = target_specific_leakage_exclusions(args)
     unknown_exclusion_targets = sorted(set(raw_leakage_exclusions) - set(heldout_names))
     if unknown_exclusion_targets:
