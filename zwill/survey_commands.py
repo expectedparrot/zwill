@@ -400,11 +400,20 @@ def cmd_status(_: argparse.Namespace) -> dict[str, Any]:
     project_id = active_project_id()
     surveys = read_json(project_surveys_path(), [])
     summaries = [survey_summary(s["name"]) for s in surveys]
+    uncommitted = [s.get("name") for s in summaries if not s.get("committed")]
+    if uncommitted:
+        next_steps = [f"zwill commit --survey {uncommitted[0]}"]
+    elif summaries:
+        # All surveys are committed; point at the workflow guide instead of
+        # re-suggesting a commit that has already happened.
+        next_steps = ["zwill next"]
+    else:
+        next_steps = []
     return envelope(
         "zwill status",
         "ok",
         {"project": project_id, "surveys": summaries},
-        next_steps=["zwill commit --survey <survey>"] if summaries else [],
+        next_steps=next_steps,
     )
 
 

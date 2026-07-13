@@ -120,11 +120,18 @@ def cmd_twin_results_import(args: argparse.Namespace) -> dict[str, Any]:
             "recovered_count": len(extracted) if merge else None,
             "cost": results_cost_summary(results),
         },
-        next_steps=[
-            f"zwill twin-results export --survey {args.survey} --job-id {job_id} --path predictions.csv"
+        next_steps=(
+            [f"zwill twin-results export --survey {args.survey} --job-id {job_id} --path predictions.csv"]
             if getattr(args, "allow_missing_actual", False)
-            else f"zwill twin-results report --survey {args.survey} --job-id {job_id}"
-        ],
+            else [
+                (
+                    f"zwill twin-validate --survey {args.survey} --job-id {job_id} "
+                    f"--out validation_bundle  "
+                    f"# decisive: leakage audit + conditional baseline + bootstrap CIs + HTML report"
+                ),
+                f"zwill twin-results report --survey {args.survey} --job-id {job_id}",
+            ]
+        ),
     )
 
 
