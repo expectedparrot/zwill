@@ -182,7 +182,18 @@ next command. The full path:
    stratification policy, prediction count (`respondents x held-out questions x
    approaches x models`), cost/time risk, outputs, and decision criteria. Ask the
    user to approve or edit the plan before export/run.
-9. **Validate — one command** — run the whole rigorous flow:
+9. **Audit prompts before scoring** — immediately after import, inspect at least
+   one run before opening performance tables:
+   ```bash
+   zwill twin-results run-report --survey <survey> --job-id <twin_job_id> \
+     --format html --path run-audit.html
+   ```
+   Open the report and confirm construction metadata, prompt template, rendered
+   scenarios, raw model responses, malformed rows, and import issues. Held-out
+   answers, target marginals, target-revealing fields, and identifiers or weights
+   presented as personality evidence must be absent. Stop and fix a failed audit;
+   do not let a promising score excuse a questionable prompt.
+10. **Validate — one command** — run the whole rigorous flow:
    ```bash
    zwill twin-validate --survey <survey> --jobs <twin_job_ids> --out validation_bundle --require-baseline
    ```
@@ -190,11 +201,7 @@ next command. The full path:
    respondents* the twins scored, computes bootstrap confidence intervals, and
    renders the report. The bundle contains `report.html`, `bootstrap.json`,
    `leakage_audit.json`, and `manifest.json`.
-   Audit at least one imported run with `zwill twin-results run-report` before
-   scoring claims. Confirm construction metadata, prompt template, rendered
-   prompts, scenario inputs, raw model responses, malformed rows, and import
-   issues; held-out answers and leakage fields must be absent from prompts.
-10. **Build the evidence bundle** — assemble the incremental HTML report folder
+11. **Build the evidence bundle** — assemble the incremental HTML report folder
    with an `index.html` linking every ready page:
    ```bash
    zwill report build --survey <survey> --path report_out \
@@ -203,7 +210,7 @@ next command. The full path:
    Inspect the bundle's contextualized tables, diagnostics, plots, audit pages,
    and machine-readable facts. These are inputs to the coding agent's report,
    not a model-authored final narrative.
-11. **Write and check the interpretation** — use the assembled evidence to
+12. **Write and check the interpretation** — use the assembled evidence to
    author the study's claims and limitations. Keep observed results, baseline
    comparisons, uncertainty, leakage findings, sample restrictions, and costs
    traceable to bundle artifacts. Then render the deterministic bundle:

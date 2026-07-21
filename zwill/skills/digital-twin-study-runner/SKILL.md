@@ -30,7 +30,26 @@ Core rule: always expand survey codebooks before import/export. Use human-readab
    - **Do not set `temperature`.** Newer Anthropic and OpenAI models (Fable 5, Opus 4.7+, Sonnet 5, etc.) reject the `temperature` parameter and will error on every call; EDSL omits it for those models automatically. Only pass `temperature` for an older model that requires it, and never rely on `temperature=0` for "comparability."
    - For Gemini free-text JSON jobs, pass a larger `max_tokens` (and `thinking_budget` when supported) so responses are not truncated.
 
-4. **Validate — run the full flow with one command**
+4. **Audit the imported run before scoring**
+
+   Before opening a score table or running validation, audit at least one imported job:
+
+   ```bash
+   zwill twin-results run-report \
+     --survey <survey_id> \
+     --job-id <twin_job_id> \
+     --path run_audit.html
+   ```
+
+   Open `run_audit.html`. Confirm that the held-out answer, target marginal,
+   target-revealing follow-ups, downstream fields, and respondent identifiers or
+   weights presented as personality evidence are absent from prompts. Check the
+   approved context, rendered scenarios, raw responses, malformed rows, and
+   import issues. **Do this before looking at performance** so a promising score
+   cannot bias the construction audit. Stop and fix or exclude a run whose audit
+   is not clean.
+
+5. **Validate — run the full flow with one command**
 
    Once one or more twin jobs are imported, run the complete validation in one gated step. This is the appropriate exercise; the individual commands in the next section are for running or re-running a single piece.
 
@@ -49,7 +68,7 @@ Core rule: always expand survey codebooks before import/export. Use human-readab
 
    The bundle contains `report.html`, `bootstrap.json`, `leakage_audit.json`, and `manifest.json`.
 
-5. **Interpret the validation** — open `report.html` and read it in this order:
+6. **Interpret the validation** — open `report.html` and read it in this order:
    - **Leakage** (`leakage_audit.json`): if any target has a flagged context pair, exclude that context and re-run, or treat that target's result as leakage-inflated. Do this before trusting any score.
    - **Skill scores** (unit-free, comparable across questions): `1 − loss/baseline_loss` vs uniform and vs the empirical marginal. Positive vs marginal means the model beats the population distribution on individuals. Read these as the headline, not top-1 accuracy — one answer per respondent cannot validate an individual probability, and accuracy rewards confident mode-guessing.
    - **Median vs mean NLL**: a good median NLL with a bad mean NLL is the signature of a few confident wrong guesses. Report both.
@@ -57,7 +76,7 @@ Core rule: always expand survey codebooks before import/export. Use human-readab
    - **Probability granularity**: a model flagged "coarse" (mass piled on round numbers) has quantization-limited Brier/calibration — read those scores with that ceiling.
    - **Correlation attenuation**: if the twin's implied cross-question association is systematically below the empirical association, the twin is over-shrinking toward a common distribution — its marginals can look fine while its joint structure is washed out.
 
-6. **Build and deliver the full report — do not stop before this.**
+7. **Build and deliver the full report — do not stop before this.**
 
    The validation bundle above is the technical readout. The *full* report — survey profile, one-shot marginals, twin validation, and executive summary as **one scrollable page with a table of contents** — comes from:
 
@@ -87,6 +106,7 @@ Do not make a positive claim until:
 
 - codebook expansion is confirmed and the report has valid rows for each intended model;
 - import issues and malformed responses are reviewed;
+- at least one imported run's rendered prompts and raw responses are manually audited before scores are interpreted;
 - the **leakage audit is clean** (or leaky targets are excluded);
 - the **conditional baseline is present**, and any "twins add individual signal" claim is supported by a **bootstrap delta interval that clears zero** — not a bare point estimate;
 - calibration is inspected: a model with high accuracy but poor NLL/ECE (overconfident misses) is not reported as good without that caveat;
