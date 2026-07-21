@@ -89,8 +89,10 @@ zwill twin-validate --survey <survey> --job-id <dial_job> --out dial_val --skip-
 ```
 
 Read **NLL, ECE, and p(actual)**: a reasoning strategy earns its keep only if it
-improves calibration. Register a pipeline on a `twin-approach` to A/B several
-head-to-head via `twin-experiment` / `twin-study compare`.
+improves calibration. Record the imported raw and pipeline jobs under one
+`twin-experiment` id to compare them head-to-head. Reusable `twin-approach`
+records cover construction inputs; the pipeline itself remains part of the
+exported job's construction audit.
 
 ## How to actually run these experiments (what past sessions learned)
 

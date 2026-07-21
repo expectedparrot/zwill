@@ -4,6 +4,7 @@ import json
 from html import unescape
 
 from zwill.executive_summary import remove_leading_executive_summary_heading
+from zwill.diagnostic_svg import render_bootstrap_forest_svg, render_marginal_diagnostics_svg
 from zwill.reporting import (
     PRACTITIONER_DECISION_GUIDANCE_MARKDOWN,
     PRACTITIONER_EXPLAINER_MARKDOWN,
@@ -579,3 +580,40 @@ def test_twin_benchmark_report_renders_with_missing_empirical_baseline() -> None
     html = render_twin_benchmark_report_html(payload)
     assert "kora" in html and "openai:gpt-5.5" in html
     assert "&mdash;" in html  # missing empirical rendered as em-dash, not a crash
+
+
+def test_diagnostic_svg_renderers_produce_standalone_charts() -> None:
+    bootstrap = {
+        "deltas_vs_baseline": {
+            "baseline_model": "baseline:conditional-embedding",
+            "models": {
+                "openai:gpt-5.5": {
+                    "macro": {
+                        "negative_log_likelihood": {"delta": -0.18, "lo": -0.37, "hi": -0.03},
+                        "brier": {"delta": -0.09, "lo": -0.19, "hi": 0.01},
+                    }
+                }
+            },
+        }
+    }
+    forest = render_bootstrap_forest_svg(bootstrap)
+    assert forest.startswith("<svg")
+    assert "Paired bootstrap differences" in forest
+    assert "NLL" in forest
+
+    marginal = render_marginal_diagnostics_svg(
+        {
+            "options": [
+                {
+                    "heldout_question": "carbon_tax",
+                    "model_label": "openai:gpt-5.5",
+                    "option_label": "Favor",
+                    "target_probability": 0.61,
+                    "predicted_probability": 0.69,
+                }
+            ]
+        }
+    )
+    assert marginal.startswith("<svg")
+    assert "Twin-implied versus target marginals" in marginal
+    assert "Favor" in marginal

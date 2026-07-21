@@ -1,23 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="920" height="360" viewBox="0 0 920 360" role="img" aria-labelledby="title desc">
-  <title id="title">GPT-5.5 twin versus XGBoost on four validation metrics</title>
-  <desc id="desc">The twin has lower NLL and Brier and higher probability on the actual answer. Top-one accuracy is nearly tied. Only the paired NLL confidence interval excludes zero.</desc>
-  <style>text{font-family:Inter,Arial,sans-serif;fill:#18332f}.title{font-size:22px;font-weight:700}.sub{font-size:13px;fill:#61716e}.label{font-size:15px;font-weight:650}.value{font-size:13px}.twin{fill:#167d61}.base{fill:#aeb9b6}.axis{stroke:#d7dfdd;stroke-width:1}.note{font-size:12px;fill:#52625f}</style>
-  <rect width="920" height="360" fill="#fff" rx="12"/>
-  <text class="title" x="28" y="36">Twin versus conditional XGBoost baseline</text>
-  <text class="sub" x="28" y="58">Weighted point estimates · lower is better for NLL and Brier</text>
-  <g transform="translate(28 92)">
-    <text class="label" x="0" y="18">p(actual) ↑</text><line class="axis" x1="145" y1="22" x2="830" y2="22"/>
-    <rect class="twin" x="145" y="0" width="552" height="16" rx="3"/><text class="value" x="704" y="13">Twin 0.690</text>
-    <rect class="base" x="145" y="24" width="537" height="16" rx="3"/><text class="value" x="689" y="37">XGBoost 0.671</text>
-    <text class="label" x="0" y="84">NLL ↓</text><line class="axis" x1="145" y1="88" x2="830" y2="88"/>
-    <rect class="twin" x="145" y="66" width="351" height="16" rx="3"/><text class="value" x="503" y="79">Twin 0.513</text>
-    <rect class="base" x="145" y="90" width="478" height="16" rx="3"/><text class="value" x="630" y="103">XGBoost 0.698</text>
-    <text class="label" x="0" y="150">Brier ↓</text><line class="axis" x1="145" y1="154" x2="830" y2="154"/>
-    <rect class="twin" x="145" y="132" width="263" height="16" rx="3"/><text class="value" x="415" y="145">Twin 0.329</text>
-    <rect class="base" x="145" y="156" width="336" height="16" rx="3"/><text class="value" x="488" y="169">XGBoost 0.420</text>
-    <text class="label" x="0" y="216">Top-1 ↑</text><line class="axis" x1="145" y1="220" x2="830" y2="220"/>
-    <rect class="twin" x="145" y="198" width="610" height="16" rx="3"/><text class="value" x="762" y="211">Twin 0.762</text>
-    <rect class="base" x="145" y="222" width="611" height="16" rx="3"/><text class="value" x="763" y="235">XGBoost 0.764</text>
-  </g>
-  <text class="note" x="28" y="344">Paired 95% interval clears zero only for NLL: twin − XGBoost = −0.186 [−0.370, −0.034].</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="320" viewBox="0 0 920 320" role="img">
+  <style>text{font-family:Arial,sans-serif;fill:#18332f}.title{font-size:21px;font-weight:700}.sub{font-size:12px;fill:#61716e}.label{font-size:14px}.ci{stroke:#52625f;stroke-width:3}.zero{stroke:#9aa8a4;stroke-width:1.5;stroke-dasharray:5 4}.win{fill:#167d61}.other{fill:#b66b13}</style>
+  <rect width="920" height="320" fill="#fff" rx="12"/><text class="title" x="24" y="31">Paired bootstrap differences</text><text class="sub" x="24" y="52">GPT-5.5 twin minus conditional XGBoost · 2,000 respondent resamples</text><line class="zero" x1="594" y1="70" x2="594" y2="265"/>
+  <text class="label" x="30" y="104">p(actual) ↑</text><line class="ci" x1="543" y1="99" x2="710" y2="99"/><circle class="other" cx="623" cy="99" r="6"/><text class="sub" x="735" y="103">+0.019 [−0.033, +0.075]</text>
+  <text class="label" x="30" y="152">NLL ↓</text><line class="ci" x1="112" y1="147" x2="539" y2="147"/><circle class="win" cx="308" cy="147" r="6"/><text class="sub" x="735" y="151">−0.186 [−0.370, −0.034]</text>
+  <text class="label" x="30" y="200">Brier ↓</text><line class="ci" x1="393" y1="195" x2="597" y2="195"/><circle class="other" cx="454" cy="195" r="6"/><text class="sub" x="735" y="199">−0.091 [−0.189, +0.002]</text>
+  <text class="label" x="30" y="248">Top-1 ↑</text><line class="ci" x1="388" y1="243" x2="777" y2="243"/><circle class="other" cx="591" cy="243" r="6"/><text class="sub" x="735" y="247">−0.002 [−0.135, +0.118]</text>
+  <text class="sub" x="104" y="292">−0.40</text><text class="sub" x="594" y="292" text-anchor="middle">0</text><text class="sub" x="778" y="292" text-anchor="end">+0.15</text>
 </svg>

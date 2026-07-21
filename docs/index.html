@@ -11,7 +11,7 @@
     #progress{position:fixed;inset:0 auto auto 0;z-index:20;width:0;height:4px;background:#65b783}
     nav{position:fixed;inset:0 auto 0 0;z-index:10;width:var(--sidebar);overflow:auto;padding:24px 22px 40px;color:#eef7f1;background:var(--dark);font:14px/1.35 var(--sans)}
     .brand{display:block;margin-bottom:24px;padding:13px 14px;color:var(--ink);background:#fff;border-radius:9px;text-decoration:none}.brand strong{display:block;font:700 19px/1.15 var(--serif)}.brand small{color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
-    nav .book{margin:0 8px 23px;font:600 20px/1.25 var(--serif)}nav .part{margin:19px 8px 5px;color:#9fd3b2;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}nav>a:not(.brand){display:block;padding:6px 8px;color:#d5e9dc;text-decoration:none;border-radius:6px}nav>a:not(.brand):hover{color:#fff;background:#2d6244}.small{margin:28px 8px 0;color:#b7cec0;font-size:12px}
+    nav .book{margin:0 8px 23px;font:600 20px/1.25 var(--serif)}nav .part{margin:19px 8px 5px;color:#9fd3b2;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}nav>a:not(.brand){display:block;padding:6px 8px;color:#d5e9dc;text-decoration:none;border-radius:6px}nav>a:not(.brand):hover{color:#fff;background:#2d6244}.small{margin:28px 8px 0;color:#b7cec0;font-size:12px}.nav-toggle{display:none;width:100%;padding:10px 12px;color:#fff;background:#2d6244;border:1px solid #72a685;border-radius:7px;font:700 14px var(--sans);text-align:left;cursor:pointer}.nav-toggle:after{float:right;content:"+"}.open .nav-toggle:after{content:"−"}
     main{margin-left:var(--sidebar)}article{max-width:920px;margin:auto;padding:48px 48px 110px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.025)}header{padding:60px 0 44px;border-bottom:3px solid var(--green)}
     .eyebrow{color:var(--green);font-size:12px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}h1,h2,h3,h4{font-family:var(--serif);font-weight:600;line-height:1.3}h1{max-width:780px;margin:14px 0 20px;font-size:clamp(40px,6vw,61px);letter-spacing:-.025em}h2{margin:78px 0 22px;padding:12px 0 8px;color:var(--green);font-size:32px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}h3{margin:40px 0 13px;font-size:23px}h4{margin:26px 0 8px;font-size:18px}.dek{max-width:740px;color:var(--muted);font-size:21px;line-height:1.5}.meta{display:flex;flex-wrap:wrap;gap:10px 24px;margin-top:27px;color:var(--muted);font-size:13px}
     p,ul,ol,table,pre,.callout,figure,.formula{max-width:var(--measure)}a{color:var(--green)}code{padding:.14em .35em;background:#f0f3f0;border-radius:4px;font:88% var(--mono)}pre{position:relative;overflow:auto;margin:18px 0 26px;padding:20px 58px 20px 22px;color:#d8e3db;background:var(--code);border-radius:8px;font:13px/1.55 var(--mono)}pre code{padding:0;color:inherit;background:none}.copy{position:absolute;top:10px;right:10px;padding:5px 8px;color:#d8ebe0;background:#34453b;border:0;border-radius:5px;font:11px var(--sans);cursor:pointer}.copy:hover{background:var(--green)}
@@ -20,7 +20,7 @@
     .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:var(--measure)}.card{padding:18px;background:#fff;border:1px solid var(--rule);border-radius:8px;box-shadow:0 2px 7px rgba(0,0,0,.035)}.card h4{margin-top:0;color:var(--dark)}table{width:100%;margin:20px 0 28px;border-collapse:collapse;font-size:14px}th,td{padding:11px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--rule)}th{color:#fff;background:var(--green)}tbody tr:nth-child(even){background:#f7f9f7}
     figure{margin:30px 0 36px;padding:20px;border:1px solid var(--rule);border-radius:8px}figure svg{display:block;width:100%;height:auto}figcaption{margin-top:12px;color:var(--muted);font-size:13px;line-height:1.45}.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}.step{position:relative;padding:14px 8px;text-align:center;background:var(--light);border:1px solid #afd0ba;border-radius:7px;font-size:12px;font-weight:700}.step:not(:last-child):after{position:absolute;top:50%;right:-8px;z-index:2;color:var(--green);content:"›";font-size:22px;transform:translateY(-53%)}
     .metric{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:1px;margin:20px 0;overflow:hidden;background:var(--rule);border:1px solid var(--rule);border-radius:8px}.metric>*{padding:12px;background:#fff}.metric .head{color:#fff;background:var(--green);font-weight:700}.good{color:#247046;font-weight:700}.bad{color:var(--red);font-weight:700}footer{margin-top:85px;padding-top:28px;color:var(--muted);border-top:3px solid var(--green);font-size:13px}
-    @media(max-width:960px){nav{position:static;width:auto}nav>a:not(.brand){display:inline-block}main{margin-left:0}article{padding:28px 24px 80px}.brand{max-width:270px}}@media(max-width:650px){.grid,.flow{grid-template-columns:1fr}.step:not(:last-child):after{display:none}.metric{grid-template-columns:1fr}h2{font-size:28px}}@media print{nav,#progress,.copy{display:none!important}main{margin:0}article{max-width:none;padding:0}h2{break-before:page}pre{white-space:pre-wrap;color:#000;background:#eee}}
+    @media(max-width:960px){nav{position:static;width:auto;padding-bottom:22px}.nav-toggle{display:block}nav .part,nav>a:not(.brand),nav .small{display:none}nav.open .part{display:block}nav.open>a:not(.brand){display:inline-block}nav.open .small{display:block}nav .book{margin-bottom:14px}main{margin-left:0}article{padding:28px 24px 80px}.brand{max-width:270px}}@media(max-width:650px){.grid,.flow{grid-template-columns:1fr}.step:not(:last-child):after{display:none}.metric{grid-template-columns:1fr}h2{font-size:28px}table{display:block;overflow-x:auto}pre{padding-right:44px}}@media print{nav,#progress,.copy,.nav-toggle{display:none!important}main{margin:0}article{max-width:none;padding:0}h2{break-before:page}pre{white-space:pre-wrap;color:#000;background:#eee}}
   </style>
 </head>
 <body>
@@ -28,9 +28,11 @@
 <nav aria-label="Tutorial contents">
   <a class="brand" href="https://www.expectedparrot.com/"><strong>Expected Parrot</strong><small>Open-source research tools</small></a>
   <div class="book">Validating Survey<br>Digital Twins with zwill</div>
+  <button class="nav-toggle" type="button" aria-expanded="false">Show tutorial contents</button>
   <div class="part">Foundations</div><a href="#orientation">1. What is being tested?</a><a href="#design">2. Study design</a><a href="#install">3. Installation</a>
   <div class="part">Worked example</div><a href="#ingest">4. Ingest a survey</a><a href="#inspect">5. Inspect and commit</a><a href="#oneshot">6. One-shot baseline</a><a href="#twins">7. Run held-out predictions</a><a href="#audit">8. Audit the prompts</a><a href="#score">9. Score held-out answers</a><a href="#baseline">10. Compare with XGBoost</a>
-  <div class="part">Interpretation</div><a href="#metrics">11. Read the evidence</a><a href="#report">12. Author the report</a><a href="#next">13. From pilot to study</a>
+  <div class="part">Interpretation</div><a href="#metrics">11. Read the evidence</a><a href="#report">12. Author the report</a>
+  <div class="part">Advanced studies</div><a href="#scale">13. Multiple targets</a><a href="#experiments">14. Models &amp; prompts</a><a href="#diagnostics">15. Rich diagnostics</a><a href="#covariates">16. Covariates</a><a href="#operations">17. Recovery &amp; delivery</a><a href="#other-targets">18. Other target types</a><a href="#next">19. Study checklist</a>
   <div class="small">A self-contained tutorial for zwill and the EDSL ep CLI. Model execution happens outside zwill through Expected Parrot remote inference.</div>
 </nav>
 <main><article>
@@ -80,6 +82,7 @@ pip install -e ".[conditional-baseline]"
 zwill guide
 zwill next</code></pre>
     <p>The <code>conditional-baseline</code> extra installs XGBoost and a local sentence-transformers embedding option. <code>zwill guide</code> is the source of truth for the complete workflow. <code>zwill next</code> inspects local state and returns the next command after every completed stage.</p>
+    <p><strong>Where files go:</strong> zwill places relative report and export paths beneath its default output root, <code>zwill_work/</code>. Thus <code>--path survey-profile.html</code> writes <code>zwill_work/survey-profile.html</code>, and <code>--out report_out/validation</code> writes <code>zwill_work/report_out/validation/</code>. EDSL interchange files such as <code>jobs.ep</code> and <code>results.ep</code> stay at the paths written in the command so the external <code>ep</code> CLI can find them. Set <code>ZWILL_OUT</code> or use <code>zwill init --output-dir</code> to choose another output root.</p>
     <p>Model runs require an <code>EXPECTED_PARROT_API_KEY</code> in a nearby <code>.env</code>. If you do not have one, <a href="https://www.expectedparrot.com/">sign up with Expected Parrot</a>. zwill prepares durable EDSL <code>.ep</code> job packages; EDSL’s <code>ep</code> CLI runs them and writes a <code>Results</code> package. This keeps credentials, remote execution, waiting, and retries in the inference tool rather than the validation tool.</p>
     <div class="callout"><strong>The execution boundary.</strong> zwill builds and imports artifacts; it does not run models. Inspect a job with <code>ep inspect jobs.ep</code>, execute it with <code>ep run jobs.ep --output results.ep</code>, and reopen the result in Python with <code>Results.git.load("results.ep")</code>.</div>
   </section>
@@ -188,7 +191,7 @@ zwill next --survey pew_w158</code></pre>
     <p>Create a fuller HTML profile to inspect exact wording, weights, missingness, and weighted response distributions.</p>
     <pre><code>zwill survey report --survey pew_w158 --format html \
   --path survey-profile.html</code></pre>
-    <p>The response reports the written path and the six-question, 100-respondent, 600-answer dimensions. Open <code>survey-profile.html</code> before committing and verify that every item is binary <code>Favor</code>/<code>Oppose</code> and has 100 observed responses.</p>
+    <p>The response reports the written path and the six-question, 100-respondent, 600-answer dimensions. Open <code>zwill_work/survey-profile.html</code> before committing and verify that every item is binary <code>Favor</code>/<code>Oppose</code> and has 100 observed responses.</p>
 
     <p><code>commit</code> freezes the respondents and truth marginals used later for scoring. It is not merely a save button.</p>
     <pre><code>zwill commit --survey pew_w158</code></pre>
@@ -263,7 +266,7 @@ zwill next --survey pew_w158</code></pre>
       <img src="assets/pew-w158-one-shot-marginal.svg" alt="Observed and GPT-5.5 one-shot Favor and Oppose shares for the Pew W158 carbon-tax question" style="display:block;width:100%;height:auto">
       <figcaption>The actual tutorial run predicted 69% Favor and 31% Oppose, compared with the weighted observed split of 60.8% and 39.2%. The model was closer than a 50–50 uniform prediction, but overstated support by 8.2 percentage points.</figcaption>
     </figure>
-    <p>Open your generated <code>one-shot-marginals.svg</code>. The observed bars come from committed microdata; predicted bars come from the imported model result. This run showed useful population-level knowledge, but it does not establish that the model can distinguish one respondent from another.</p>
+    <p>Open your generated <code>zwill_work/one-shot-marginals.svg</code>. The observed bars come from committed microdata; predicted bars come from the imported model result. This run showed useful population-level knowledge, but it does not establish that the model can distinguish one respondent from another.</p>
     <div class="callout"><strong>What this baseline cannot establish.</strong> A model can predict 61% Favor for everyone and reproduce the sample marginal while offering no individual signal. The held-out test in the next chapter asks the harder question.</div>
   </section>
 
@@ -322,7 +325,7 @@ zwill twin-results import --survey pew_w158 \
     <p>Audit at least one imported run before looking at its performance. This order matters: inspect the construction before a promising score can make you more willing to excuse leakage or an unintended prompt. The run report exposes construction metadata, prompt templates, rendered scenarios, raw responses, malformed rows, and import issues.</p>
     <pre><code>zwill twin-results run-report --survey pew_w158 \
   --job-id &lt;twin_job_id&gt; --format html --path twin-audit.html</code></pre>
-    <p>Open <code>twin-audit.html</code> and inspect what was actually sent to the model. In particular, confirm that each scenario contains the five approved policy answers but not that respondent’s <code>carbon_tax</code> answer, the weighted target marginal, or any other target-revealing material.</p>
+    <p>Open <code>zwill_work/twin-audit.html</code> and inspect what was actually sent to the model. In particular, confirm that each scenario contains the five approved policy answers but not that respondent’s <code>carbon_tax</code> answer, the weighted target marginal, or any other target-revealing material.</p>
     <p>The command response confirms the written HTML path and audited job ID. The page should report 100 imported rows, zero import issues, the approved construction metadata, and rendered examples containing five context answers. Record any discrepancy rather than relying only on the score tables.</p>
     <div class="callout"><strong>Leakage rule.</strong> The held-out answer, target-revealing follow-ups, downstream variables, and target summaries must be absent from twin prompts. A leaky prediction is not evidence of a capable twin.</div>
     <p>This manual prompt inspection checks the study’s construction. The statistical leakage audit in the validation bundle provides a complementary check for unusually strong context–target relationships. Both must be clean before performance comparisons are credible.</p>
@@ -393,7 +396,8 @@ f87aa97344addd4a  100   0       carbon_tax         openai:gpt-5.5</code></pre>
     <h3>Write reusable reports and aggregate diagnostics</h3>
     <pre><code>zwill twin-results report --survey pew_w158 \
   --job-id &lt;twin_job_id&gt; --format html --view full \
-  --path twin-results.html
+  --path twin-results.html \
+  --calibration-svg-path twin-calibration.svg
 
 zwill twin-results report --survey pew_w158 \
   --job-id &lt;twin_job_id&gt; --format csv \
@@ -402,8 +406,9 @@ zwill twin-results report --survey pew_w158 \
 zwill twin-results marginal-diagnostics --survey pew_w158 \
   --job-id &lt;twin_job_id&gt; \
   --target probability-job \
-  --target-job-id &lt;probability_job_id&gt;</code></pre>
-    <p>The HTML supports visual inspection, the CSV provides one scored row per respondent, and marginal diagnostics compare the average of 100 person-specific distributions with the one-shot population prediction. Those aggregate comparisons complement—but cannot replace—the respondent-level scores.</p>
+  --target-job-id &lt;probability_job_id&gt; \
+  --format svg --path twin-vs-one-shot-marginals.svg</code></pre>
+    <p>The HTML supports visual inspection, the CSV provides one scored row per respondent, and <code>twin-calibration.svg</code> is a reusable reliability chart: points on the diagonal are calibrated, while points below it indicate overconfidence. Marginal diagnostics compare the average of 100 person-specific distributions with the one-shot population prediction; the SVG makes the option-by-option gaps visible. Those aggregate comparisons complement—but cannot replace—the respondent-level scores.</p>
     <p><strong>What marginal diagnostics returns:</strong> the selected twin and one-shot job IDs, aligned option labels, the mean twin-implied distribution, the one-shot distribution, and distance measures between them. A small distance means the two methods agree about the aggregate; it says nothing by itself about matching individuals.</p>
   </section>
 
@@ -422,9 +427,9 @@ zwill twin-results marginal-diagnostics --survey pew_w158 \
     <p>On success, the baseline step reports <code>model_type: xgboost</code>, <code>training_rows: 1000</code>, <code>prediction_rows: 100</code>, and <code>scored_questions: ["carbon_tax"]</code>. Zwill stores those predictions under <code>baseline:conditional-embedding</code> and computes exactly the same NLL, Brier, <code>p(actual)</code>, and top-1 fields used for the language-model twins.</p>
 
     <h3>Read the twin-versus-XGBoost result</h3>
-    <p><strong>Representative completion output:</strong> <code>status: ok</code>, <code>baseline.model_type: xgboost</code>, <code>baseline.training_rows: 1000</code>, <code>baseline.prediction_rows: 100</code>, <code>bootstrap.resamples: 2000</code>, and paths for <code>report.html</code>, <code>report_data.json</code>, <code>bootstrap.json</code>, <code>leakage_audit.json</code>, and <code>manifest.json</code>. A missing required baseline or failed leakage step makes the command fail instead of yielding a partial success.</p>
-    <p>Open <code>report_out/validation/report.html</code>. Unlike the earlier one-job report, its model summary contains both the language-model twin and <code>baseline:conditional-embedding</code>. The respondent-level table also includes XGBoost rows, so you can see whether both methods fail on the same people or in different ways.</p>
-    <p>The validation command also resamples respondents to estimate paired bootstrap intervals for the difference between each twin model and XGBoost. Those results are in <code>report_out/validation/bootstrap.json</code>. For <code>p(actual)</code> and top-1, higher is better; for NLL and Brier, lower is better. Interpret the direction of each twin-minus-baseline difference accordingly, and do not claim an improvement when its uncertainty interval includes zero.</p>
+    <p><strong>Representative completion output:</strong> <code>status: ok</code>, <code>baseline.model_type: xgboost</code>, <code>baseline.training_rows: 1000</code>, <code>baseline.prediction_rows: 100</code>, <code>bootstrap.resamples: 2000</code>, and paths for <code>report.html</code>, <code>report_data.json</code>, <code>bootstrap.json</code>, <code>bootstrap-intervals.svg</code>, <code>calibration.svg</code>, <code>leakage_audit.json</code>, and <code>manifest.json</code>. A missing required baseline or failed leakage step makes the command fail instead of yielding a partial success.</p>
+    <p>Open <code>zwill_work/report_out/validation/report.html</code>. Unlike the earlier one-job report, its model summary contains both the language-model twin and <code>baseline:conditional-embedding</code>. The respondent-level table also includes XGBoost rows, so you can see whether both methods fail on the same people or in different ways.</p>
+    <p>The validation command also resamples respondents to estimate paired bootstrap intervals for the difference between each twin model and XGBoost. Those results are in <code>zwill_work/report_out/validation/bootstrap.json</code>. For <code>p(actual)</code> and top-1, higher is better; for NLL and Brier, lower is better. Interpret the direction of each twin-minus-baseline difference accordingly, and do not claim an improvement when its uncertainty interval includes zero.</p>
     <h4>Results from the completed tutorial run</h4>
     <table><thead><tr><th>Metric</th><th>GPT-5.5 twin</th><th>XGBoost</th><th>Paired twin − XGBoost [95% CI]</th><th>Interpretation</th></tr></thead><tbody>
       <tr><td>p(actual)</td><td>0.690</td><td>0.671</td><td>+0.019 [−0.033, +0.075]</td><td>Point estimate favors the twin; interval includes zero.</td></tr>
@@ -432,11 +437,13 @@ zwill twin-results marginal-diagnostics --survey pew_w158 \
       <tr><td>Brier</td><td>0.329</td><td>0.420</td><td>−0.091 [−0.189, +0.002]</td><td>Point estimate favors the twin; interval narrowly includes zero.</td></tr>
       <tr><td>Top-1 accuracy</td><td>0.762</td><td>0.764</td><td>−0.002 [−0.135, +0.118]</td><td>Essentially tied and statistically inconclusive.</td></tr>
     </tbody></table>
-    <figure><img src="assets/pew-w158-twin-vs-xgboost.svg" alt="Bar comparison of GPT-5.5 twin and conditional XGBoost point estimates for probability on actual, NLL, Brier, and top-one accuracy" style="display:block;width:100%;height:auto"><figcaption>The point estimates favor the twin on probability quality, while classification accuracy is tied. The paired intervals—not bar lengths alone—determine which differences are distinguishable from sampling noise.</figcaption></figure>
+    <figure><img src="assets/pew-w158-twin-vs-xgboost.svg" alt="Forest plot of paired bootstrap differences between GPT-5.5 twins and conditional XGBoost" style="display:block;width:100%;height:auto"><figcaption>This is the same forest-plot form that zwill writes to <code>zwill_work/report_out/validation/bootstrap-intervals.svg</code>. Each dot is the paired twin-minus-XGBoost estimate and each line is its 95% bootstrap interval. Only NLL clears zero in this run.</figcaption></figure>
     <p>NLL was declared as the primary metric before export. On that metric, the twin produced meaningfully better probabilities than XGBoost: its paired interval clears zero in the favorable, negative direction. The methods had nearly identical top-1 accuracy, so the gain came from probability quality rather than getting more binary choices correct. The leakage audit examined all five context–target pairs and flagged none.</p>
     <table><thead><tr><th>Artifact</th><th>What it captures</th></tr></thead><tbody>
-      <tr><td><code>report_out/validation/report.html</code></td><td>The respondent-level and aggregate scores for both the language-model twins and the conditional XGBoost baseline.</td></tr>
+      <tr><td><code>zwill_work/report_out/validation/report.html</code></td><td>The respondent-level and aggregate scores for both the language-model twins and the conditional XGBoost baseline.</td></tr>
       <tr><td><code>bootstrap.json</code></td><td>Point estimates and paired confidence intervals for twin-versus-XGBoost metric differences.</td></tr>
+      <tr><td><code>bootstrap-intervals.svg</code></td><td>A publication-ready forest plot of those paired differences and their uncertainty intervals.</td></tr>
+      <tr><td><code>calibration.svg</code></td><td>A standalone reliability plot showing whether stated confidence matches observed accuracy.</td></tr>
       <tr><td><code>leakage_audit.json</code></td><td>Checks for suspicious relationships that could make the held-out answer recoverable from supposedly permitted inputs.</td></tr>
       <tr><td><code>report_data.json</code></td><td>The structured inputs behind the validation report, including twin rows, baseline rows, bootstrap results, and audit summary.</td></tr>
       <tr><td><code>manifest.json</code></td><td>The job IDs, settings, steps, and paths needed to trace and reproduce the validation bundle.</td></tr>
@@ -463,15 +470,43 @@ zwill twin-results marginal-diagnostics --survey pew_w158 \
     <pre><code>zwill report build --survey pew_w158 --path report_out \
   --job-id &lt;twin_job_id&gt; \
   --probability-job-id &lt;probability_job_id&gt;</code></pre>
-    <p>This command assembles the survey profile, one-shot results, twin scores, run audit, and available diagnostics into <code>report_out/</code>. Because validation was written to <code>report_out/validation/</code>, zwill detects that bundle and links its XGBoost comparison, bootstrap intervals, leakage audit, and structured evidence from the consolidated index. The result is one publishable evidence tree rather than two disconnected folders.</p>
+    <p>This command assembles the survey profile, one-shot results, twin scores, run audit, and available diagnostics into <code>zwill_work/report_out/</code>. Because validation was written to <code>zwill_work/report_out/validation/</code>, zwill detects that bundle and links its XGBoost comparison, bootstrap intervals, leakage audit, and structured evidence from the consolidated index. The result is one publishable evidence tree rather than two disconnected folders.</p>
+
+    <figure><img src="screenshots/evidence-package-index.png" alt="Top of a generated zwill evidence-package index showing the survey overview and available report sections" style="display:block;width:100%;height:auto"><figcaption>The generated <code>zwill_work/report_out/index.html</code> is the front door to the evidence package. It inventories the survey and links the profile, one-shot analysis, twin validation, diagnostics, and prompt audit instead of presenting a single unsupported conclusion.</figcaption></figure>
+    <figure><img src="screenshots/evidence-package-twin-validation.png" alt="Top of a generated zwill twin-validation report showing run overview and model-performance tables" style="display:block;width:100%;height:auto"><figcaption>A representative Pew W158 validation page generated locally by zwill. The exact rows in this screenshot come from another completed W158 run and illustrate the package layout; the numerical walkthrough in this tutorial continues to use the 100-person <code>carbon_tax</code> run reported above.</figcaption></figure>
+
+    <h4>What the structured evidence looks like</h4>
+    <p>The HTML is for inspection; JSON is what lets a coding agent trace claims without scraping a page. For example, a compact summary of this tutorial’s completed run looks like this. The complete package keeps more detail, including respondent rows, calibration bins, every bootstrap comparison, and the audit pairs.</p>
+    <pre><code>{
+  "survey": "pew_w158",
+  "heldout_question": "carbon_tax",
+  "respondents": 100,
+  "twin": {
+    "model": "openai:gpt-5.5",
+    "negative_log_likelihood": 0.5129,
+    "top1_accuracy": 0.7621,
+    "expected_calibration_error": 0.0446
+  },
+  "conditional_baseline": {
+    "model_type": "xgboost",
+    "negative_log_likelihood": 0.6984
+  },
+  "primary_comparison": {
+    "metric": "negative_log_likelihood",
+    "twin_minus_xgboost": -0.1855,
+    "confidence_interval_95": [-0.3695, -0.0343]
+  },
+  "leakage_audit": {"pair_count": 5, "flagged_count": 0}
+}</code></pre>
+    <p><a href="assets/pew-w158-evidence-summary.json">Open the complete tutorial evidence-summary JSON</a>. An agent should verify the primary comparison’s direction and interval, confirm that the leakage audit is clean, and then use the respondent-level and calibration files to look for important failures before drafting prose.</p>
 
     <table><thead><tr><th>Evidence for the coding agent</th><th>What it contributes</th></tr></thead><tbody>
-      <tr><td><code>report_out/index.html</code></td><td>A navigable inventory of the survey profile and currently available technical pages.</td></tr>
-      <tr><td><code>report_out/validation/report_data.json</code></td><td>Structured study design, twin and XGBoost rows, score summaries, bootstrap comparisons, calibration diagnostics, and audit results.</td></tr>
-      <tr><td><code>report_out/validation/report.html</code></td><td>The human-readable technical validation report against which narrative claims can be checked.</td></tr>
-      <tr><td><code>report_out/validation/bootstrap.json</code></td><td>The paired uncertainty intervals needed to distinguish evidence from sampling noise.</td></tr>
-      <tr><td><code>report_out/validation/leakage_audit.json</code></td><td>The context–target checks that must be read before making a positive performance claim.</td></tr>
-      <tr><td><code>twin-audit.html</code></td><td>Rendered prompts, respondent context, raw responses, construction metadata, and import issues.</td></tr>
+      <tr><td><code>zwill_work/report_out/index.html</code></td><td>A navigable inventory of the survey profile and currently available technical pages.</td></tr>
+      <tr><td><code>zwill_work/report_out/validation/report_data.json</code></td><td>Structured study design, twin and XGBoost rows, score summaries, bootstrap comparisons, calibration diagnostics, and audit results.</td></tr>
+      <tr><td><code>zwill_work/report_out/validation/report.html</code></td><td>The human-readable technical validation report against which narrative claims can be checked.</td></tr>
+      <tr><td><code>zwill_work/report_out/validation/bootstrap.json</code></td><td>The paired uncertainty intervals needed to distinguish evidence from sampling noise.</td></tr>
+      <tr><td><code>zwill_work/report_out/validation/leakage_audit.json</code></td><td>The context–target checks that must be read before making a positive performance claim.</td></tr>
+      <tr><td><code>zwill_work/twin-audit.html</code></td><td>Rendered prompts, respondent context, raw responses, construction metadata, and import issues.</td></tr>
       <tr><td><code>examples/pew_w158_tutorial/source.md</code></td><td>Survey provenance, scope, and the limitations of the bundled excerpt.</td></tr>
     </tbody></table>
 
@@ -482,8 +517,254 @@ zwill twin-results marginal-diagnostics --survey pew_w158 \
     <p>Publish the agent-authored report together with—or linked to—the technical evidence package. Readers should be able to move from the conclusion back to the validation table, bootstrap interval, leakage result, and underlying study design.</p>
   </section>
 
+  <section id="scale">
+    <h2><span class="chapter">13</span> Scale from one target to a real study</h2>
+    <p>The carbon-tax example teaches the mechanics, but one question cannot establish that twins work across a survey. A serious validation should hold out several questions chosen before inference. Select items that span different content, base rates, and levels of difficulty; record every eligible item considered and explain exclusions.</p>
+    <pre><code>zwill twin-experiment init-plan --survey pew_w158 \
+  --plan-id climate_policy_v2 \
+  --heldout-questions tree_planting,carbon_tax,carbon_capture_credit,zero_carbon_power,methane_leaks \
+  --sample-respondents 100 --seed 20260721 --stratify-actual \
+  --context-question-count 5 \
+  --model openai:gpt-5.5 --primary-metric nll \
+  --path climate_policy_v2.json
+
+zwill twin-experiment validate --input-path climate_policy_v2.json
+zwill twin-experiment approve --input-path climate_policy_v2.json
+zwill twin-experiment export-plan --input-path climate_policy_v2.json \
+  --output-dir climate_policy_v2_jobs</code></pre>
+    <p><code>init-plan</code> creates an editable specification, <code>validate</code> resolves the question names and prediction count, and <code>approve</code> records that the design was reviewed before model results were visible. Export then creates the <code>.ep</code> jobs and a manifest. Inspect the manifest and confirm that its scenario count still matches the approved count before running anything. <a href="assets/climate-policy-v2-plan.json">Open the example draft plan JSON</a>.</p>
+    <div class="formula">respondents × held-out questions × approaches × models<small>100 × 5 × 1 × 1 = 500 predictions in this teaching excerpt</small></div>
+    <p>Multi-target validation unlocks evidence the one-question pilot cannot provide: per-question forest plots, marginal rank-order accuracy, cross-question attenuation, joint-structure checks, and a leakage matrix across every context–target pair. Report heterogeneity rather than hiding it in one grand mean—a model that works on four easy policy items and fails on a fifth has taught you something important.</p>
+    <div class="callout warn"><strong>Sampling rule.</strong> Use the same respondent sample for every experimental arm. If filtering changes the eligible count or class balance after approval, stop and update the plan rather than silently changing the estimand.</div>
+  </section>
+
+  <section id="experiments">
+    <h2><span class="chapter">14</span> Compare models and prompt constructions</h2>
+    <p>Zwill treats model choice and prompt design as experiments, not as invisible tuning. A reusable <em>approach</em> records how the twin is constructed. An experiment plan crosses those approaches with models on the same respondents and held-out targets.</p>
+    <h3>Define two prompt approaches</h3>
+    <pre><code>zwill twin-approach scaffold --survey pew_w158 --approach-id survey_only \
+  --path approaches/survey_only.json
+zwill twin-approach scaffold --survey pew_w158 --approach-id survey_plus_notes \
+  --include-agent-material --tag context-ablation \
+  --path approaches/survey_plus_notes.json
+
+zwill twin-approach add --survey pew_w158 \
+  --input-path zwill_work/approaches/survey_only.json
+zwill twin-approach add --survey pew_w158 \
+  --input-path zwill_work/approaches/survey_plus_notes.json
+zwill twin-approach diff --survey pew_w158 \
+  --left survey_only --right survey_plus_notes</code></pre>
+    <p>Reusable approaches vary construction inputs such as context selection, metadata, supplemental material, and models. The example below is an ablation for a richer study that has first imported respondent notes with <code>agent-material add</code>; on the teaching excerpt, which has no such notes, the arms would be identical. Prompt pipelines are a complementary experiment: a pipeline such as <code>examples/twin_pipelines/dialectical.json</code> is an ordered set of EDSL questions. An early step can weigh evidence, and the final step returns the scoreable probability distribution. Zwill preserves intermediate reasoning for audit but scores only the final answer.</p>
+    <pre><code>zwill edsl build --survey pew_w158 --target twin-probability-job \
+  --heldout-question carbon_tax --sample-respondents 100 --seed 42 \
+  --twin-prompt-pipeline examples/twin_pipelines/dialectical.json \
+  --model openai:gpt-5.5 --allow-unapproved \
+  --path dialectical_jobs.ep
+
+# After running and importing matched raw and pipeline jobs:
+zwill twin-experiment record --survey pew_w158 \
+  --experiment-id carbon_prompt_ab --job-id &lt;raw_job_id&gt; \
+  --approach raw --primary-metric nll
+zwill twin-experiment record --survey pew_w158 \
+  --experiment-id carbon_prompt_ab --job-id &lt;pipeline_job_id&gt; \
+  --approach dialectical --primary-metric nll</code></pre>
+    <p>For a real comparison, put reusable construction approaches and every model in the approved plan. Record custom pipeline jobs under one experiment ID after import. In both cases, keep the sample and seed fixed so differences are paired.</p>
+    <pre><code>{
+  "defaults": {
+    "sample_respondents": 100,
+    "seed": 20260721,
+    "model": ["openai:gpt-5.5", "google:gemini-2.5-pro"]
+  },
+  "arms": [
+    {"approach_id": "survey_only"},
+    {"approach_id": "survey_plus_notes"}
+  ]
+}</code></pre>
+    <p>Those fields are the relevant excerpt from the plan, not a second complete plan file. With five targets, the design now requests <code>100 × 5 × 2 × 2 = 2,000</code> predictions. Run <code>validate</code> again, inspect the revised count and estimated cost, and obtain a new approval before export.</p>
+    <pre><code>zwill twin-experiment bundle --survey pew_w158 \
+  --plan-id climate_policy_v2 --metric nll \
+  --output-dir report_out/experiment
+
+zwill twin-experiment dashboard --survey pew_w158 \
+  --plan-id climate_policy_v2 --path report_out/experiment/dashboard.html
+zwill twin-experiment compare --survey pew_w158 \
+  --experiment-id climate_policy_v2 \
+  --metric nll
+zwill twin-experiment microdata --survey pew_w158 \
+  --experiment-id climate_policy_v2 \
+  --path report_out/experiment/microdata.html</code></pre>
+    <p>The comparison ranks arms on the declared metric; the dashboard summarizes them; the microdata page reveals which respondents each approach helped or harmed. A reasoning prompt earns its extra calls only if it improves held-out scores or calibration—not because its prose sounds thoughtful.</p>
+  </section>
+
+  <section id="diagnostics">
+    <h2><span class="chapter">15</span> Use the full diagnostic package</h2>
+    <p>The validation report answers whether a particular run beats its baselines. The broader evidence package asks additional questions: Does the twin preserve question ordering? Does it add individual signal? Are gains concentrated among a few respondents? Does it reproduce relationships among answers?</p>
+    <pre><code>zwill report facts --survey pew_w158 --path report_out
+zwill report analyze --survey pew_w158 --path report_out \
+  --job-id &lt;twin_job_id&gt; --probability-job-id &lt;probability_job_id&gt;
+zwill report render --survey pew_w158 --path report_out \
+  --job-id &lt;twin_job_id&gt; --probability-job-id &lt;probability_job_id&gt;</code></pre>
+    <table><thead><tr><th>Diagnostic</th><th>Question it answers</th><th>How to read it</th></tr></thead><tbody>
+      <tr><td>Actual-answer lift histogram</td><td>Who gained probability on the answer they actually gave?</td><td>Mass to the right of zero indicates individual-level improvement; inspect the left tail for harmed respondents.</td></tr>
+      <tr><td>Empirical-marginal lift histogram</td><td>Does personalization beat simply assigning everyone the observed population split?</td><td>A positive center is evidence of person-specific signal; the empirical benchmark remains an oracle.</td></tr>
+      <tr><td>Marginal rank order</td><td>Across questions, does the model know which options or items are more prevalent?</td><td>Useful aggregate structure does not by itself validate individuals.</td></tr>
+      <tr><td>Pairwise-order accuracy</td><td>How often are pairs of aggregate quantities ordered correctly?</td><td>Read the permutation result beside the point estimate to distinguish skill from chance.</td></tr>
+      <tr><td>Conditional consistency</td><td>Do predictions change coherently across respondent groups and contexts?</td><td>Large unexplained gaps can reveal brittle prompts or missing covariates.</td></tr>
+      <tr><td>Joint structure</td><td>Are relationships among questions preserved rather than washed out?</td><td>Attenuated correlations mean plausible marginals may still conceal unrealistic synthetic people.</td></tr>
+      <tr><td>Subgroup marginals</td><td>Where does performance or prevalence differ?</td><td>Require adequate subgroup counts and report uncertainty; do not hunt for tiny favorable slices.</td></tr>
+    </tbody></table>
+    <div class="grid">
+      <figure><img src="assets/representative-actual-answer-lift.svg" alt="Histogram of probability lift on respondents' actual answers relative to a uniform baseline" style="display:block;width:100%;height:auto"><figcaption><strong>Actual-answer lift.</strong> Bars show how much probability the twin gained or lost on the answer each person actually gave, relative to uniform. Look at the full distribution, not only its mean.</figcaption></figure>
+      <figure><img src="assets/representative-empirical-lift.svg" alt="Histogram of respondent-level probability lift relative to the empirical marginal" style="display:block;width:100%;height:auto"><figcaption><strong>Lift over the empirical marginal.</strong> This harder oracle comparison asks whether personalization adds signal beyond assigning everyone the population split.</figcaption></figure>
+    </div>
+    <figure><img src="assets/representative-pairwise-order.svg" alt="Pairwise aggregate-order accuracy chart with a chance reference" style="display:block;width:100%;height:auto"><figcaption><strong>Aggregate ordering.</strong> This chart asks whether predicted aggregate quantities have the right relative order. These three plots come from the representative locally generated W158 package shown above; they demonstrate zwill’s output form rather than adding results to the tutorial’s separate 100-person carbon-tax run.</figcaption></figure>
+    <p>These artifacts appear in both human-readable pages and machine-readable files under <code>zwill_work/report_out/analysis/</code> and <code>zwill_work/report_out/data/</code>. The report catalog and manifests tell an agent which files are ready and where each value came from.</p>
+
+    <h3>Optional marginal calibration</h3>
+    <pre><code>zwill twin-results calibrate-marginal --survey pew_w158 \
+  --job-id &lt;twin_job_id&gt; --questions carbon_tax \
+  --target probability-job --target-job-id &lt;probability_job_id&gt; \
+  --output-job-id twin_calibrated_to_one_shot
+
+zwill twin-results compare-report --survey pew_w158 \
+  --jobs &lt;twin_job_id&gt;,twin_calibrated_to_one_shot \
+  --format html --path report_out/calibration-comparison.html</code></pre>
+    <p>This adjusts person-level distributions so their aggregate matches the chosen target while retaining as much individual ordering as possible. Calibration to a one-shot forecast can be deployable if that forecast would truly be available. Calibration to the observed empirical marginal is an oracle sensitivity analysis and must never be presented as out-of-sample performance.</p>
+  </section>
+
+  <section id="covariates">
+    <h2><span class="chapter">16</span> Add covariates and supplemental evidence responsibly</h2>
+    <p>The teaching excerpt deliberately omits demographics. In a real panel, readable respondent metadata—such as age group, region, or party identification—can be legitimate predictive context for both the twin and XGBoost. Zwill includes respondent metadata by default and renders it as a separate profile block.</p>
+    <pre><code>{"respondent_id":"r_001","metadata":{
+  "age_group":"50–64",
+  "region":"Midwest",
+  "party_identification":"Independent"
+}}</code></pre>
+    <p>Expand source codes before import: <code>"age_group":"50–64"</code> is meaningful evidence, while <code>"F_AGECAT":4</code> is not. Use exclusions when a field is an identifier, downstream outcome, proxy for the held-out answer, or inappropriate for the intended deployment.</p>
+    <pre><code>zwill edsl build --survey &lt;survey&gt; --target twin-probability-job \
+  --heldout-questions &lt;q1,q2&gt; \
+  --exclude-metadata-key panelist_id \
+  --exclude-metadata-key target_followup \
+  --model openai:gpt-5.5 --approved-plan study.json \
+  --path twin_jobs.ep</code></pre>
+    <p>For richer qualitative evidence, <code>agent-material</code> and <code>--twin-material</code> can attach approved interview notes or other respondent-specific context. Cap its length, retain its provenance, audit rendered prompts, and run an ablation against a survey-only approach. More context is not automatically better.</p>
+
+    <h3>Reuse respondents as an EDSL AgentList</h3>
+    <p>Digital-twin validation asks whether agents predict answers that are already known. After that validation, zwill can also export the constructed respondents as a durable EDSL <code>AgentList.ep</code> and ask them a genuinely new question. Keep this prospective exercise separate from the held-out validation evidence.</p>
+    <pre><code>zwill edsl build --survey pew_w158 --target agent-list \
+  --path pew_w158_agents.ep
+zwill agent-list inspect --input-path pew_w158_agents.ep
+
+zwill agent-study export --agent-list pew_w158_agents.ep \
+  --question-name new_policy --question-type multiple_choice \
+  --question-text "Would you favor this new proposal?" \
+  --question-option Favor --question-option Oppose \
+  --model openai:gpt-5.5 --path new_policy_jobs.ep
+ep run new_policy_jobs.ep --output new_policy_results.ep
+zwill agent-study import --input-path new_policy_results.ep
+zwill agent-study report --format html --path report_out/new-policy.html</code></pre>
+    <p>The resulting forecast is an application of the validated construction, not additional validation: there is no observed answer for scoring. State that distinction prominently whenever prospective agent-study results are published.</p>
+    <div class="callout stop"><strong>Fairness and leakage boundary.</strong> A covariate may improve prediction and still be inappropriate to use. Document why every sensitive or proxy field is necessary, measure subgroup behavior, and remove anything that would be unavailable or disallowed at deployment.</div>
+  </section>
+
+  <section id="operations">
+    <h2><span class="chapter">17</span> Recover failures and deliver reproducible artifacts</h2>
+    <h3>Retry only malformed model rows</h3>
+    <p>Provider hiccups should not silently shrink the scored sample or force an expensive full rerun. If import reports malformed rows, build a retry job from the original package, run it, and merge only the recovered scenarios.</p>
+    <pre><code>zwill twin-results retry-malformed --survey pew_w158 \
+  --job-id &lt;twin_job_id&gt; --job twin_jobs.ep \
+  --path retry_jobs.ep
+ep run retry_jobs.ep --output retry_results.ep
+zwill twin-results import --survey pew_w158 \
+  --job-id &lt;twin_job_id&gt; --merge \
+  --input-path retry_results.ep</code></pre>
+
+    <h3>Resolve ingestion problems explicitly</h3>
+    <pre><code>zwill quarantine list --survey pew_w158
+zwill quarantine resolve --survey pew_w158 --issue-id &lt;issue_id&gt; \
+  --action resolve \
+  --note "Mapped source code 4 to 50–64 from the published codebook"
+zwill commit --survey pew_w158</code></pre>
+    <p>Quarantine keeps unknown codes, invalid options, and incomplete records visible. Resolve the source problem and record what changed; do not simply suppress an issue to reach the model-running stage.</p>
+
+    <h3>Export, package, and automate</h3>
+    <pre><code>zwill twin-results export --survey pew_w158 --job-id &lt;twin_job_id&gt; \
+  --format long --path predictions-long.csv
+zwill twin-results export --survey pew_w158 --job-id &lt;twin_job_id&gt; \
+  --format wide --path predictions-wide.csv
+zwill twin-results package --survey pew_w158 --job-id &lt;twin_job_id&gt; \
+  --path predictions.csv --zip-path predictions.zip
+
+zwill workflow dry-run study-workflow.json
+zwill workflow explain study-workflow.json
+zwill workflow run study-workflow.json</code></pre>
+    <p>Long CSV is best for analysis; wide CSV is convenient for respondent-level joins; the ZIP is a portable delivery artifact. Declarative workflows make repeated builds inspectable: always dry-run and explain them before execution. For very large true-holdout studies, <code>twin-study export-holdout</code> creates chunked jobs so failures and reruns stay bounded.</p>
+  </section>
+
+  <section id="other-targets">
+    <h2><span class="chapter">18</span> Validate numeric, ranking, and open-ended targets</h2>
+    <p>The main gate handles closed-ended choices. Zwill routes other question types through scoring rules appropriate to what the model predicts.</p>
+    <h3>Numeric questions: predict quantiles</h3>
+    <pre><code>zwill edsl build --survey &lt;survey&gt; --target numeric-twin-job \
+  --heldout-question household_income --allow-unapproved \
+  --path numeric_jobs.ep
+ep run numeric_jobs.ep --output numeric_results.ep
+zwill numeric-results import --survey &lt;survey&gt; \
+  --input-path numeric_results.ep
+zwill numeric-results report --survey &lt;survey&gt; --job-id &lt;job_id&gt; \
+  --format html --path report_out/numeric.html</code></pre>
+    <p>The twin returns p05, p25, p50, p75, and p95 rather than category probabilities. Read pinball loss, CRPS, and interval coverage against a marginal-quantile climatology baseline.</p>
+    <table><thead><tr><th>Numeric metric</th><th>Meaning</th><th>Better</th></tr></thead><tbody>
+      <tr><td>Pinball loss</td><td>Scores each reported quantile, penalizing misses differently above and below it.</td><td>Lower</td></tr>
+      <tr><td>CRPS</td><td>Scores the quality of the predicted distribution across the outcome scale.</td><td>Lower</td></tr>
+      <tr><td>Median MAE</td><td>Absolute error of the predicted p50 as a point forecast.</td><td>Lower</td></tr>
+      <tr><td>50% / 90% coverage</td><td>Share of outcomes inside the corresponding predicted interval.</td><td>Close to 50% / 90%</td></tr>
+      <tr><td>Pinball skill</td><td>Improvement over giving everyone the population marginal quantiles.</td><td>Positive</td></tr>
+    </tbody></table>
+
+    <h3>Ranking and MaxDiff: predict utility</h3>
+    <pre><code>zwill edsl build --survey &lt;survey&gt; --target rank-utility-twin-job \
+  --rank-task-id priorities --allow-unapproved --path rank_jobs.ep
+ep run rank_jobs.ep --output rank_results.ep
+zwill twin-results import --survey &lt;survey&gt; --input-path rank_results.ep
+zwill twin-results rank-report --survey &lt;survey&gt; \
+  --rank-task-id priorities --format html \
+  --path report_out/rank-priorities.html</code></pre>
+    <p>Declare a stable <code>rank_task_id</code> during import. Rank tasks have their own leakage and partial-ranking rules and are intentionally not folded into the multiple-choice headline gate.</p>
+    <table><thead><tr><th>Rank metric</th><th>Meaning</th><th>Better</th></tr></thead><tbody>
+      <tr><td>Spearman</td><td>Correlation between predicted and actual ordering among ranked items.</td><td>Toward 1</td></tr>
+      <tr><td>Pairwise</td><td>Share of item pairs placed in the correct relative order.</td><td>Above 0.5 chance</td></tr>
+      <tr><td>Top-K identification</td><td>Whether the predicted top-K catches the respondent’s actual selected set—the headline for partial rankings.</td><td>Above K/N chance</td></tr>
+      <tr><td>Rank MAE</td><td>Average absolute error in rank position.</td><td>Toward 0</td></tr>
+      <tr><td>Top-1</td><td>Share whose predicted first item matches the actual first item.</td><td>Higher</td></tr>
+    </tbody></table>
+
+    <h3>Open text: derive themes, then validate the coded target</h3>
+    <pre><code>zwill edsl build --survey &lt;survey&gt; --target open-codebook-job \
+  --heldout-question climate_concern_text --n-themes 8 \
+  --model openai:gpt-5.5 --path codebook_jobs.ep
+ep run codebook_jobs.ep --output codebook_results.ep
+zwill open-coding codebook-import --survey &lt;survey&gt; \
+  --input-path codebook_results.ep
+
+zwill edsl build --survey &lt;survey&gt; --target open-coding-job \
+  --heldout-question climate_concern_text --model openai:gpt-5.5 \
+  --path coding_jobs.ep
+ep run coding_jobs.ep --output coding_results.ep
+zwill open-coding import --survey &lt;survey&gt; \
+  --input-path coding_results.ep \
+  --coded-question-name climate_concern_theme</code></pre>
+    <p>The first job proposes a codebook; the second applies one theme consistently to every answer. Inspect theme coverage and the unclassified rate, then validate <code>climate_concern_theme</code> as an ordinary multiple-choice holdout. The coding model and twin model solve different tasks, so preserve both artifacts.</p>
+    <table><thead><tr><th>Open-text artifact</th><th>What to inspect</th></tr></thead><tbody>
+      <tr><td>Codebook result</td><td>Whether themes are distinct, exhaustive enough, interpretable, and supported by sampled answers.</td></tr>
+      <tr><td>Coded rows</td><td>Raw answer, assigned theme, model output, and any malformed or unclassified cases.</td></tr>
+      <tr><td>Coding report</td><td>Theme frequencies and unclassified share; above 20% warns that the codebook may not fit.</td></tr>
+      <tr><td>Held-out validation</td><td>Whether twins predict the coded theme against the same conditional baseline and leakage gate used for other categorical targets.</td></tr>
+    </tbody></table>
+  </section>
+
   <section id="next">
-    <h2><span class="chapter">13</span> From pilot to a broader study</h2>
+    <h2><span class="chapter">19</span> From tutorial to a defensible study</h2>
     <ol>
       <li>Use the complete documented survey rather than the 100-person teaching excerpt, and include readable codebook-expanded covariates when they are legitimate predictors.</li>
       <li>Select 5–10 defensible held-out questions and declare leakage exclusions.</li>
@@ -500,6 +781,7 @@ zwill next --survey &lt;survey_name&gt;</code></pre>
   <footer><strong>Validating Survey Digital Twins with zwill</strong><br>Built for reproducible, inspectable research with Expected Parrot EDSL. Methodology and commands are available in the open-source repository.</footer>
 </article></main>
 <script>
+var nav=document.querySelector('nav'),toggle=document.querySelector('.nav-toggle');toggle.addEventListener('click',function(){var open=nav.classList.toggle('open');toggle.setAttribute('aria-expanded',String(open));toggle.textContent=open?'Hide tutorial contents':'Show tutorial contents'});nav.querySelectorAll('a[href^="#"]').forEach(function(link){link.addEventListener('click',function(){if(window.matchMedia('(max-width: 960px)').matches){nav.classList.remove('open');toggle.setAttribute('aria-expanded','false');toggle.textContent='Show tutorial contents'}})});
 document.querySelectorAll('pre').forEach(function(pre){var b=document.createElement('button');b.className='copy';b.type='button';b.textContent='Copy';b.addEventListener('click',function(){navigator.clipboard.writeText(pre.querySelector('code').innerText).then(function(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy'},1200)})});pre.appendChild(b)});
 function progress(){var d=document.documentElement,m=d.scrollHeight-d.clientHeight;document.getElementById('progress').style.width=(m?d.scrollTop/m*100:0)+'%'}document.addEventListener('scroll',progress,{passive:true});progress();
 </script>

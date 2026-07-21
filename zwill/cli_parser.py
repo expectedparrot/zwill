@@ -403,6 +403,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--seed", type=int, default=0, help="Bootstrap random seed.")
     p.add_argument("--ci", type=float, default=0.95, help="Confidence level (0-1).")
     p.add_argument("--path", help="Write the full bootstrap result JSON to this path.")
+    p.add_argument("--svg-path", help="Write a paired-difference bootstrap forest plot SVG.")
     p.set_defaults(func=cmd_twin_results_bootstrap)
     p = twin_results.add_parser(
         "leakage-audit",
@@ -425,6 +426,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--format", choices=["table", "json", "csv", "html"], default="table")
     p.add_argument("--view", choices=["summary", "full"], default="full", help="HTML report view. `summary` writes a compact high-level diagnostics page; `full` includes row-level audit details.")
     p.add_argument("--path", help="Write json/html/csv report output to this path.")
+    p.add_argument("--calibration-svg-path", help="Write the calibration reliability diagram as a standalone SVG.")
     p.set_defaults(func=cmd_twin_results_report, table_output=True)
     p = twin_results.add_parser("rank-report", help="Report rank-utility digital twin validation results.")
     p.add_argument("--survey", required=True)
@@ -486,8 +488,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--target", choices=["probability-job", "empirical"], default="probability-job")
     p.add_argument("--target-job-id", help="Probability job id when --target probability-job.")
     p.add_argument("--target-model", help="Probability model or model label when the target job has multiple rows per question.")
-    p.add_argument("--format", choices=["table", "json", "csv"], default="table")
-    p.add_argument("--path", help="Write summary json/csv output to this path.")
+    p.add_argument("--format", choices=["table", "json", "csv", "svg"], default="table")
+    p.add_argument("--path", help="Write summary json/csv or chart SVG output to this path.")
     p.add_argument("--option-path", help="Write option-level CSV output when --format csv.")
     p.set_defaults(func=cmd_twin_results_marginal_diagnostics, table_output=True)
 

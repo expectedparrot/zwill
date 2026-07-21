@@ -18,8 +18,8 @@ in one gated step:
    attenuation verdict, plus the baseline appendix.
 
 Outputs land in one bundle directory (`report.html`, `bootstrap.json`,
-`leakage_audit.json`, `manifest.json`) and the command returns a compact
-practitioner summary.
+`bootstrap-intervals.svg`, `calibration.svg`, `leakage_audit.json`,
+`manifest.json`) and the command returns a compact practitioner summary.
 """
 
 from __future__ import annotations
@@ -178,6 +178,7 @@ def cmd_twin_validate(args: argparse.Namespace, *, embedder=None) -> dict[str, A
             seed=int(getattr(args, "seed", 0) or 0),
             ci=float(getattr(args, "ci", 0.95) or 0.95),
             path=str(bootstrap_path),
+            svg_path=str(out_dir / "bootstrap-intervals.svg") if baseline_job_id else None,
         )
         bootstrap_result = cmd_twin_results_bootstrap(bootstrap_args)
         data = bootstrap_result["data"]
@@ -187,6 +188,7 @@ def cmd_twin_validate(args: argparse.Namespace, *, embedder=None) -> dict[str, A
         bootstrap_data_full = read_json(bootstrap_path, data)
         steps["bootstrap"] = {
             "path": str(bootstrap_path),
+            "svg_path": data.get("svg_path"),
             "n_boot": data["n_boot"],
             "ci": data["ci"],
             "macro_deltas_vs_baseline": data.get("macro_deltas_vs_baseline", {}),
@@ -203,6 +205,7 @@ def cmd_twin_validate(args: argparse.Namespace, *, embedder=None) -> dict[str, A
         format="html",
         view=getattr(args, "view", "full"),
         path=str(report_path),
+        calibration_svg_path=str(out_dir / "calibration.svg"),
     )
     cmd_twin_results_report(report_args)
     steps["report"] = {"path": str(report_path), "view": getattr(args, "view", "full")}

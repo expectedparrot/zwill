@@ -66,7 +66,8 @@ Core rule: always expand survey codebooks before import/export. Use human-readab
    - **Bootstrap confidence intervals** on each model's scores and on the paired twin-minus-baseline deltas, resampling respondents. This answers "is the gap real or sampling noise?"
    - **HTML report** embedding skill scores, the bootstrap panel, the probability-granularity check, the correlation-attenuation verdict, and the baseline appendix.
 
-   The bundle contains `report.html`, `bootstrap.json`, `leakage_audit.json`, and `manifest.json`.
+   The bundle contains `report.html`, `bootstrap.json`, `bootstrap-intervals.svg`,
+   `calibration.svg`, `leakage_audit.json`, and `manifest.json`.
 
 6. **Interpret the validation** — open `report.html` and read it in this order:
    - **Leakage** (`leakage_audit.json`): if any target has a flagged context pair, exclude that context and re-run, or treat that target's result as leakage-inflated. Do this before trusting any score.

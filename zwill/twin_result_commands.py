@@ -340,6 +340,19 @@ def cmd_twin_results_marginal_diagnostics(args: argparse.Namespace) -> None:
                 }
             )
     payload = {"summary": summary_rows, "options": option_rows, "issues": issues}
+    if args.format == "svg":
+        from .diagnostic_svg import render_marginal_diagnostics_svg
+
+        output = render_marginal_diagnostics_svg(payload)
+        if not output:
+            raise ZwillError("not_found", "No aligned marginal option rows were available to plot.")
+        if args.path:
+            path = resolve_output_path(args.path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(output + "\n")
+        else:
+            print(output)
+        return
     if args.format == "json":
         output = json.dumps(payload, indent=2)
         if args.path:
@@ -407,6 +420,7 @@ def cmd_twin_results_marginal_diagnostics(args: argparse.Namespace) -> None:
 
 def cmd_twin_results_bootstrap(args: argparse.Namespace) -> dict[str, Any]:
     from .twin_bootstrap import bootstrap_summary
+    from .diagnostic_svg import render_bootstrap_forest_svg
 
     rows = filtered_twin_prediction_rows(args)
     if not rows:
@@ -421,6 +435,14 @@ def cmd_twin_results_bootstrap(args: argparse.Namespace) -> dict[str, Any]:
     )
     if getattr(args, "path", None):
         write_json(resolve_output_path(args.path), result)
+    svg_path = None
+    if getattr(args, "svg_path", None):
+        svg = render_bootstrap_forest_svg(result)
+        if not svg:
+            raise ZwillError("invalid_input", "A baseline model and at least one comparison model are required for the forest plot.")
+        svg_path = resolve_output_path(args.svg_path)
+        svg_path.parent.mkdir(parents=True, exist_ok=True)
+        svg_path.write_text(svg + "\n")
 
     # Compact headline: macro score CIs per model, and macro deltas vs the baseline.
     headline_models = {
@@ -451,6 +473,7 @@ def cmd_twin_results_bootstrap(args: argparse.Namespace) -> dict[str, Any]:
             "macro_scores": headline_models,
             "macro_deltas_vs_baseline": headline_deltas,
             "full_result_path": str(resolve_output_path(args.path)) if getattr(args, "path", None) else None,
+            "svg_path": str(svg_path) if svg_path else None,
         },
         warnings=warnings,
     )

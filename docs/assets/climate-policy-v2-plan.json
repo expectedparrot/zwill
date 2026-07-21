@@ -1,0 +1,30 @@
+{
+  "plan_id": "climate_policy_v2",
+  "survey": "pew_w158",
+  "heldout_questions": "tree_planting,carbon_tax,carbon_capture_credit,zero_carbon_power,methane_leaks",
+  "primary_metric": "nll",
+  "defaults": {
+    "sample_respondents": 100,
+    "seed": 20260721,
+    "complete_cases": true,
+    "stratify_actual": true,
+    "context_question_count": 5,
+    "model": ["openai:gpt-5.5"]
+  },
+  "arms": [
+    {
+      "approach_id": "baseline"
+    }
+  ],
+  "approval": {
+    "approved": false,
+    "status": "draft",
+    "required_before": [
+      "twin-experiment export-plan",
+      "twin-study build",
+      "twin-study export-holdout",
+      "edsl build --target twin-probability-job"
+    ]
+  },
+  "prediction_count_estimate": 500
+}

@@ -14,7 +14,7 @@ from .twin_scoring import probability_granularity_section_html, skill_score_sect
 _CALIBRATION_PALETTE = ["#1f6feb", "#e08600", "#8a3ffc", "#1a7f37", "#b42318"]
 
 
-def _calibration_reliability_svg(calibration_by_model: dict[str, Any]) -> str:
+def render_calibration_reliability_svg(calibration_by_model: dict[str, Any]) -> str:
     """Confidence-vs-accuracy reliability diagram for the top-choice calibration.
 
     Each point is a confidence bin at (mean predicted confidence, empirical
@@ -64,7 +64,10 @@ def _calibration_reliability_svg(calibration_by_model: dict[str, Any]) -> str:
     parts.append(f'<text x="{left + plot_w / 2:.1f}" y="{height - 8}" text-anchor="middle" fill="#5c667a">Mean predicted confidence</text>')
     parts.append(f'<text transform="translate(15,{top + plot_h / 2:.1f}) rotate(-90)" text-anchor="middle" fill="#5c667a">Empirical accuracy</text>')
     parts.append("</svg>")
-    return '<div style="margin-top:14px">' + "".join(parts) + "</div>"
+    return "".join(parts)
+
+
+_calibration_reliability_svg = render_calibration_reliability_svg
 
 
 def correlation_attenuation_banner_html(joint_structure: dict[str, Any]) -> str:

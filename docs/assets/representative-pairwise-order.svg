@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="350" viewBox="0 0 980 350" role="img">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>text{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;fill:#172033}.muted{fill:#5c667a}.grid{stroke:#e6e9ef;stroke-width:1}.bar{fill:#1f6feb}.bad{fill:#b42318}.chance{stroke:#188038;stroke-width:3;stroke-dasharray:6 5}.marker{stroke:#188038;stroke-width:3}.label{font-size:12px}.title{font-size:20px;font-weight:700}.small{font-size:12px}</style>
+<text class="title" x="58" y="28">Probability of ordering option pairs correctly</text>
+<line class="grid" x1="70" x2="950" y1="245.0" y2="245.0"/>
+<text class="label muted" x="60" y="249.0" text-anchor="end">0%</text>
+<line class="grid" x1="70" x2="950" y1="196.8" y2="196.8"/>
+<text class="label muted" x="60" y="200.8" text-anchor="end">25%</text>
+<line class="grid" x1="70" x2="950" y1="148.5" y2="148.5"/>
+<text class="label muted" x="60" y="152.5" text-anchor="end">50%</text>
+<line class="grid" x1="70" x2="950" y1="100.2" y2="100.2"/>
+<text class="label muted" x="60" y="104.2" text-anchor="end">75%</text>
+<line class="grid" x1="70" x2="950" y1="52.0" y2="52.0"/>
+<text class="label muted" x="60" y="56.0" text-anchor="end">100%</text>
+<line class="chance" x1="70" x2="950" y1="148.5" y2="148.5"/>
+<rect class="bar" x="70.0" y="52.0" width="880.0" height="193.0" rx="3"/>
+<text class="label" x="510.0" y="46.0" text-anchor="middle">100%</text>
+<text class="label muted" x="510.0" y="269.0" text-anchor="middle">d</text>
+<text class="small muted" x="950" y="28" text-anchor="end">Overall=100.0% over 1 option pairs</text>
+</svg>

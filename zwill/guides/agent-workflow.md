@@ -200,7 +200,8 @@ next command. The full path:
    This runs the leakage audit, fits the conditional baseline on the *same
    respondents* the twins scored, computes bootstrap confidence intervals, and
    renders the report. The bundle contains `report.html`, `bootstrap.json`,
-   `leakage_audit.json`, and `manifest.json`.
+   `bootstrap-intervals.svg`, `calibration.svg`, `leakage_audit.json`, and
+   `manifest.json`.
 11. **Build the evidence bundle** — assemble the incremental HTML report folder
    with an `index.html` linking every ready page:
    ```bash

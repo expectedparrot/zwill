@@ -3414,6 +3414,23 @@ def test_twin_results_true_holdout_import_export_and_marginal_diagnostics(tmp_pa
     assert ",0.2,0.1,0.020000000000000004," in summary_path.read_text()
     assert "yes,0.7,0.6" in option_path.read_text()
 
+    marginal_svg = tmp_path / "marginal.svg"
+    run_cli(
+        "twin-results",
+        "marginal-diagnostics",
+        "--survey",
+        "demo",
+        "--job-id",
+        "twin-true",
+        "--target-job-id",
+        "one-shot",
+        "--format",
+        "svg",
+        "--path",
+        str(marginal_svg),
+    )
+    assert marginal_svg.read_text().startswith("<svg")
+
 
 def test_true_holdout_export_import_dir_and_package_workflow(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)

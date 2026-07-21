@@ -148,7 +148,14 @@ def test_twin_validate_runs_full_flow(tmp_path, monkeypatch) -> None:
     assert result["status"] == "ok"
 
     # Bundle artifacts all exist.
-    for name in ("report.html", "bootstrap.json", "leakage_audit.json", "manifest.json"):
+    for name in (
+        "report.html",
+        "bootstrap.json",
+        "bootstrap-intervals.svg",
+        "calibration.svg",
+        "leakage_audit.json",
+        "manifest.json",
+    ):
         assert (out_dir / name).exists(), name
 
     data = result["data"]

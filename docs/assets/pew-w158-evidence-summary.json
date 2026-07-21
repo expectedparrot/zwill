@@ -1,0 +1,35 @@
+{
+  "survey": "pew_w158",
+  "heldout_question": "carbon_tax",
+  "respondents": 100,
+  "model": "openai:gpt-5.5",
+  "twin": {
+    "job_id": "f87aa97344addd4a",
+    "rows": 100,
+    "import_issues": 0,
+    "metrics": {
+      "probability_actual": 0.6901273409859892,
+      "negative_log_likelihood": 0.5128655256254092,
+      "brier": 0.32897896532969756,
+      "top1_accuracy": 0.7620878319948163,
+      "expected_calibration_error": 0.044600000000000015
+    }
+  },
+  "conditional_baseline": {
+    "model_label": "baseline:conditional-embedding",
+    "model_type": "xgboost",
+    "training_rows": 1000,
+    "prediction_rows": 100,
+    "negative_log_likelihood": 0.6983894402449312
+  },
+  "primary_comparison": {
+    "metric": "negative_log_likelihood",
+    "twin_minus_xgboost": -0.185523914619522,
+    "confidence_interval_95": [-0.36950388420712393, -0.03431677419718181],
+    "bootstrap_resamples": 2000
+  },
+  "leakage_audit": {
+    "pair_count": 5,
+    "flagged_count": 0
+  }
+}

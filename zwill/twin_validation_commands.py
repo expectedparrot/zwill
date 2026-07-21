@@ -97,6 +97,15 @@ def cmd_twin_results_report(args: argparse.Namespace) -> None:
         }
     report_rows = payload["rows"]
     summary = payload["summary"]
+    if getattr(args, "calibration_svg_path", None):
+        from .twin_report_html import render_calibration_reliability_svg
+
+        calibration_svg = render_calibration_reliability_svg(payload.get("diagnostics", {}).get("calibration", {}))
+        if not calibration_svg:
+            raise ZwillError("not_found", "No calibration bins were available to plot.")
+        calibration_path = resolve_output_path(args.calibration_svg_path)
+        calibration_path.parent.mkdir(parents=True, exist_ok=True)
+        calibration_path.write_text(calibration_svg + "\n")
     if args.format == "json":
         output = json.dumps(payload, indent=2)
         if args.path:
