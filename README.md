@@ -26,7 +26,8 @@ actually improves calibration.
 `zwill` is a CLI built on [EDSL](https://github.com/expectedparrot/edsl) and
 developed by [Expected Parrot](https://www.expectedparrot.com). The methodology is
 open by design: the point of a validation gate is that anyone can inspect and run
-it. Start with `zwill guide` for the end-to-end walkthrough.
+it. Read the [survey digital-twin validation tutorial](https://expectedparrot.github.io/zwill/)
+for a worked example, or run `zwill guide` for the complete CLI walkthrough.
 
 ## Install
 

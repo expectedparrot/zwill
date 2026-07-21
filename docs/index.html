@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A practical tutorial for validating survey digital twins with zwill.">
+  <title>Expected Parrot | Validating Survey Digital Twins with zwill</title>
+  <style>
+    :root{--green:#428a5f;--dark:#214d35;--light:#edf7f1;--ink:#17201a;--muted:#667069;--paper:#f5f7f5;--panel:#fff;--rule:#dfe5e0;--amber:#b66b13;--red:#aa3c35;--code:#19231d;--sidebar:286px;--measure:790px;--serif:Georgia,"Times New Roman",serif;--sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;--mono:"SFMono-Regular",Consolas,"Liberation Mono",monospace}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:var(--paper);font:16px/1.7 var(--sans)}
+    #progress{position:fixed;inset:0 auto auto 0;z-index:20;width:0;height:4px;background:#65b783}
+    nav{position:fixed;inset:0 auto 0 0;z-index:10;width:var(--sidebar);overflow:auto;padding:24px 22px 40px;color:#eef7f1;background:var(--dark);font:14px/1.35 var(--sans)}
+    .brand{display:block;margin-bottom:24px;padding:13px 14px;color:var(--ink);background:#fff;border-radius:9px;text-decoration:none}.brand strong{display:block;font:700 19px/1.15 var(--serif)}.brand small{color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+    nav .book{margin:0 8px 23px;font:600 20px/1.25 var(--serif)}nav .part{margin:19px 8px 5px;color:#9fd3b2;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}nav>a:not(.brand){display:block;padding:6px 8px;color:#d5e9dc;text-decoration:none;border-radius:6px}nav>a:not(.brand):hover{color:#fff;background:#2d6244}.small{margin:28px 8px 0;color:#b7cec0;font-size:12px}
+    main{margin-left:var(--sidebar)}article{max-width:920px;margin:auto;padding:48px 48px 110px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.025)}header{padding:60px 0 44px;border-bottom:3px solid var(--green)}
+    .eyebrow{color:var(--green);font-size:12px;font-weight:800;letter-spacing:.13em;text-transform:uppercase}h1,h2,h3,h4{font-family:var(--serif);font-weight:600;line-height:1.3}h1{max-width:780px;margin:14px 0 20px;font-size:clamp(40px,6vw,61px);letter-spacing:-.025em}h2{margin:78px 0 22px;padding:12px 0 8px;color:var(--green);font-size:32px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}h3{margin:40px 0 13px;font-size:23px}h4{margin:26px 0 8px;font-size:18px}.dek{max-width:740px;color:var(--muted);font-size:21px;line-height:1.5}.meta{display:flex;flex-wrap:wrap;gap:10px 24px;margin-top:27px;color:var(--muted);font-size:13px}
+    p,ul,ol,table,pre,.callout,figure,.formula{max-width:var(--measure)}a{color:var(--green)}code{padding:.14em .35em;background:#f0f3f0;border-radius:4px;font:88% var(--mono)}pre{position:relative;overflow:auto;margin:18px 0 26px;padding:20px 58px 20px 22px;color:#d8e3db;background:var(--code);border-radius:8px;font:13px/1.55 var(--mono)}pre code{padding:0;color:inherit;background:none}.copy{position:absolute;top:10px;right:10px;padding:5px 8px;color:#d8ebe0;background:#34453b;border:0;border-radius:5px;font:11px var(--sans);cursor:pointer}.copy:hover{background:var(--green)}
+    .chapter{font-size:.55em;vertical-align:.35em}.callout{margin:24px 0;padding:18px 22px;background:linear-gradient(135deg,#f9fbf9,var(--light));border-left:4px solid var(--green);border-radius:0 8px 8px 0}.callout.warn{background:#fff7e9;border-color:var(--amber)}.callout.stop{background:#fff1ef;border-color:var(--red)}
+    .formula{margin:22px 0;padding:18px;text-align:center;background:#f2f0e9;border-left:4px solid var(--green);font:19px/1.55 Georgia,serif}.formula small{display:block;color:var(--muted);font:13px var(--sans)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;max-width:var(--measure)}.card{padding:18px;background:#fff;border:1px solid var(--rule);border-radius:8px;box-shadow:0 2px 7px rgba(0,0,0,.035)}.card h4{margin-top:0;color:var(--dark)}table{width:100%;margin:20px 0 28px;border-collapse:collapse;font-size:14px}th,td{padding:11px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--rule)}th{color:#fff;background:var(--green)}tbody tr:nth-child(even){background:#f7f9f7}
+    figure{margin:30px 0 36px;padding:20px;border:1px solid var(--rule);border-radius:8px}figure svg{display:block;width:100%;height:auto}figcaption{margin-top:12px;color:var(--muted);font-size:13px;line-height:1.45}.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:7px}.step{position:relative;padding:14px 8px;text-align:center;background:var(--light);border:1px solid #afd0ba;border-radius:7px;font-size:12px;font-weight:700}.step:not(:last-child):after{position:absolute;top:50%;right:-8px;z-index:2;color:var(--green);content:"›";font-size:22px;transform:translateY(-53%)}
+    .metric{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:1px;margin:20px 0;overflow:hidden;background:var(--rule);border:1px solid var(--rule);border-radius:8px}.metric>*{padding:12px;background:#fff}.metric .head{color:#fff;background:var(--green);font-weight:700}.good{color:#247046;font-weight:700}.bad{color:var(--red);font-weight:700}footer{margin-top:85px;padding-top:28px;color:var(--muted);border-top:3px solid var(--green);font-size:13px}
+    @media(max-width:960px){nav{position:static;width:auto}nav>a:not(.brand){display:inline-block}main{margin-left:0}article{padding:28px 24px 80px}.brand{max-width:270px}}@media(max-width:650px){.grid,.flow{grid-template-columns:1fr}.step:not(:last-child):after{display:none}.metric{grid-template-columns:1fr}h2{font-size:28px}}@media print{nav,#progress,.copy{display:none!important}main{margin:0}article{max-width:none;padding:0}h2{break-before:page}pre{white-space:pre-wrap;color:#000;background:#eee}}
+  </style>
+</head>
+<body>
+<div id="progress"></div>
+<nav aria-label="Tutorial contents">
+  <a class="brand" href="https://www.expectedparrot.com/"><strong>Expected Parrot</strong><small>Open-source research tools</small></a>
+  <div class="book">Validating Survey<br>Digital Twins with zwill</div>
+  <div class="part">Foundations</div><a href="#orientation">1. What is being tested?</a><a href="#design">2. Study design</a><a href="#install">3. Installation</a>
+  <div class="part">Worked example</div><a href="#ingest">4. Ingest a survey</a><a href="#inspect">5. Inspect and commit</a><a href="#oneshot">6. One-shot baseline</a><a href="#twins">7. Predict held-out answers</a><a href="#audit">8. Audit and validate</a>
+  <div class="part">Interpretation</div><a href="#metrics">9. Read the evidence</a><a href="#report">10. Publish a report</a><a href="#next">11. From demo to study</a>
+  <div class="small">A self-contained tutorial for the zwill CLI. Commands that call models use Expected Parrot remote inference.</div>
+</nav>
+<main><article>
+  <header>
+    <div class="eyebrow">Expected Parrot · A practical, evidence-first tutorial</div>
+    <h1>Can a survey digital twin predict a real person?</h1>
+    <p class="dek">Build twins from respondents’ known answers, hide a target question, predict its probability distribution, and test whether the result contains individual-level signal beyond cheap baselines.</p>
+    <div class="meta"><span>Tool: <strong>zwill</strong></span><span>Runtime: <strong>EDSL</strong></span><span>Example: <strong>job-candidate preferences</strong></span></div>
+  </header>
+
+  <section id="orientation">
+    <h2><span class="chapter">01</span> What is being tested?</h2>
+    <p>A survey digital twin is an LLM stand-in for one respondent. Its prompt contains approved facts about that person—other survey answers and readable covariates—but not the answer it must predict. The model returns probabilities over the held-out question’s options.</p>
+    <div class="formula">\hat p(y<sub>iq</sub> | x<sub>i,-q</sub>)<small>Predict respondent i’s answer to question q using their information other than q.</small></div>
+    <div class="grid">
+      <div class="card"><h4>Observed truth</h4><p>The respondent already answered the target. That answer is hidden from the twin and retained for scoring.</p></div>
+      <div class="card"><h4>Twin prediction</h4><p>A full probability vector—not only a top choice—so uncertainty and calibration can be evaluated.</p></div>
+      <div class="card"><h4>Cheap comparison</h4><p>A conditional model predicts the same targets from the same allowed respondent information.</p></div>
+      <div class="card"><h4>Decision gate</h4><p>The twin must beat the conditional baseline with uncertainty that clears zero, under a clean leakage audit.</p></div>
+    </div>
+    <div class="callout"><strong>The key distinction.</strong> Reproducing a population marginal is not the same as predicting individuals. A twin can sound plausible and match aggregate opinion while adding no respondent-level signal.</div>
+    <figure><div class="flow"><div class="step">Import observed survey</div><div class="step">Hold out target answers</div><div class="step">Run one-shot + twins</div><div class="step">Audit prompts + score</div><div class="step">Gate the claim</div></div><figcaption>zwill preserves the artifacts at every boundary so the result can be reproduced and audited.</figcaption></figure>
+  </section>
+
+  <section id="design">
+    <h2><span class="chapter">02</span> Study design before model calls</h2>
+    <p>Choose several held-out questions that represent the uses you care about. Decide which fields are legitimate context and explicitly exclude downstream or target-revealing variables. Predeclare models, sample, seed, comparison approaches, outputs, and success criteria.</p>
+    <div class="formula">predictions = respondents × targets × approaches × models</div>
+    <table><thead><tr><th>Run</th><th>Useful size</th><th>What it establishes</th></tr></thead><tbody>
+      <tr><td>Smoke test</td><td>2–5 people, 1 target, 1 model</td><td>Rendering, remote execution, parsing, and audit only</td></tr>
+      <tr><td>Debug validation</td><td>20–50 scored people per target</td><td>End-to-end mechanics; not a strong substantive claim</td></tr>
+      <tr><td>Pilot</td><td>100–200 people</td><td>Directional comparative evidence</td></tr>
+      <tr><td>Credible validation</td><td>Prefer 200+ or all eligible people</td><td>More stable intervals and per-question diagnosis</td></tr>
+    </tbody></table>
+    <div class="callout warn"><strong>This tutorial’s six-person fixture is intentionally tiny.</strong> It teaches the workflow and produces no credible validation claim. Do not confuse a successful run with validated twin performance.</div>
+  </section>
+
+  <section id="install">
+    <h2><span class="chapter">03</span> Installation and orientation</h2>
+    <p>This tutorial assumes you have cloned the zwill repository and are standing at its top level—the directory that contains <code>README.md</code>, <code>pyproject.toml</code>, and <code>examples/</code>. The example data is already present under <code>examples/hiring_study/</code>, so every path below can be copied exactly as written.</p>
+    <pre><code>git clone https://github.com/expectedparrot/zwill.git
+cd zwill
+pip install -e .
+
+zwill guide
+zwill next</code></pre>
+    <p><code>zwill guide</code> is the source of truth for the complete workflow. <code>zwill next</code> inspects local state and returns the next command after every completed stage.</p>
+    <p>Model runs require an <code>EXPECTED_PARROT_API_KEY</code> in a nearby <code>.env</code>. The conditional baseline can use Expected Parrot embeddings, OpenAI embeddings, sentence-transformers, or the built-in lexical fallback.</p>
+  </section>
+
+  <section id="ingest">
+    <h2><span class="chapter">04</span> Ingest the hiring survey</h2>
+    <p>The repository includes a small hiring-preferences survey: three questions asked of job candidates, two background variables, six respondents, and 29 observed answers. It is deliberately small enough to inspect by eye. We will store it in zwill, then later pretend we do not know each person’s remote-work answer and ask a twin to predict it.</p>
+    <p>First create zwill’s local project database and an empty survey record. <code>zwill init</code> creates a <code>.zwill/</code> directory in the current repository. The survey name is the stable handle used by all later commands.</p>
+    <pre><code>zwill init
+zwill survey create --name hiring_study</code></pre>
+    <h3>Archive raw evidence</h3>
+    <p>A trustworthy analysis keeps the source material as well as the cleaned table. Here that means the human-readable questionnaire and the original panel export. <code>raw add</code> copies each source into managed state and records its hash, title, type, and original path. It does <em>not</em> parse the file or assume that every CSV column is a survey question.</p>
+    <pre><code>zwill raw add --survey hiring_study --id questionnaire \
+  --input-path examples/hiring_study/raw/questionnaire.md \
+  --kind questionnaire --title "Hiring Study Questionnaire"
+
+zwill raw add --survey hiring_study --id panel_export \
+  --input-path examples/hiring_study/raw/panel_export.csv \
+  --kind panel_export --title "Hiring Study Panel Export"</code></pre>
+    <h3>The three kinds of normalized record</h3>
+    <p>Survey data often arrives as one wide spreadsheet: one row per person and one column per question. zwill stores the same information as three connected tables. Separating them makes validation explicit and prevents, for example, an answer from silently creating a respondent or introducing an undeclared option.</p>
+    <table><thead><tr><th>Record</th><th>What it describes</th><th>Key validation</th></tr></thead><tbody>
+      <tr><td>Question</td><td>Stable name, wording, type, allowed options, role, and source</td><td>Options and provenance are declared before answers arrive</td></tr>
+      <tr><td>Respondent</td><td>Stable person ID, survey weight, metadata, and source</td><td>Every answer must refer to a known person</td></tr>
+      <tr><td>Answer</td><td>One person’s answer to one question, or an explicit missing code</td><td>The value must be legal for that question</td></tr>
+    </tbody></table>
+    <p>The bulk files use <strong>JSON Lines</strong> (JSONL): one complete JSON object per line, with no surrounding array. This makes large exports streamable and makes a bad row easy to locate. Here are representative lines from the three files:</p>
+    <pre><code>{"question_name":"remote_work","question_type":"multiple_choice","question_text":"How many days per week do you prefer to work remotely?","question_options":["0","1-2","3-4","5"],"option_labels":{"0":"Never","1-2":"One or two days","3-4":"Three or four days","5":"Five days"},"role":"survey_item","source":{"raw_id":"questionnaire","note":"Questionnaire Q1."}}
+
+{"respondent_id":"r001","weight":1.25,"metadata":{"sample_source":"panel_a","age_band":"25-34"},"source":{"raw_id":"panel_export","note":"Weight from final_weight column."}}
+
+{"respondent_id":"r001","question":"remote_work","answer":"3-4"}</code></pre>
+    <p>The identifiers are machine-stable; labels are for people. Thus <code>3-4</code> is stored as the canonical option and “Three or four days” is its display label. This is especially important when a source uses codes such as <code>1</code>, <code>2</code>, and <code>9</code>: expand those through the codebook rather than asking a model—or a future analyst—to guess what they mean.</p>
+
+    <h3>Add records one at a time</h3>
+    <p>The clearest way to understand the model is to add one record of each kind manually. The following commands define a question, register a person, and record that person’s answer. The <code>source-raw</code> fields connect cleaned records back to the archived evidence.</p>
+    <pre><code>zwill question add --survey hiring_study \
+  --question-name remote_work \
+  --question-type multiple_choice \
+  --question-text "How many days per week do you prefer to work remotely?" \
+  --question-option 0 --option-label "0=Never" \
+  --question-option 1-2 --option-label "1-2=One or two days" \
+  --question-option 3-4 --option-label "3-4=Three or four days" \
+  --question-option 5 --option-label "5=Five days" \
+  --role survey_item --source-raw questionnaire \
+  --source-note "Questionnaire Q1"
+
+zwill respondent add --survey hiring_study \
+  --respondent-id r001 --weight 1.25 \
+  --metadata "sample_source=panel_a" --metadata "age_band=25-34" \
+  --source-raw panel_export \
+  --source-note "Weight from final_weight column"
+
+zwill answer add --survey hiring_study \
+  --respondent-id r001 --question remote_work --answer 3-4</code></pre>
+    <div class="callout"><strong>What just happened?</strong> The question command established the legal vocabulary. The respondent command established who <code>r001</code> is and how much survey weight that row carries. Only then could the answer command create the link “r001 answered 3-4 to remote_work.” A refused answer would use <code>--missing-code refused</code> rather than inventing “refused” as a response option.</div>
+
+    <h3>Use JSONL for the complete example</h3>
+    <p>Typing 29 answer commands is useful for learning but tedious in practice. The three import commands below perform the same operation once per line for the complete fixture. Start with a fresh survey if you ran the manual commands above; do not add the same records manually and then import them again.</p>
+    <pre><code>zwill question import --survey hiring_study \
+  --input-path examples/hiring_study/questions.jsonl
+zwill respondent import --survey hiring_study \
+  --input-path examples/hiring_study/respondents.jsonl
+zwill answer import --survey hiring_study \
+  --input-path examples/hiring_study/answers.jsonl
+
+zwill next --survey hiring_study</code></pre>
+    <p>Import is a validation boundary, not a best-effort conversion. An answer for an unknown respondent, an undeclared question, or an illegal option is reported rather than quietly reshaping the survey. The fixture’s <code>answers_with_invalid.jsonl</code> demonstrates this: respondent <code>r006</code> answers <code>every_day</code>, which is not one of <code>remote_work</code>’s declared options.</p>
+  </section>
+
+  <section id="inspect">
+    <h2><span class="chapter">05</span> Inspect, then commit observed truth</h2>
+    <pre><code>zwill status
+zwill table --survey hiring_study
+zwill survey report --survey hiring_study --format html \
+  --path survey-profile.html
+
+zwill commit --survey hiring_study
+zwill next --survey hiring_study</code></pre>
+    <p>Inspect wording, option labels, missingness, weights, and distributions before spending on inference. <code>commit</code> freezes the observed truth marginals used later for scoring; it is not merely a save button.</p>
+    <table><thead><tr><th>Field</th><th>Role in this example</th><th>Twin handling</th></tr></thead><tbody>
+      <tr><td><code>remote_work</code></td><td>Held-out survey target</td><td>Answer hidden; wording and options shown</td></tr>
+      <tr><td><code>job_search_stage</code></td><td>Survey response</td><td>Available context</td></tr>
+      <tr><td><code>pay_transparency</code></td><td>Survey response</td><td>Available context</td></tr>
+      <tr><td><code>region</code>, <code>industry</code></td><td>Covariates</td><td>Available context</td></tr>
+      <tr><td><code>age_band</code></td><td>Respondent metadata</td><td>Included by default</td></tr>
+    </tbody></table>
+  </section>
+
+  <section id="oneshot">
+    <h2><span class="chapter">06</span> Establish the one-shot marginal</h2>
+    <p>Before claiming respondent-level prediction, ask the model for the aggregate distribution without constructing individual twins. This reveals how much population structure can be produced from the question alone.</p>
+    <pre><code>zwill edsl-export --survey hiring_study --target probability-job \
+  --questions remote_work --model openai:gpt-5.5 \
+  --path one_shot.edsl.json
+
+zwill edsl-run --job one_shot.edsl.json \
+  --path one_shot_results.json.gz
+
+zwill prob-results import --survey hiring_study \
+  --input-path one_shot_results.json.gz</code></pre>
+    <p>Save the <code>probability_job_id</code> returned by import. You will use it when building the final report.</p>
+  </section>
+
+  <section id="twins">
+    <h2><span class="chapter">07</span> Predict held-out answers</h2>
+    <p>For a tutorial smoke test, export six twin scenarios—one per respondent—with <code>remote_work</code> held out. The explicit <code>--allow-unapproved</code> marks this as an ad hoc debug run.</p>
+    <pre><code>zwill edsl-export --survey hiring_study \
+  --target twin-probability-job \
+  --heldout-questions remote_work \
+  --model openai:gpt-5.5 \
+  --sample-respondents 6 --seed 20260721 \
+  --allow-unapproved --path twin.edsl.json</code></pre>
+    <div class="callout stop"><strong>Pause before remote inference.</strong> Inspect the export summary and manifest. Confirm the model, target, context fields, and predicted call count. For a real validation, use an approved <code>twin-experiment</code> plan instead of <code>--allow-unapproved</code>.</div>
+    <pre><code>zwill edsl-run --job twin.edsl.json \
+  --path twin_results.json.gz
+
+zwill twin-results import --survey hiring_study \
+  --input-path twin_results.json.gz</code></pre>
+    <p>Save the returned <code>twin_job_id</code>. If malformed provider responses are reported, use <code>twin-results retry-malformed</code> and merge the retry rather than silently dropping cases.</p>
+  </section>
+
+  <section id="audit">
+    <h2><span class="chapter">08</span> Audit prompts and validate</h2>
+    <p>Audit at least one imported run before trusting its scores. The run report exposes construction metadata, prompt templates, rendered scenarios, raw responses, malformed rows, and import issues.</p>
+    <pre><code>zwill twin-results run-report --survey hiring_study \
+  --job-id &lt;twin_job_id&gt; --format html --path twin-audit.html
+
+zwill twin-validate --survey hiring_study \
+  --jobs &lt;twin_job_id&gt; --out validation_bundle \
+  --require-baseline
+
+zwill next --survey hiring_study</code></pre>
+    <p>The validation bundle contains <code>report.html</code>, <code>bootstrap.json</code>, <code>leakage_audit.json</code>, and <code>manifest.json</code>. The conditional baseline is fit on the same respondents the twins scored.</p>
+    <div class="callout"><strong>Leakage rule.</strong> The held-out answer, target-revealing follow-ups, downstream variables, and target summaries must be absent from twin prompts. A leaky prediction is not evidence of a capable twin.</div>
+  </section>
+
+  <section id="metrics">
+    <h2><span class="chapter">09</span> Read the evidence</h2>
+    <p>Run <code>zwill guide show interpreting-results</code> before writing conclusions. Lower NLL and Brier scores are better. Accuracy is useful as a sanity check, but the headline is the paired difference against the conditional baseline.</p>
+    <div class="metric"><div class="head">Evidence</div><div class="head">Supports a claim</div><div class="head">Does not support it</div><div>Leakage audit</div><div class="good">Clean</div><div class="bad">Target information exposed</div><div>Twin − conditional baseline</div><div class="good">Improvement</div><div class="bad">Tie or deterioration</div><div>Bootstrap interval</div><div class="good">Clears zero</div><div class="bad">Includes zero</div><div>Calibration / ECE</div><div class="good">Probabilities track outcomes</div><div class="bad">Overconfident misses</div></div>
+    <p>Also inspect probability assigned to the actual answer, marginal fit, per-question failures, malformed-row rate, and cross-question attenuation. The empirical marginal is an oracle benchmark because the target has already been observed; it is not deployable for a genuinely new target.</p>
+    <div class="callout warn"><strong>Appropriate conclusion for this demo.</strong> “The pipeline executed and produced auditable scores.” Six respondents are far too few for a substantive claim about digital-twin validity.</div>
+  </section>
+
+  <section id="report">
+    <h2><span class="chapter">10</span> Build and publish the report</h2>
+    <pre><code>zwill report build --survey hiring_study --path report_out \
+  --job-id &lt;twin_job_id&gt; \
+  --probability-job-id &lt;probability_job_id&gt;
+
+zwill report generate-interpretations --survey hiring_study \
+  --path report_out --job-id &lt;twin_job_id&gt; \
+  --probability-job-id &lt;probability_job_id&gt;
+
+zwill report render --survey hiring_study --path report_out \
+  --job-id &lt;twin_job_id&gt; \
+  --probability-job-id &lt;probability_job_id&gt; --final</code></pre>
+    <p>The final gate requires both generated interpretations to be imported before it will render. Open <code>report_out/index.html</code>. The folder is self-contained and can be published as a GitHub Pages artifact while the raw jobs, results, plans, and manifests remain preserved in the project state.</p>
+  </section>
+
+  <section id="next">
+    <h2><span class="chapter">11</span> From worked example to real study</h2>
+    <ol>
+      <li>Replace the fixture with a documented, codebook-expanded survey and resolve all quarantine issues.</li>
+      <li>Select 5–10 defensible held-out questions and declare leakage exclusions.</li>
+      <li>Create and approve a <code>twin-experiment</code> plan with sample, seed, models, approaches, cost, outputs, and decision criteria.</li>
+      <li>Prefer at least 200 scored respondents—or all eligible respondents when fewer exist—and flag sparse options and subgroups.</li>
+      <li>Compare prompt or model variants through the same gate; do not choose a winner from a bare run.</li>
+    </ol>
+    <pre><code># The two commands to keep using throughout the study:
+zwill guide
+zwill next --survey &lt;survey_name&gt;</code></pre>
+    <p>zwill also supports numeric targets through quantile predictions, ranking and MaxDiff batteries through a separate rank-utility flow, and open-ended targets by first coding responses into themes. The bundled guide routes each question type to its proper validation workflow.</p>
+  </section>
+
+  <footer><strong>Validating Survey Digital Twins with zwill</strong><br>Built for reproducible, inspectable research with Expected Parrot EDSL. Methodology and commands are available in the open-source repository.</footer>
+</article></main>
+<script>
+document.querySelectorAll('pre').forEach(function(pre){var b=document.createElement('button');b.className='copy';b.type='button';b.textContent='Copy';b.addEventListener('click',function(){navigator.clipboard.writeText(pre.querySelector('code').innerText).then(function(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy'},1200)})});pre.appendChild(b)});
+function progress(){var d=document.documentElement,m=d.scrollHeight-d.clientHeight;document.getElementById('progress').style.width=(m?d.scrollTop/m*100:0)+'%'}document.addEventListener('scroll',progress,{passive:true});progress();
+</script>
+</body>
+</html>
