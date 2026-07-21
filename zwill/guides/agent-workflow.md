@@ -24,7 +24,7 @@ noise?" Do not report a positive result from a bare twin run.
 
 - `zwill` is installed and `edsl` is importable (installed as the sibling `../edsl`
   editable checkout). Running twins uses EDSL.
-- Running twins uses **Expected Parrot remote inference**: `EXPECTED_PARROT_API_KEY`
+- Running twins uses **Expected Parrot remote inference**: `EXPECTED_PARROT_API_KEY`. If the user needs a key, direct them to [Expected Parrot signup](https://www.expectedparrot.com/).
   in the environment where the EDSL `ep` CLI runs the exported `.ep` job.
 - The **conditional baseline** embeds question/option text and is an XGBoost model.
   `--embedder auto` (default) tries the **Expected Parrot embeddings endpoint

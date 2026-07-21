@@ -80,7 +80,7 @@ pip install -e ".[conditional-baseline]"
 zwill guide
 zwill next</code></pre>
     <p>The <code>conditional-baseline</code> extra installs XGBoost and a local sentence-transformers embedding option. <code>zwill guide</code> is the source of truth for the complete workflow. <code>zwill next</code> inspects local state and returns the next command after every completed stage.</p>
-    <p>Model runs require an <code>EXPECTED_PARROT_API_KEY</code> in a nearby <code>.env</code>. zwill prepares durable EDSL <code>.ep</code> job packages; EDSL’s <code>ep</code> CLI runs them and writes a <code>Results</code> package. This keeps credentials, remote execution, waiting, and retries in the inference tool rather than the validation tool.</p>
+    <p>Model runs require an <code>EXPECTED_PARROT_API_KEY</code> in a nearby <code>.env</code>. If you do not have one, <a href="https://www.expectedparrot.com/">sign up with Expected Parrot</a>. zwill prepares durable EDSL <code>.ep</code> job packages; EDSL’s <code>ep</code> CLI runs them and writes a <code>Results</code> package. This keeps credentials, remote execution, waiting, and retries in the inference tool rather than the validation tool.</p>
     <div class="callout"><strong>The execution boundary.</strong> zwill builds and imports artifacts; it does not run models. Inspect a job with <code>ep inspect jobs.ep</code>, execute it with <code>ep run jobs.ep --output results.ep</code>, and reopen the result in Python with <code>Results.git.load("results.ep")</code>.</div>
   </section>
 
