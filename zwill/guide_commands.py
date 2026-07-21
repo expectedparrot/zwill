@@ -157,10 +157,11 @@ def _stage_for_survey(survey: str) -> dict[str, Any]:
             "stage": "run_twins",
             "why": f"Survey '{survey}' is committed but has no imported twin jobs.",
             "next_command": (
-                f"zwill edsl-export --survey {survey} --target twin-probability-job "
-                f"--heldout-questions <q1,q2> --context-question-count 8 --complete-cases "
-                f"--model openai:gpt-5.5 --path twin.edsl.json  "
-                f"# then edsl-run + twin-results import"
+                f"zwill twin-experiment init-plan --survey {survey} --plan-id v1 "
+                f"--heldout-questions <q1> --sample-respondents 200 --seed 42 "
+                f"--model openai:gpt-5.5  "
+                f"# then: twin-experiment validate -> approve -> export-plan -> "
+                f"edsl-run -> twin-results import"
             ),
         }
     if not has_baseline:
