@@ -9,6 +9,9 @@ The excerpt is included for teaching, reproducibility, criticism, and
 validation of survey-analysis methods. It contains deidentified respondent
 IDs, survey weights, six normalized questions, and 600 normalized answers.
 It is not a substitute for the complete source dataset or its documentation.
+The records are the first 100 rows of the normalized source, so this is a fixed
+convenience excerpt rather than a representative subsample. Survey weights do
+not correct that selection.
 
 The original normalized source used coded demographic metadata whose codebook
 is not bundled here. Those fields were deliberately omitted rather than
@@ -28,3 +31,6 @@ Files:
 Source: Pew Research Center, American Trends Panel Wave 158. Pew Research
 Center bears no responsibility for the analysis or interpretations presented
 by this tutorial.
+
+- Dataset: https://www.pewresearch.org/dataset/american-trends-panel-wave-158/
+- Methodology: https://www.pewresearch.org/science/2024/12/09/climate-policies-methodology/

@@ -19,6 +19,7 @@ _CONSOLIDATED_SECTIONS = [
 # Row-level / reference pages linked from the report rather than inlined (they
 # are large or narrow-audience — inlining them explodes the file).
 _CONSOLIDATED_DOWNLOADS = [
+    ("validation-bundle", "Twin vs. conditional baseline", "XGBoost comparison, paired bootstrap intervals, leakage audit, and structured validation evidence."),
     ("twin-run-audit", "Twin run audit", "Prompt construction, held-out questions, and raw model responses for one job."),
     ("twin-comparison", "Twin comparison", "Side-by-side comparison of two or more twin jobs."),
     ("twin-experiment-microdata", "Per-twin microdata (row-level)", "One row per respondent x question x model — linked to keep this report lightweight."),
@@ -742,6 +743,29 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
         pages.append(page)
         for path in page.get("generated_files", []):
             generated.add(str(path))
+
+    # `twin-validate --out <report-dir>/validation` creates the decisive
+    # conditional-baseline bundle before the general report is assembled.
+    # Recognize that convention and link it from the consolidated report while
+    # leaving the validation bundle as its own reproducible artifact tree.
+    validation_dir = output_dir / "validation"
+    validation_report_path = validation_dir / "report.html"
+    validation_data_path = validation_dir / "report_data.json"
+    if validation_report_path.exists():
+        add_page(
+            report_bundle_page(
+                page_id="validation-bundle",
+                title="Twin vs. Conditional Baseline",
+                stage="validation",
+                status="ready",
+                description="Conditional XGBoost comparison, paired bootstrap intervals, leakage audit, and validation manifest.",
+                path=validation_report_path,
+                data_path=validation_data_path if validation_data_path.exists() else None,
+                inputs="Existing validation bundle under report_out/validation",
+                next_step="Use this as the decisive model-comparison evidence when authoring the narrative.",
+                primary=False,
+            )
+        )
 
     survey_payload = build_survey_report_payload(survey, sdir)
     survey_html_path = output_dir / "survey-profile.html"

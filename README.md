@@ -241,6 +241,12 @@ Build a report folder whenever you want to inspect a survey or refresh the curre
 zwill report build --survey <survey> --path reports/<survey>/
 ```
 
+For one publishable evidence tree, write rigorous validation beneath the same
+directory first: `zwill twin-validate ... --out reports/<survey>/validation`.
+The subsequent `report build` detects that bundle and links its conditional
+baseline, bootstrap, leakage, and structured evidence from the consolidated
+index.
+
 The report folder is incremental. `index.html` is always written and links to every page that can be generated from currently available inputs. Pages whose analyses have not been run yet are shown as not ready with the missing inputs and next command. Rerun the same command after importing one-shot or twin results to refresh the same folder.
 
 Report bundles also use a Makefile-like staged layout. You can run the stages explicitly:

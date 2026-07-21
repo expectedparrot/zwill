@@ -956,6 +956,27 @@ def test_report_build_creates_incremental_bundle(tmp_path: Path, monkeypatch) ->
     assert twin_data["raw_prediction_rows_included"] is False
     assert "rows" not in twin_data
 
+    validation_dir = report_dir / "validation"
+    validation_dir.mkdir()
+    (validation_dir / "report.html").write_text("<!doctype html><title>Conditional baseline validation</title>")
+    (validation_dir / "report_data.json").write_text("{}")
+    run_cli(
+        "report",
+        "build",
+        "--survey",
+        "demo",
+        "--path",
+        str(report_dir),
+        "--job-id",
+        "fixture-twin",
+        "--permutations",
+        "100",
+    )
+    refreshed_manifest = json.loads((report_dir / "report-manifest.json").read_text())
+    validation_page = next(page for page in refreshed_manifest["pages"] if page["page_id"] == "validation-bundle")
+    assert validation_page["status"] == "ready"
+    assert 'href="validation/report.html"' in (report_dir / "index.html").read_text()
+
 
 def test_agent_material_quarantine_blocks_commit_until_resolved(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)

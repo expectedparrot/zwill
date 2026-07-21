@@ -38,7 +38,7 @@
     <div class="eyebrow">Expected Parrot · A practical, evidence-first tutorial</div>
     <h1>Creating and validating digital twins from survey data</h1>
     <p class="dek">Build twins from respondents’ known answers, hide a target question, predict its probability distribution, and test whether the result contains individual-level signal beyond cheap baselines.</p>
-    <div class="meta"><span>Tool: <strong>zwill</strong></span><span>Runtime: <strong>EDSL</strong></span><span>Example: <strong>Pew climate-policy microdata</strong></span></div>
+    <div class="meta"><span>Tool: <strong><a href="https://github.com/expectedparrot/zwill">zwill</a></strong></span><span>Runtime: <strong>EDSL</strong></span><span>Example: <strong><a href="https://www.pewresearch.org/dataset/american-trends-panel-wave-158/">Pew Wave 158</a></strong></span></div>
   </header>
 
   <section id="orientation">
@@ -64,9 +64,10 @@
       <tr><td>Twin context</td><td>The respondent’s other five climate-policy answers</td><td>Related individual evidence is available without exposing the target.</td></tr>
       <tr><td>Validation sample</td><td>100 fixed respondents</td><td>Enough to fit and demonstrate XGBoost while keeping remote inference affordable.</td></tr>
       <tr><td>Conditional baseline</td><td>XGBoost</td><td>Tests whether an LLM adds value beyond a conventional learner using comparable evidence.</td></tr>
-      <tr><td>Primary scores</td><td>NLL and Brier; also p(actual) and top-1</td><td>Evaluate full probability distributions, not only the winning option.</td></tr>
+      <tr><td>Primary score</td><td>NLL</td><td>Declared before inference because it evaluates the full probability distribution and strongly penalizes confident errors.</td></tr>
+      <tr><td>Secondary scores</td><td>Brier, p(actual), and top-1</td><td>Useful corroborating views, but they do not replace the declared primary comparison.</td></tr>
     </tbody></table>
-    <div class="callout warn"><strong>This is a real-data pilot, not a definitive validation.</strong> One hundred respondents and one binary target can reveal whether the workflow and comparison are informative. A publishable claim should rotate across several held-out questions, use a larger preregistered sample, and account for trying multiple models or prompts.</div>
+    <div class="callout warn"><strong>This is a real-data pilot, not a representative subsample or definitive validation.</strong> The excerpt is the first 100 normalized source records, not a probability sample drawn for this analysis. Retaining Pew’s weights does not repair that convenience selection. A publishable claim should use the documented full sample, rotate across several held-out questions, preregister the design, and account for trying multiple models or prompts.</div>
   </section>
 
   <section id="install">
@@ -96,11 +97,14 @@ zwill survey create --name pew_w158</code></pre>
   --input-path examples/pew_w158_tutorial/source.md \
   --kind documentation \
   --title "Pew American Trends Panel Wave 158 excerpt"</code></pre>
-    <p>The excerpt is included for reproducible teaching, criticism, and methodological validation. Consult Pew Research Center’s complete Wave 158 data, questionnaire, methodology, and terms before publishing a substantive analysis. Pew Research Center bears no responsibility for this tutorial’s analysis or interpretations.</p>
+    <p>The excerpt is included for reproducible teaching, criticism, and methodological validation. Before publishing a substantive analysis, consult Pew Research Center’s <a href="https://www.pewresearch.org/dataset/american-trends-panel-wave-158/">Wave 158 dataset page</a>, <a href="https://www.pewresearch.org/science/2024/12/09/climate-policies-methodology/">survey methodology</a>, and linked questionnaire and access terms. Pew Research Center bears no responsibility for this tutorial’s analysis or interpretations.</p>
 
     <h3>Add one question, respondent, and answer</h3>
     <p>Before bulk import, it helps to see the three connected records directly. The question establishes wording and legal options; the respondent establishes an ID and survey weight; the answer links that person to one declared option.</p>
-    <pre><code>zwill question add --survey pew_w158 \
+    <p>Use a disposable survey name for this small manual demonstration so the complete import below remains directly runnable.</p>
+    <pre><code>zwill survey create --name pew_w158_manual
+
+zwill question add --survey pew_w158_manual \
   --question-name carbon_tax \
   --question-type multiple_choice \
   --question-text "Do you favor or oppose taxing corporations based on the amount of carbon emissions they produce?" \
@@ -108,12 +112,12 @@ zwill survey create --name pew_w158</code></pre>
   --role survey_item --source-raw pew_w158_excerpt \
   --source-note "Wave 158 CCPOLICY battery item b"
 
-zwill respondent add --survey pew_w158 \
+zwill respondent add --survey pew_w158_manual \
   --respondent-id w158_ccpolicy_100314 \
   --weight 0.4510313485401432 \
   --source-raw pew_w158_excerpt
 
-zwill answer add --survey pew_w158 \
+zwill answer add --survey pew_w158_manual \
   --respondent-id w158_ccpolicy_100314 \
   --question carbon_tax --answer Favor</code></pre>
     <div class="callout"><strong>What just happened?</strong> <code>Favor</code> is valid because it was declared as an option before the answer arrived. The weight says how much this respondent contributes to weighted population summaries. The deidentified ID is only a stable join key; it is not evidence supplied to the twin.</div>
@@ -133,7 +137,7 @@ zwill answer add --survey pew_w158 \
 {"respondent_id":"w158_ccpolicy_100314","question":"carbon_tax","answer":"Favor"}</code></pre>
 
     <h3>Import the complete 100-person excerpt</h3>
-    <p>If you ran the one-by-one commands above, create a fresh <code>pew_w158</code> survey before continuing so the same records are not added twice. Then import all six questions, 100 respondents, and 600 answers:</p>
+    <p>The manual records went into <code>pew_w158_manual</code>; the empty <code>pew_w158</code> survey created at the start is therefore still ready for the complete import. Import all six questions, 100 respondents, and 600 answers:</p>
     <pre><code>zwill question import --survey pew_w158 \
   --input-path examples/pew_w158_tutorial/questions.jsonl
 zwill respondent import --survey pew_w158 \
@@ -285,12 +289,14 @@ zwill next --survey pew_w158</code></pre>
     <p>The response reports <code>prediction_count_estimate: 100</code> and writes the plan beneath zwill’s output root as <code>zwill_work/carbon_tax_v1.json</code>. Validation checks question names, context policy, arms, and the prediction-count calculation without approving or running anything:</p>
     <pre><code>zwill twin-experiment validate \
   --input-path zwill_work/carbon_tax_v1.json</code></pre>
+    <p><strong>Expected result:</strong> <code>status: ok</code>, no validation errors, one held-out question, one arm, one model, and an estimated 100 predictions. Treat any error or unexpected count as a stop condition.</p>
     <p>Read the plan itself before approving it. Confirm that <code>carbon_tax</code> is the only held-out target, precisely five different questions are context, the sample and seed are correct, the model is intended, and the estimate is 100 calls.</p>
     <pre><code>zwill twin-experiment approve \
   --input-path zwill_work/carbon_tax_v1.json \
   --approved-by tutorial_reader \
   --note "Approved one target, five context questions, 100 respondents, seed 42, one model, and NLL as the primary metric."</code></pre>
     <p>Approval records who reviewed which design and when. It is evidence of a deliberate specification, not a claim that the design is scientifically sufficient.</p>
+    <p><strong>Expected result:</strong> the response shows <code>approval.approved: true</code>, <code>approved_by: tutorial_reader</code>, the review note, and the unchanged 100-prediction estimate. The command updates the plan file in place, so <code>export-plan</code> below reads the approved version.</p>
 
     <h3>Export and inspect the twin job</h3>
     <pre><code>zwill twin-experiment export-plan \
@@ -313,25 +319,29 @@ zwill twin-results import --survey pew_w158 \
     <h3>Inventory the imported run</h3>
     <pre><code>zwill twin-study list --survey pew_w158</code></pre>
     <p>The returned table should show one imported job, 100 rows, zero issues, <code>carbon_tax</code> as the held-out question, and the model you ran. This is the quickest check that zwill is about to score the intended artifact.</p>
+    <pre><code>job_id            rows  issues  heldout_questions  models
+f87aa97344addd4a  100   0       carbon_tax         openai:gpt-5.5</code></pre>
 
     <h3>Read the respondent-level twin report</h3>
     <pre><code>zwill twin-results report --survey pew_w158 \
   --job-id &lt;twin_job_id&gt;</code></pre>
-    <p>The command returns two tables with different jobs. The first is a case-by-case twin report: one row for each respondent’s hidden answer.</p>
+    <p>The command returns two tables with different purposes. The first is a case-by-case twin report: one row for each respondent’s hidden answer.</p>
     <pre><code>                              pew_w158 digital twin report
-┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━┳━━━━━━┓
-┃ respondent   ┃ heldout    ┃ actual ┃ model          ┃ p(actual) ┃ nll   ┃ brier  ┃ top1 ┃
-┡━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━╇━━━━━━┩
-│ …100637      │ carbon_tax │ Oppose │ openai:gpt-5.5 │ 0.820     │ 0.198 │ 0.065  │ 1    │
-│ …108592      │ carbon_tax │ Favor  │ openai:gpt-5.5 │ 0.900     │ 0.105 │ 0.020  │ 1    │
-│ …            │ …          │ …      │ …              │ …         │ …     │ …      │ …    │
-└──────────────┴────────────┴────────┴────────────────┴───────────┴───────┴────────┴──────┘</code></pre>
+┏━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━┳━━━━━━┓
+┃ respondent ┃ heldout    ┃ actual ┃ model          ┃ p(actual) ┃ uniform ┃ empirical ┃ nll   ┃ brier  ┃ top1 ┃
+┡━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━╇━━━━━━┩
+│ …100637    │ carbon_tax │ Oppose │ openai:gpt-5.5 │ 0.820     │ 0.500   │ 0.392     │ 0.198 │ 0.065  │ 1    │
+│ …108592    │ carbon_tax │ Favor  │ openai:gpt-5.5 │ 0.900     │ 0.500   │ 0.608     │ 0.105 │ 0.020  │ 1    │
+│ …          │ …          │ …      │ …              │ …         │ …       │ …         │ …     │ …      │ …    │
+└────────────┴────────────┴────────┴────────────────┴───────────┴─────────┴───────────┴───────┴────────┴──────┘</code></pre>
     <table><thead><tr><th>Column</th><th>What it captures for one respondent</th></tr></thead><tbody>
       <tr><td><code>respondent</code></td><td>The deidentified join key used to pair prediction and observed truth.</td></tr>
       <tr><td><code>heldout</code></td><td>The question hidden from the model—<code>carbon_tax</code> on every row here.</td></tr>
       <tr><td><code>actual</code></td><td>The answer retained locally and revealed only after inference for scoring.</td></tr>
       <tr><td><code>model</code></td><td>The model that returned the probability distribution.</td></tr>
       <tr><td><code>p(actual)</code></td><td>The probability assigned to the answer that person actually gave. Higher is better and partial credit is possible.</td></tr>
+      <tr><td><code>uniform</code></td><td>The probability from splitting mass equally over legal options: 0.5 for either answer here.</td></tr>
+      <tr><td><code>empirical</code></td><td>The committed weighted marginal probability of this person’s actual option. It uses population truth, not person-specific evidence, so it is an oracle reference rather than a deployable predictor.</td></tr>
       <tr><td><code>nll</code></td><td><code>-log(p(actual))</code>. Lower is better; confidently wrong predictions receive a large penalty.</td></tr>
       <tr><td><code>brier</code></td><td>Squared error across both <code>Favor</code> and <code>Oppose</code> probabilities. Lower is better.</td></tr>
       <tr><td><code>top1</code></td><td><code>1</code> when the higher-probability option equals the actual answer, otherwise <code>0</code>.</td></tr>
@@ -340,18 +350,21 @@ zwill twin-results import --survey pew_w158 \
     <h3>Read the aggregate model summary</h3>
     <p>The second table averages those case-level scores over all usable respondents. It answers how the run performed overall, while the first table shows which people generated that average.</p>
     <pre><code>                              model summary
-┏━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━┓
-┃ model          ┃ rows ┃ p(actual) ┃ uniform p ┃ nll     ┃ uniform nll ┃ brier   ┃ top1 ┃
-┡━━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━┩
-│ openai:gpt-5.5 │ 100  │ 0.690     │ 0.500     │ 0.513   │ 0.693       │ 0.329   │ 0.762 │
-└────────────────┴──────┴───────────┴───────────┴─────────┴─────────────┴─────────┴──────┘</code></pre>
+┏━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━┓
+┃ model          ┃ rows ┃ p(actual) ┃ uniform p ┃ empirical p ┃ nll   ┃ uniform nll ┃ empirical nll ┃ brier ┃ uniform brier ┃ empirical brier ┃ top1 ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━┩
+│ openai:gpt-5.5 │ 100  │ 0.690     │ 0.500     │ 0.523       │ 0.513 │ 0.693       │ 0.670         │ 0.329 │ 0.500         │ 0.477           │ 0.762│
+└────────────────┴──────┴───────────┴───────────┴─────────────┴───────┴─────────────┴───────────────┴───────┴───────────────┴─────────────────┴──────┘</code></pre>
     <table><thead><tr><th>Column</th><th>What the summary captures</th><th>How to read it</th></tr></thead><tbody>
       <tr><td><code>rows</code></td><td>Successfully scored respondent–question predictions.</td><td>It should be 100. Fewer rows require investigation.</td></tr>
       <tr><td><code>p(actual)</code></td><td>Mean probability assigned to each respondent’s observed answer.</td><td>Higher is better; 0.5 is the binary uniform floor.</td></tr>
       <tr><td><code>uniform p</code></td><td>A no-information prediction split equally across legal options.</td><td>Two options imply <code>1 / 2 = 0.5</code>.</td></tr>
+      <tr><td><code>empirical p</code></td><td>Mean probability assigned by the weighted observed target marginal.</td><td>An oracle aggregate reference: useful for comparison, unavailable for a genuinely new target.</td></tr>
       <tr><td><code>nll</code></td><td>Mean negative log likelihood.</td><td>Lower is better and confident errors are strongly penalized.</td></tr>
       <tr><td><code>uniform nll</code></td><td>NLL from assigning 0.5 to each option.</td><td><code>-log(0.5) = 0.693</code>; the twin should be below it.</td></tr>
+      <tr><td><code>empirical nll</code></td><td>NLL from assigning everyone the committed weighted target distribution.</td><td>Tests whether person-specific probabilities add signal beyond knowing the aggregate split.</td></tr>
       <tr><td><code>brier</code></td><td>Mean squared error of the complete binary distribution.</td><td>Lower is better.</td></tr>
+      <tr><td><code>uniform brier</code> / <code>empirical brier</code></td><td>The same distributional error for the two reference predictors.</td><td>The twin should be lower, but the XGBoost comparison remains the stronger deployable test.</td></tr>
       <tr><td><code>top1</code></td><td>Share whose highest-probability option matches the observed answer.</td><td>Higher is better, but it ignores confidence.</td></tr>
     </tbody></table>
     <p>These are the weighted results from the completed tutorial run. The twin beat uniform and the weighted empirical-marginal oracle on mean NLL: 0.513 versus 0.693 and 0.670 respectively. Its weighted top-1 accuracy was 76.2%. Those comparisons are encouraging, but XGBoost is the more demanding respondent-conditioned benchmark.</p>
@@ -371,6 +384,7 @@ zwill twin-results marginal-diagnostics --survey pew_w158 \
   --target probability-job \
   --target-job-id &lt;probability_job_id&gt;</code></pre>
     <p>The HTML supports visual inspection, the CSV provides one scored row per respondent, and marginal diagnostics compare the average of 100 person-specific distributions with the one-shot population prediction. Those aggregate comparisons complement—but cannot replace—the respondent-level scores.</p>
+    <p><strong>What marginal diagnostics returns:</strong> the selected twin and one-shot job IDs, aligned option labels, the mean twin-implied distribution, the one-shot distribution, and distance measures between them. A small distance means the two methods agree about the aggregate; it says nothing by itself about matching individuals.</p>
   </section>
 
   <section id="audit">
@@ -379,6 +393,7 @@ zwill twin-results marginal-diagnostics --survey pew_w158 \
     <pre><code>zwill twin-results run-report --survey pew_w158 \
   --job-id &lt;twin_job_id&gt; --format html --path twin-audit.html</code></pre>
     <p>Open <code>twin-audit.html</code> and inspect what was actually sent to the model. In particular, confirm that each scenario contains the five approved policy answers but not that respondent’s <code>carbon_tax</code> answer, the weighted target marginal, or any other target-revealing material.</p>
+    <p>The command response confirms the written HTML path and audited job ID. The page should report 100 imported rows, zero import issues, the approved construction metadata, and rendered examples containing five context answers. Record any discrepancy rather than relying only on the score tables.</p>
     <div class="callout"><strong>Leakage rule.</strong> The held-out answer, target-revealing follow-ups, downstream variables, and target summaries must be absent from twin prompts. A leaky prediction is not evidence of a capable twin.</div>
     <p>This manual prompt inspection checks the study’s construction. The statistical leakage audit in the validation bundle provides a complementary check for unusually strong context–target relationships. Both must be clean before performance comparisons are credible.</p>
   </section>
@@ -388,17 +403,19 @@ zwill twin-results marginal-diagnostics --survey pew_w158 \
     <p>Now ask whether the language-model twins add predictive value beyond a cheaper conventional model. This is a separate question from prompt auditing: a perfectly non-leaky twin can still perform no better than an ordinary supervised baseline.</p>
     <h3>Fit the conditional XGBoost baseline</h3>
     <p>Beating uniform probabilities is a weak test. A useful digital twin should also beat a conventional supervised learner given comparable respondent information. <code>twin-validate</code> therefore fits zwill’s conditional XGBoost baseline. It embeds the question texts and each question–option pair, represents each respondent by their non-held-out selections, and learns how those semantic features predict an option.</p>
-    <p>The fit is leave-one-question-out. For <code>carbon_tax</code>, XGBoost trains on the 100 respondents’ labeled rows from the other five questions—1,000 candidate-option training rows for five binary items. The target question’s own answers and marginal never enter training. It then predicts <code>Favor</code>/<code>Oppose</code> for the same 100 people scored by the language-model job, making the comparison paired. Zwill can also include readable respondent covariates, but this teaching excerpt deliberately contains none because the corresponding demographic codebook is not bundled.</p>
+    <p>The fit is leave-one-question-out across survey items. For <code>carbon_tax</code>, XGBoost trains on the 100 respondents’ labeled rows from the other five questions—1,000 candidate-option training rows for five binary items. The target question’s own answers and marginal never enter training. It then transfers what it learned across questions to predict <code>Favor</code>/<code>Oppose</code> for the same 100 people scored by the language-model job, making the comparison paired.</p>
+    <div class="callout"><strong>What kind of XGBoost baseline is this?</strong> This is a semantic cross-question baseline, not ordinary cross-validation trained on some respondents’ <code>carbon_tax</code> labels. That stricter exclusion makes it deployable to a genuinely new target, but it answers a different question from “how well can supervised learning predict this target once labeled target examples exist?” For that latter use case, add a respondent-fold baseline trained on target labels and keep train/test respondents separate. Zwill can also include readable respondent covariates; this excerpt deliberately contains none because the demographic codebook is not bundled.</div>
     <pre><code>zwill twin-validate --survey pew_w158 \
-  --jobs &lt;twin_job_id&gt; --out validation_bundle \
+  --jobs &lt;twin_job_id&gt; --out report_out/validation \
   --embedder edsl --require-baseline \
   --n-boot 2000 --seed 42</code></pre>
     <p><code>--embedder edsl</code> reproduces this tutorial run by obtaining <code>text-embedding-3-small</code> vectors through Expected Parrot. <code>--require-baseline</code> makes validation fail rather than quietly omit XGBoost if embedding or fitting cannot complete. For an API-free run, use <code>--embedder sentence-transformers</code>; changing the embeddings can change the baseline and must be recorded as a different specification.</p>
     <p>On success, the baseline step reports <code>model_type: xgboost</code>, <code>training_rows: 1000</code>, <code>prediction_rows: 100</code>, and <code>scored_questions: ["carbon_tax"]</code>. Zwill stores those predictions under <code>baseline:conditional-embedding</code> and computes exactly the same NLL, Brier, <code>p(actual)</code>, and top-1 fields used for the language-model twins.</p>
 
     <h3>Read the twin-versus-XGBoost result</h3>
-    <p>Open <code>validation_bundle/report.html</code>. Unlike the earlier one-job report, its model summary contains both the language-model twin and <code>baseline:conditional-embedding</code>. The respondent-level table also includes XGBoost rows, so you can see whether both methods fail on the same people or in different ways.</p>
-    <p>The validation command also resamples respondents to estimate paired bootstrap intervals for the difference between each twin model and XGBoost. Those results are in <code>validation_bundle/bootstrap.json</code>. For <code>p(actual)</code> and top-1, higher is better; for NLL and Brier, lower is better. Interpret the direction of each twin-minus-baseline difference accordingly, and do not claim an improvement when its uncertainty interval includes zero.</p>
+    <p><strong>Representative completion output:</strong> <code>status: ok</code>, <code>baseline.model_type: xgboost</code>, <code>baseline.training_rows: 1000</code>, <code>baseline.prediction_rows: 100</code>, <code>bootstrap.resamples: 2000</code>, and paths for <code>report.html</code>, <code>report_data.json</code>, <code>bootstrap.json</code>, <code>leakage_audit.json</code>, and <code>manifest.json</code>. A missing required baseline or failed leakage step makes the command fail instead of yielding a partial success.</p>
+    <p>Open <code>report_out/validation/report.html</code>. Unlike the earlier one-job report, its model summary contains both the language-model twin and <code>baseline:conditional-embedding</code>. The respondent-level table also includes XGBoost rows, so you can see whether both methods fail on the same people or in different ways.</p>
+    <p>The validation command also resamples respondents to estimate paired bootstrap intervals for the difference between each twin model and XGBoost. Those results are in <code>report_out/validation/bootstrap.json</code>. For <code>p(actual)</code> and top-1, higher is better; for NLL and Brier, lower is better. Interpret the direction of each twin-minus-baseline difference accordingly, and do not claim an improvement when its uncertainty interval includes zero.</p>
     <h4>Results from the completed tutorial run</h4>
     <table><thead><tr><th>Metric</th><th>GPT-5.5 twin</th><th>XGBoost</th><th>Paired twin − XGBoost [95% CI]</th><th>Interpretation</th></tr></thead><tbody>
       <tr><td>p(actual)</td><td>0.690</td><td>0.671</td><td>+0.019 [−0.033, +0.075]</td><td>Point estimate favors the twin; interval includes zero.</td></tr>
@@ -406,9 +423,10 @@ zwill twin-results marginal-diagnostics --survey pew_w158 \
       <tr><td>Brier</td><td>0.329</td><td>0.420</td><td>−0.091 [−0.189, +0.002]</td><td>Point estimate favors the twin; interval narrowly includes zero.</td></tr>
       <tr><td>Top-1 accuracy</td><td>0.762</td><td>0.764</td><td>−0.002 [−0.135, +0.118]</td><td>Essentially tied and statistically inconclusive.</td></tr>
     </tbody></table>
+    <figure><img src="assets/pew-w158-twin-vs-xgboost.svg" alt="Bar comparison of GPT-5.5 twin and conditional XGBoost point estimates for probability on actual, NLL, Brier, and top-one accuracy" style="display:block;width:100%;height:auto"><figcaption>The point estimates favor the twin on probability quality, while classification accuracy is tied. The paired intervals—not bar lengths alone—determine which differences are distinguishable from sampling noise.</figcaption></figure>
     <p>NLL was declared as the primary metric before export. On that metric, the twin produced meaningfully better probabilities than XGBoost: its paired interval clears zero in the favorable, negative direction. The methods had nearly identical top-1 accuracy, so the gain came from probability quality rather than getting more binary choices correct. The leakage audit examined all five context–target pairs and flagged none.</p>
     <table><thead><tr><th>Artifact</th><th>What it captures</th></tr></thead><tbody>
-      <tr><td><code>report.html</code></td><td>The respondent-level and aggregate scores for both the language-model twins and the conditional XGBoost baseline.</td></tr>
+      <tr><td><code>report_out/validation/report.html</code></td><td>The respondent-level and aggregate scores for both the language-model twins and the conditional XGBoost baseline.</td></tr>
       <tr><td><code>bootstrap.json</code></td><td>Point estimates and paired confidence intervals for twin-versus-XGBoost metric differences.</td></tr>
       <tr><td><code>leakage_audit.json</code></td><td>Checks for suspicious relationships that could make the held-out answer recoverable from supposedly permitted inputs.</td></tr>
       <tr><td><code>report_data.json</code></td><td>The structured inputs behind the validation report, including twin rows, baseline rows, bootstrap results, and audit summary.</td></tr>
@@ -423,8 +441,8 @@ zwill twin-results marginal-diagnostics --survey pew_w158 \
     <h2><span class="chapter">10</span> Read the evidence</h2>
     <p>Run <code>zwill guide show interpreting-results</code> before writing conclusions. Lower NLL and Brier scores are better. Accuracy is useful as a sanity check, but the headline is the paired difference against the conditional baseline.</p>
     <div class="metric"><div class="head">Evidence</div><div class="head">Supports a claim</div><div class="head">Does not support it</div><div>Leakage audit</div><div class="good">Clean</div><div class="bad">Target information exposed</div><div>Twin − conditional baseline</div><div class="good">Improvement</div><div class="bad">Tie or deterioration</div><div>Bootstrap interval</div><div class="good">Clears zero</div><div class="bad">Includes zero</div><div>Calibration / ECE</div><div class="good">Probabilities track outcomes</div><div class="bad">Overconfident misses</div></div>
-    <p>For this run, the preregistered NLL result passes the table’s comparison gate: −0.186 [−0.370, −0.034] against XGBoost. The Brier interval barely crosses zero, while p(actual) and top-1 remain inconclusive. That is mixed but useful evidence: the twin assigned probabilities better on the primary scoring rule without improving classification accuracy.</p>
-    <p>Also inspect calibration, individual failures, malformed-row rate, and marginal fit. The empirical marginal is an oracle benchmark because the target distribution has already been observed; it is not deployable for a genuinely new target.</p>
+    <p>For this run, the NLL metric prespecified in the approved plan passes the table’s comparison gate: −0.186 [−0.370, −0.034] against XGBoost. This is not a public preregistration: the tutorial target was chosen while developing the example. The Brier interval barely crosses zero, while p(actual) and top-1 remain inconclusive. That is mixed but useful evidence: the twin assigned probabilities better on the primary scoring rule without improving classification accuracy.</p>
+    <p>Also inspect calibration, individual failures, malformed-row rate, and marginal fit. Expected calibration error (ECE) groups predictions by confidence and compares average confidence with observed frequency; lower is better. The twin’s ECE in this run was 0.0446, but a single small binary sample can make calibration estimates unstable, so inspect the calibration plot and confident misses as well. The empirical marginal is an oracle benchmark because the target distribution has already been observed; it is not deployable for a genuinely new target.</p>
     <div class="callout warn"><strong>Appropriate conclusion for this pilot.</strong> “For this 100-person Pew W158 excerpt and the held-out carbon-tax item, GPT-5.5 improved NLL relative to the leave-one-question-out XGBoost baseline, while accuracy was indistinguishable.” Do not generalize from one climate-policy item to digital-twin validity overall.</div>
   </section>
 
@@ -436,14 +454,14 @@ zwill twin-results marginal-diagnostics --survey pew_w158 \
     <pre><code>zwill report build --survey pew_w158 --path report_out \
   --job-id &lt;twin_job_id&gt; \
   --probability-job-id &lt;probability_job_id&gt;</code></pre>
-    <p>This command assembles the survey profile, one-shot results, twin scores, run audit, and available diagnostics into <code>report_out/</code>. It also writes an index for navigating the technical readouts. The decisive XGBoost comparison remains in <code>validation_bundle/</code>, whose structured <code>report_data.json</code> should travel with the report package.</p>
+    <p>This command assembles the survey profile, one-shot results, twin scores, run audit, and available diagnostics into <code>report_out/</code>. Because validation was written to <code>report_out/validation/</code>, zwill detects that bundle and links its XGBoost comparison, bootstrap intervals, leakage audit, and structured evidence from the consolidated index. The result is one publishable evidence tree rather than two disconnected folders.</p>
 
     <table><thead><tr><th>Evidence for the coding agent</th><th>What it contributes</th></tr></thead><tbody>
       <tr><td><code>report_out/index.html</code></td><td>A navigable inventory of the survey profile and currently available technical pages.</td></tr>
-      <tr><td><code>validation_bundle/report_data.json</code></td><td>Structured study design, twin and XGBoost rows, score summaries, bootstrap comparisons, calibration diagnostics, and audit results.</td></tr>
-      <tr><td><code>validation_bundle/report.html</code></td><td>The human-readable technical validation report against which narrative claims can be checked.</td></tr>
-      <tr><td><code>validation_bundle/bootstrap.json</code></td><td>The paired uncertainty intervals needed to distinguish evidence from sampling noise.</td></tr>
-      <tr><td><code>validation_bundle/leakage_audit.json</code></td><td>The context–target checks that must be read before making a positive performance claim.</td></tr>
+      <tr><td><code>report_out/validation/report_data.json</code></td><td>Structured study design, twin and XGBoost rows, score summaries, bootstrap comparisons, calibration diagnostics, and audit results.</td></tr>
+      <tr><td><code>report_out/validation/report.html</code></td><td>The human-readable technical validation report against which narrative claims can be checked.</td></tr>
+      <tr><td><code>report_out/validation/bootstrap.json</code></td><td>The paired uncertainty intervals needed to distinguish evidence from sampling noise.</td></tr>
+      <tr><td><code>report_out/validation/leakage_audit.json</code></td><td>The context–target checks that must be read before making a positive performance claim.</td></tr>
       <tr><td><code>twin-audit.html</code></td><td>Rendered prompts, respondent context, raw responses, construction metadata, and import issues.</td></tr>
       <tr><td><code>examples/pew_w158_tutorial/source.md</code></td><td>Survey provenance, scope, and the limitations of the bundled excerpt.</td></tr>
     </tbody></table>
