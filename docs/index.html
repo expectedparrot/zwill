@@ -29,8 +29,8 @@
   <a class="brand" href="https://www.expectedparrot.com/"><strong>Expected Parrot</strong><small>Open-source research tools</small></a>
   <div class="book">Validating Survey<br>Digital Twins with zwill</div>
   <div class="part">Foundations</div><a href="#orientation">1. What is being tested?</a><a href="#design">2. Study design</a><a href="#install">3. Installation</a>
-  <div class="part">Worked example</div><a href="#ingest">4. Ingest a survey</a><a href="#inspect">5. Inspect and commit</a><a href="#oneshot">6. One-shot baseline</a><a href="#twins">7. Predict held-out answers</a><a href="#audit">8. Audit the prompts</a><a href="#baseline">9. Compare with XGBoost</a>
-  <div class="part">Interpretation</div><a href="#metrics">10. Read the evidence</a><a href="#report">11. Author the report</a><a href="#next">12. From pilot to study</a>
+  <div class="part">Worked example</div><a href="#ingest">4. Ingest a survey</a><a href="#inspect">5. Inspect and commit</a><a href="#oneshot">6. One-shot baseline</a><a href="#twins">7. Run held-out predictions</a><a href="#audit">8. Audit the prompts</a><a href="#score">9. Score held-out answers</a><a href="#baseline">10. Compare with XGBoost</a>
+  <div class="part">Interpretation</div><a href="#metrics">11. Read the evidence</a><a href="#report">12. Author the report</a><a href="#next">13. From pilot to study</a>
   <div class="small">A self-contained tutorial for zwill and the EDSL ep CLI. Model execution happens outside zwill through Expected Parrot remote inference.</div>
 </nav>
 <main><article>
@@ -268,7 +268,7 @@ zwill next --survey pew_w158</code></pre>
   </section>
 
   <section id="twins">
-    <h2><span class="chapter">07</span> Predict held-out answers</h2>
+    <h2><span class="chapter">07</span> Run held-out predictions</h2>
     <p>We now move from “Can a model guess the aggregate split?” to “Can it assign better probabilities to each real person?” The committed survey already contains every respondent’s <code>carbon_tax</code> answer. Zwill keeps that answer locally for scoring but removes it from the scenario sent to the model.</p>
     <table><thead><tr><th>Model may see</th><th>Model must not see</th></tr></thead><tbody>
       <tr><td>The exact <code>carbon_tax</code> wording and its <code>Favor</code>/<code>Oppose</code> options</td><td>The respondent’s recorded <code>carbon_tax</code> answer</td></tr>
@@ -314,6 +314,23 @@ ls carbon_tax_v1_jobs</code></pre>
 zwill twin-results import --survey pew_w158 \
   --input-path carbon_tax_twin_results.ep</code></pre>
     <p>The completed tutorial run produced 100 of 100 interviews with no exceptions. Import extracted all 100 predictions with zero issues, returned <code>job_id: f87aa97344addd4a</code>, and reported a total model cost of $1.0234. Your run receives its own ID; copy it into <code>&lt;twin_job_id&gt;</code>. Investigate and retry malformed rows instead of silently analyzing a selective subset.</p>
+
+  </section>
+
+  <section id="audit">
+    <h2><span class="chapter">08</span> Audit the prompts before scoring</h2>
+    <p>Audit at least one imported run before looking at its performance. This order matters: inspect the construction before a promising score can make you more willing to excuse leakage or an unintended prompt. The run report exposes construction metadata, prompt templates, rendered scenarios, raw responses, malformed rows, and import issues.</p>
+    <pre><code>zwill twin-results run-report --survey pew_w158 \
+  --job-id &lt;twin_job_id&gt; --format html --path twin-audit.html</code></pre>
+    <p>Open <code>twin-audit.html</code> and inspect what was actually sent to the model. In particular, confirm that each scenario contains the five approved policy answers but not that respondent’s <code>carbon_tax</code> answer, the weighted target marginal, or any other target-revealing material.</p>
+    <p>The command response confirms the written HTML path and audited job ID. The page should report 100 imported rows, zero import issues, the approved construction metadata, and rendered examples containing five context answers. Record any discrepancy rather than relying only on the score tables.</p>
+    <div class="callout"><strong>Leakage rule.</strong> The held-out answer, target-revealing follow-ups, downstream variables, and target summaries must be absent from twin prompts. A leaky prediction is not evidence of a capable twin.</div>
+    <p>This manual prompt inspection checks the study’s construction. The statistical leakage audit in the validation bundle provides a complementary check for unusually strong context–target relationships. Both must be clean before performance comparisons are credible.</p>
+  </section>
+
+  <section id="score">
+    <h2><span class="chapter">09</span> Score held-out answers</h2>
+    <p>With the construction audit complete, inspect which artifact was imported and then score its person-specific probabilities against the answers retained locally.</p>
 
     <h3>Inventory the imported run</h3>
     <pre><code>zwill twin-study list --survey pew_w158</code></pre>
@@ -390,19 +407,8 @@ zwill twin-results marginal-diagnostics --survey pew_w158 \
     <p><strong>What marginal diagnostics returns:</strong> the selected twin and one-shot job IDs, aligned option labels, the mean twin-implied distribution, the one-shot distribution, and distance measures between them. A small distance means the two methods agree about the aggregate; it says nothing by itself about matching individuals.</p>
   </section>
 
-  <section id="audit">
-    <h2><span class="chapter">08</span> Audit the prompts</h2>
-    <p>Audit at least one imported run before trusting its scores. The run report exposes construction metadata, prompt templates, rendered scenarios, raw responses, malformed rows, and import issues.</p>
-    <pre><code>zwill twin-results run-report --survey pew_w158 \
-  --job-id &lt;twin_job_id&gt; --format html --path twin-audit.html</code></pre>
-    <p>Open <code>twin-audit.html</code> and inspect what was actually sent to the model. In particular, confirm that each scenario contains the five approved policy answers but not that respondent’s <code>carbon_tax</code> answer, the weighted target marginal, or any other target-revealing material.</p>
-    <p>The command response confirms the written HTML path and audited job ID. The page should report 100 imported rows, zero import issues, the approved construction metadata, and rendered examples containing five context answers. Record any discrepancy rather than relying only on the score tables.</p>
-    <div class="callout"><strong>Leakage rule.</strong> The held-out answer, target-revealing follow-ups, downstream variables, and target summaries must be absent from twin prompts. A leaky prediction is not evidence of a capable twin.</div>
-    <p>This manual prompt inspection checks the study’s construction. The statistical leakage audit in the validation bundle provides a complementary check for unusually strong context–target relationships. Both must be clean before performance comparisons are credible.</p>
-  </section>
-
   <section id="baseline">
-    <h2><span class="chapter">09</span> Compare the twins with XGBoost</h2>
+    <h2><span class="chapter">10</span> Compare the twins with XGBoost</h2>
     <p>Now ask whether the language-model twins add predictive value beyond a cheaper conventional model. This is a separate question from prompt auditing: a perfectly non-leaky twin can still perform no better than an ordinary supervised baseline.</p>
     <h3>Fit the conditional XGBoost baseline</h3>
     <p>Beating uniform probabilities is a weak test. A useful digital twin should also beat a conventional supervised learner given comparable respondent information. <code>twin-validate</code> therefore fits zwill’s conditional XGBoost baseline. It embeds the question texts and each question–option pair, represents each respondent by their non-held-out selections, and learns how those semantic features predict an option.</p>
@@ -441,7 +447,7 @@ zwill twin-results marginal-diagnostics --survey pew_w158 \
   </section>
 
   <section id="metrics">
-    <h2><span class="chapter">10</span> Read the evidence</h2>
+    <h2><span class="chapter">11</span> Read the evidence</h2>
     <p>Run <code>zwill guide show interpreting-results</code> before writing conclusions. Lower NLL and Brier scores are better. Accuracy is useful as a sanity check, but the headline is the paired difference against the conditional baseline.</p>
     <div class="metric"><div class="head">Evidence</div><div class="head">Supports a claim</div><div class="head">Does not support it</div><div>Leakage audit</div><div class="good">Clean</div><div class="bad">Target information exposed</div><div>Twin − conditional baseline</div><div class="good">Improvement</div><div class="bad">Tie or deterioration</div><div>Bootstrap interval</div><div class="good">Clears zero</div><div class="bad">Includes zero</div><div>Calibration / ECE</div><div class="good">Probabilities track outcomes</div><div class="bad">Overconfident misses</div></div>
     <p>For this run, the NLL metric prespecified in the approved plan passes the table’s comparison gate: −0.186 [−0.370, −0.034] against XGBoost. This is not a public preregistration: the tutorial target was chosen while developing the example. The Brier interval barely crosses zero, while p(actual) and top-1 remain inconclusive. That is mixed but useful evidence: the twin assigned probabilities better on the primary scoring rule without improving classification accuracy.</p>
@@ -450,7 +456,7 @@ zwill twin-results marginal-diagnostics --survey pew_w158 \
   </section>
 
   <section id="report">
-    <h2><span class="chapter">11</span> Assemble the evidence and author the report</h2>
+    <h2><span class="chapter">12</span> Assemble the evidence and author the report</h2>
     <p>Zwill’s responsibility ends with a rich, auditable evidence package. It should calculate the metrics, retain respondent-level predictions and raw model evidence, document the study design, fit the baselines, run the leakage and bootstrap analyses, and expose all of that in structured files. It should not decide the final narrative or send a second EDSL job to a model to write one.</p>
 
     <h3>Build the evidence package</h3>
@@ -477,7 +483,7 @@ zwill twin-results marginal-diagnostics --survey pew_w158 \
   </section>
 
   <section id="next">
-    <h2><span class="chapter">12</span> From pilot to a broader study</h2>
+    <h2><span class="chapter">13</span> From pilot to a broader study</h2>
     <ol>
       <li>Use the complete documented survey rather than the 100-person teaching excerpt, and include readable codebook-expanded covariates when they are legitimate predictors.</li>
       <li>Select 5–10 defensible held-out questions and declare leakage exclusions.</li>
