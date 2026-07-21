@@ -40,7 +40,7 @@ def cmd_agent_study_import(args: argparse.Namespace) -> dict[str, Any]:
     source = Path(args.input_path)
     if not source.exists():
         raise ZwillError("not_found", f"Results file does not exist: {args.input_path}.")
-    results = read_json_or_gzip(source)
+    results = read_edsl_results(source)
     if not isinstance(results, dict) or results.get("edsl_class_name") != "Results":
         raise ZwillError("invalid_input", "Expected an EDSL Results serialization.")
     job_id = args.job_id or results.get("zwill", {}).get("agent_study_job_id") or agent_study_job_id_from_results(results)
@@ -309,4 +309,3 @@ def cmd_agent_study_show(args: argparse.Namespace) -> dict[str, Any]:
     if args.include_summary and rows:
         data["summary"] = build_agent_study_report(rows, args.job_id)["summary"]
     return envelope("zwill agent-study show", "ok", data)
-

@@ -25,12 +25,12 @@ run_step() {
   "$@" > "$OUTDIR/${stem}.stdout.txt" 2> "$OUTDIR/${stem}.stderr.txt"
 }
 
-AGENT_LIST="$OUTDIR/pew_w154_diff1_agent_list.edsl.json"
+AGENT_LIST="$OUTDIR/pew_w154_diff1_agent_list.ep"
 AGENT_LIST_INSPECT="$OUTDIR/pew_w154_diff1_agent_list.inspect.json"
-MC_JOB="$OUTDIR/pew_w154_diff1_agent_study_leadership_job.edsl.json"
-MC_RESULTS="$OUTDIR/pew_w154_diff1_agent_study_leadership_results.json.gz"
-FT_JOB="$OUTDIR/pew_w154_diff1_agent_study_gender_roles_job.edsl.json"
-FT_RESULTS="$OUTDIR/pew_w154_diff1_agent_study_gender_roles_results.json.gz"
+MC_JOB="$OUTDIR/pew_w154_diff1_agent_study_leadership_jobs.ep"
+MC_RESULTS="$OUTDIR/pew_w154_diff1_agent_study_leadership_results.ep"
+FT_JOB="$OUTDIR/pew_w154_diff1_agent_study_gender_roles_jobs.ep"
+FT_RESULTS="$OUTDIR/pew_w154_diff1_agent_study_gender_roles_results.ep"
 MC_IMPORT_LOG="$OUTDIR/pew_w154_diff1_agent_study_leadership_import.json"
 FT_IMPORT_LOG="$OUTDIR/pew_w154_diff1_agent_study_gender_roles_import.json"
 REPORT_JSON="$OUTDIR/pew_w154_diff1_agent_study_report.json"
@@ -45,7 +45,7 @@ else
 fi
 
 run_step 01_agent_list_export \
-  zwill_cmd edsl-export \
+  zwill_cmd edsl build \
   --survey pew_w154_diff1 \
   --target agent-list \
   --questions diff1_a,diff1_b,diff1_c,diff1_d,diff1_e \
@@ -82,22 +82,18 @@ run_step 04_agent_study_export_gender_roles \
   --path "$FT_JOB"
 
 if [[ "${ZWILL_EXAMPLE_DRY_RUN:-0}" == "1" ]]; then
-  run_step 05_edsl_run_leadership_dry_run \
-    zwill_cmd edsl-run --job "$MC_JOB" --path "$MC_RESULTS" --dry-run
-  run_step 06_edsl_run_gender_roles_dry_run \
-    zwill_cmd edsl-run --job "$FT_JOB" --path "$FT_RESULTS" --dry-run
+  run_step 05_ep_inspect_leadership ep inspect "$MC_JOB"
+  run_step 06_ep_inspect_gender_roles ep inspect "$FT_JOB"
   echo "Dry run complete. Jobs written to $MC_JOB and $FT_JOB"
   exit 0
 fi
 
-run_step 05_edsl_run_leadership \
-  zwill_cmd edsl-run --job "$MC_JOB" --path "$MC_RESULTS"
+run_step 05_ep_run_leadership ep run "$MC_JOB" --output "$MC_RESULTS"
 run_step 06_agent_study_import_leadership \
   zwill_cmd agent-study import --input-path "$MC_RESULTS" --replace
 cp "$OUTDIR/06_agent_study_import_leadership.stdout.txt" "$MC_IMPORT_LOG"
 
-run_step 07_edsl_run_gender_roles \
-  zwill_cmd edsl-run --job "$FT_JOB" --path "$FT_RESULTS"
+run_step 07_ep_run_gender_roles ep run "$FT_JOB" --output "$FT_RESULTS"
 run_step 08_agent_study_import_gender_roles \
   zwill_cmd agent-study import --input-path "$FT_RESULTS" --replace
 cp "$OUTDIR/08_agent_study_import_gender_roles.stdout.txt" "$FT_IMPORT_LOG"

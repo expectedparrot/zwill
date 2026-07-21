@@ -27,13 +27,17 @@ COMMON_ARGS=(
   --model-param google:gemini-2.5-pro:thinking_budget=4096
   --model-param google:gemini-2.5-pro:temperature=0
   --output-dir "${WORKDIR}"
+  --job-path "${WORKDIR}/${SURVEY}_small_twin_jobs.ep"
+  --results-path "${WORKDIR}/${SURVEY}_small_twin_results.ep"
   --report-json "${WORKDIR}/${SURVEY}_small_twin_report.json"
   --report-csv "${WORKDIR}/${SURVEY}_small_twin_report.csv"
   --replace
 )
 
+zwill twin-study build "${COMMON_ARGS[@]}"
+
 if [[ "${ZWILL_RUN_EDSL:-0}" == "1" ]]; then
-  zwill twin-study run "${COMMON_ARGS[@]}"
-else
-  zwill twin-study run "${COMMON_ARGS[@]}" --dry-run
+  ep run "${WORKDIR}/${SURVEY}_small_twin_jobs.ep" --output "${WORKDIR}/${SURVEY}_small_twin_results.ep"
+  zwill twin-results import --survey "${SURVEY}" --input-path "${WORKDIR}/${SURVEY}_small_twin_results.ep" --replace
+  zwill twin-results report --survey "${SURVEY}" --format html --path "${WORKDIR}/${SURVEY}_small_twin_report.html"
 fi

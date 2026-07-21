@@ -407,6 +407,45 @@ def read_json_or_gzip(path: Path) -> Any:
     return json.loads(path.read_text())
 
 
+def read_edsl_results(path: Path) -> dict[str, Any]:
+    if path.suffix != ".ep":
+        raise ZwillError("invalid_input", "EDSL results must be a .ep package.", hint="Run `ep run jobs.ep --output results.ep`.")
+    try:
+        from edsl import Results
+
+        return Results.git.load(path).to_dict()
+    except Exception as exc:
+        raise ZwillError("invalid_input", f"Could not load EDSL Results package: {path}.") from exc
+
+
+def read_edsl_jobs(path: Path) -> dict[str, Any]:
+    if path.suffix != ".ep":
+        raise ZwillError("invalid_input", "EDSL jobs must be a .ep package.", hint="Build one with `zwill edsl build ... --path jobs.ep`.")
+    try:
+        from edsl import Jobs
+
+        return Jobs.git.load(path).to_dict()
+    except Exception as exc:
+        raise ZwillError("invalid_input", f"Could not load EDSL Jobs package: {path}.") from exc
+
+
+def read_edsl_agent_list(path: Path) -> dict[str, Any]:
+    if path.suffix != ".ep":
+        raise ZwillError("invalid_input", "EDSL agent lists must be a .ep package.", hint="Build one with `zwill edsl build --target agent-list ... --path agents.ep`.")
+    try:
+        from edsl import AgentList
+
+        return AgentList.git.load(path).to_dict()
+    except Exception as exc:
+        raise ZwillError("invalid_input", f"Could not load EDSL AgentList package: {path}.") from exc
+
+
+def save_ep_export(*args, **kwargs):
+    from .edsl_integration import save_ep_export as impl
+
+    return impl(*args, **kwargs)
+
+
 def write_json_or_gzip(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.suffix == ".gz":
@@ -2499,13 +2538,8 @@ def cmd_twin_experiment_report(*args, **kwargs):
 
     return impl(*args, **kwargs)
 
-def cmd_edsl_run(*args, **kwargs):
-    from .edsl_integration import cmd_edsl_run as impl
-
-    return impl(*args, **kwargs)
-
-def cmd_edsl_export(*args, **kwargs):
-    from .edsl_integration import cmd_edsl_export as impl
+def cmd_edsl_build(*args, **kwargs):
+    from .edsl_integration import cmd_edsl_build as impl
 
     return impl(*args, **kwargs)
 
@@ -2530,7 +2564,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         # Load the nearest .env once, before any command runs, so every command
-        # that makes model/embedding calls (edsl-run, twin-validate, the
+        # that makes model/embedding calls (twin-validate and the
         # conditional baseline, ...) sees the same keys. Individual commands may
         # still report their own `loaded_env`; load_local_env is idempotent
         # because it never overwrites a key already present in os.environ.

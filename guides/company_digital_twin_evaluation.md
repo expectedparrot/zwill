@@ -107,20 +107,18 @@ For transactional data, first turn outcomes into question-like targets:
 Start with one-shot marginal predictions. These ask a frontier model to predict the population distribution for each target question, not individual respondents.
 
 ```bash
-zwill edsl-export \
+zwill edsl build \
   --survey customer_validation \
   --target probability-job \
   --questions q12,q18,q24,q31 \
   --model openai:gpt-5.5 \
-  --path one_shot_marginals.edsl.json
+  --path one_shot_marginals_jobs.ep
 
-zwill edsl-run \
-  --job one_shot_marginals.edsl.json \
-  --path one_shot_marginals_results.json.gz
+ep run one_shot_marginals_jobs.ep --output one_shot_marginals_results.ep
 
 zwill prob-results import \
   --survey customer_validation \
-  --input-path one_shot_marginals_results.json.gz
+  --input-path one_shot_marginals_results.ep
 
 zwill prob-results report \
   --survey customer_validation \
@@ -151,7 +149,7 @@ A digital twin job asks the model to predict each held-out target for each respo
 Start simple:
 
 ```bash
-zwill edsl-export \
+zwill edsl build \
   --survey customer_validation \
   --target twin-probability-job \
   --heldout-questions q12,q18,q24,q31 \
@@ -160,19 +158,17 @@ zwill edsl-export \
   --seed 123 \
   --complete-cases \
   --model openai:gpt-5.5 \
-  --path twin_validation.edsl.json
+  --path twin_validation_jobs.ep
 ```
 
 Run and import:
 
 ```bash
-zwill edsl-run \
-  --job twin_validation.edsl.json \
-  --path twin_validation_results.json.gz
+ep run twin_validation_jobs.ep --output twin_validation_results.ep
 
 zwill twin-results import \
   --survey customer_validation \
-  --input-path twin_validation_results.json.gz
+  --input-path twin_validation_results.ep
 ```
 
 For larger studies, use full respondent sets rather than small samples once the workflow is working. Sampling is useful for debugging, but it can make marginal diagnostics noisy.

@@ -28,7 +28,7 @@ zwill answer import --survey pew_w154_diff1 --input-path "$IMPORT_DIR/answers.js
 zwill commit --survey pew_w154_diff1
 zwill status
 zwill table --survey pew_w154_diff1 --limit 12
-zwill edsl-export --survey pew_w154_diff1 --path "$WORKDIR/pew_w154_diff1.edsl.json" >/dev/null
+zwill edsl build --survey pew_w154_diff1 --path "$WORKDIR/pew_w154_diff1_survey.ep" >/dev/null
 echo "EDSL export: $WORKDIR/pew_w154_diff1.edsl.json"
-zwill edsl-export --survey pew_w154_diff1 --target probability-job --model openai:gpt-5.5 --model google:gemini-2.5-pro --model-param google:gemini-2.5-pro:max_tokens=8192 --model-param google:gemini-2.5-pro:thinking_budget=4096 --model-param google:gemini-2.5-pro:temperature=0 --path "$WORKDIR/pew_w154_diff1_probability_job.edsl.json" >/dev/null
-echo "EDSL probability job export: $WORKDIR/pew_w154_diff1_probability_job.edsl.json"
+zwill edsl build --survey pew_w154_diff1 --target probability-job --model openai:gpt-5.5 --model google:gemini-2.5-pro --model-param google:gemini-2.5-pro:max_tokens=8192 --model-param google:gemini-2.5-pro:thinking_budget=4096 --model-param google:gemini-2.5-pro:temperature=0 --path "$WORKDIR/pew_w154_diff1_probability_jobs.ep" >/dev/null
+echo "EDSL probability Jobs package: $WORKDIR/pew_w154_diff1_probability_jobs.ep"

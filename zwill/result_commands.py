@@ -9,7 +9,7 @@ def cmd_twin_results_import(args: argparse.Namespace) -> dict[str, Any]:
     source = Path(args.input_path)
     if not source.exists():
         raise ZwillError("not_found", f"Results file does not exist: {args.input_path}.")
-    results = read_json_or_gzip(source)
+    results = read_edsl_results(source)
     if not isinstance(results, dict) or results.get("edsl_class_name") != "Results":
         raise ZwillError("invalid_input", "Expected an EDSL Results serialization.")
     if results.get("zwill", {}).get("rank_utility_twin_job_id"):
@@ -178,7 +178,7 @@ def cmd_twin_results_retry_malformed(args: argparse.Namespace) -> dict[str, Any]
     job_path = Path(args.job)
     if not job_path.exists():
         raise ZwillError("not_found", f"Original EDSL job file does not exist: {args.job}.")
-    job_dict = read_json_or_gzip(job_path)
+    job_dict = read_edsl_jobs(job_path)
     failed_pairs = {(issue.get("respondent_id"), issue.get("heldout_question")) for issue in issues}
     retry_dict, kept = filter_retry_scenarios(job_dict, failed_pairs)
     if kept == 0:
@@ -188,10 +188,14 @@ def cmd_twin_results_retry_malformed(args: argparse.Namespace) -> dict[str, Any]
             context={"failed_pairs": sorted(f"{r}:{q}" for r, q in failed_pairs)[:10]},
             hint="Pass the original job file that produced these results.",
         )
-    out_path = resolve_output_path(args.path) if getattr(args, "path", None) else jdir / "retry.edsl.json"
+    out_path = resolve_output_path(args.path) if getattr(args, "path", None) else jdir / "retry.ep"
+    if out_path.suffix != ".ep":
+        raise ZwillError("invalid_input", "Retry jobs must be written to a .ep package.")
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    write_json(out_path, retry_dict)
-    results_path = jdir / "retry_results.json.gz"
+    from .edsl_integration import save_ep_export
+
+    save_ep_export(out_path, retry_dict, "retry-job")
+    results_path = jdir / "retry_results.ep"
     return envelope(
         "zwill twin-results retry-malformed",
         "ok",
@@ -202,7 +206,7 @@ def cmd_twin_results_retry_malformed(args: argparse.Namespace) -> dict[str, Any]
             "retry_job_path": str(out_path),
         },
         next_steps=[
-            f"zwill edsl-run --job {out_path} --path {results_path}",
+            f"ep run {out_path} --output {results_path}",
             f"zwill twin-results import --survey {args.survey} --job-id {job_id} --merge --input-path {results_path}",
         ],
     )
@@ -213,7 +217,7 @@ def cmd_rank_results_import(args: argparse.Namespace) -> dict[str, Any]:
     source = Path(args.input_path)
     if not source.exists():
         raise ZwillError("not_found", f"Results file does not exist: {args.input_path}.")
-    results = read_json_or_gzip(source)
+    results = read_edsl_results(source)
     if not isinstance(results, dict) or results.get("edsl_class_name") != "Results":
         raise ZwillError("invalid_input", "Expected an EDSL Results serialization.")
     job_id = args.job_id or results.get("zwill", {}).get("rank_utility_twin_job_id") or rank_job_id_from_results(results)
@@ -484,4 +488,3 @@ def cmd_rank_results_report(args: argparse.Namespace) -> None:
             fmt_optional(values.get("top_1_hit_rate")),
         )
     Console().print(table)
-

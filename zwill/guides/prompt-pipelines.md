@@ -60,12 +60,12 @@ prior answers. Available variables:
 ## Running one
 
 ```bash
-zwill edsl-export --survey <survey> --target twin-probability-job \
+zwill edsl build --survey <survey> --target twin-probability-job \
   --heldout-question <q> --allow-unapproved \
   --twin-prompt-pipeline examples/twin_pipelines/dialectical.json \
-  --model openai:gpt-5.5 --path twin.edsl.json
-zwill edsl-run --job twin.edsl.json --path twin_results.json.gz
-zwill twin-results import --survey <survey> --input-path twin_results.json.gz
+  --model openai:gpt-5.5 --path twin_jobs.ep
+ep run twin_jobs.ep --output twin_results.ep
+zwill twin-results import --survey <survey> --input-path twin_results.ep
 ```
 
 `--twin-prompt-pipeline` overrides `--prompt-variant`. The import scores the final
@@ -80,9 +80,9 @@ baseline on the **same held-out respondents** (same `--sample-respondents` and
 
 ```bash
 # raw baseline and the pipeline, same seed -> same respondents
-zwill edsl-export … --seed 21 --sample-respondents 40 --path raw.edsl.json
-zwill edsl-export … --seed 21 --sample-respondents 40 \
-  --twin-prompt-pipeline dialectical.json --path dial.edsl.json
+zwill edsl build … --seed 21 --sample-respondents 40 --path raw_jobs.ep
+zwill edsl build … --seed 21 --sample-respondents 40 \
+  --twin-prompt-pipeline dialectical.json --path dialectical_jobs.ep
 # run + import both, then:
 zwill twin-validate --survey <survey> --job-id <raw_job>  --out raw_val  --skip-baseline
 zwill twin-validate --survey <survey> --job-id <dial_job> --out dial_val --skip-baseline

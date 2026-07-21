@@ -25,7 +25,7 @@ noise?" Do not report a positive result from a bare twin run.
 - `zwill` is installed and `edsl` is importable (installed as the sibling `../edsl`
   editable checkout). Running twins uses EDSL.
 - Running twins uses **Expected Parrot remote inference**: `EXPECTED_PARROT_API_KEY`
-  in a `.env` that `zwill edsl-run` can find (it loads the nearest `.env`).
+  in the environment where the EDSL `ep` CLI runs the exported `.ep` job.
 - The **conditional baseline** embeds question/option text and is an XGBoost model.
   `--embedder auto` (default) tries the **Expected Parrot embeddings endpoint
   first**, behind a short health probe so an unavailable endpoint **fails over in
@@ -37,7 +37,7 @@ noise?" Do not report a positive result from a bare twin run.
   no failover). Install the extra so the fallback is the strong semantic model.
 - Do **not** pass `temperature` to models. Newer Anthropic/OpenAI models reject it
   and error on every call; EDSL omits it automatically.
-- Validate twins on a **current frontier model**. `edsl-export --target
+- Validate twins on a **current frontier model**. `edsl build --target
   twin-probability-job` defaults to `gpt-5.5` when `--model` is omitted, and names
   the chosen model in its output; if you pass a superseded model (e.g. `gpt-4o`,
   `gpt-4.1`, `claude-3-*`) it emits a `superseded_twin_model` warning, because a
@@ -55,9 +55,9 @@ Override it with the `ZWILL_OUT` environment variable or `zwill init
 written verbatim (an escape hatch) with a one-line warning that it left the root.
 
 Two things are deliberately *not* rebased: managed state stays in `.zwill/`, and
-intermediate EDSL plumbing that is read back by a later command — the job/results
-files from `edsl-export`/`edsl-run` (`--path`) and `--job-path` — stays at the
-current directory so `edsl-run --job <file>` still finds them. Input files you
+intermediate EDSL plumbing that is read back by a later command — the `.ep`
+packages written by `edsl build` and `ep run` — stays at the current directory
+so the external runner and later import command find them. Input files you
 pass with `--input-path` are reads and are never rebased.
 
 ## Non-negotiable guardrails
@@ -79,10 +79,10 @@ pass with `--input-path` are reads and are never rebased.
 - Do not run costly EDSL jobs until the user has seen the plan, prediction count,
   model list, and likely cost/time risk. For twins, use an approved plan unless
   the user explicitly requests an ad hoc/debug run with `--allow-unapproved`.
-- Run model jobs only through remote Expected Parrot inference with plain
-  `zwill edsl-run`. Verify the EP profile/key is available. Do not inject
-  `use_api_proxy`, `disable_remote_inference`, `offload_execution`, or local
-  provider calls unless explicitly requested.
+- zwill builds and imports artifacts; it does not own model execution. Run exported
+  `Jobs.ep` packages with `ep run <jobs.ep> --output <results.ep>` through remote
+  Expected Parrot inference, then give the result package to the appropriate
+  zwill import command.
 - For Gemini or other verbose providers, set a generous output-token cap for
   probability jobs. `maxOutputTokens` is Google-specific — scope it to the model
   with a per-model param so other providers don't warn about an unknown
@@ -122,10 +122,10 @@ next command. The full path:
    one-shot probability predictions for the held-out questions you will evaluate
    (or all eligible closed-ended questions when cost allows):
    ```bash
-   zwill edsl-export --survey <survey> --target probability-job \
-     --questions <q1,q2,...> --model <service:model> --path one_shot.edsl.json
-   zwill edsl-run --job one_shot.edsl.json --path one_shot_results.json.gz
-   zwill prob-results import --survey <survey> --input-path one_shot_results.json.gz
+   zwill edsl build --survey <survey> --target probability-job \
+     --questions <q1,q2,...> --model <service:model> --path one_shot_jobs.ep
+   ep run one_shot_jobs.ep --output one_shot_results.ep
+   zwill prob-results import --survey <survey> --input-path one_shot_results.ep
    zwill prob-results report --survey <survey> --job-id <probability_job_id> \
      --format html --path one-shot-marginals.html
    zwill prob-results report --survey <survey> --job-id <probability_job_id> \
@@ -137,22 +137,22 @@ next command. The full path:
    ```bash
    zwill prob-results analysis-export --survey <survey> --job-id <probability_job_id> \
      --path report_out/one-shot-marginals.html
-   zwill edsl-run --job <generated_report_job.edsl.json> --path <generated_report_results.json.gz>
-   zwill prob-results analysis-import --report-id <report_id> --input-path <generated_report_results.json.gz>
+   ep run <generated_report_jobs.ep> --output <generated_report_results.ep>
+   zwill prob-results analysis-import --report-id <report_id> --input-path <generated_report_results.ep>
    zwill prob-results analysis-render --report-id <report_id> --path report_out/one-shot-marginals.html
    ```
 8. **Run the twin jobs** — pick 5–10 held-out questions spanning different use
    cases, choose provider-qualified models (e.g. `openai:gpt-5.5`,
    `google:gemini-2.5-pro`), export and run:
    ```bash
-   zwill edsl-export --survey <survey> --target twin-probability-job \
+   zwill edsl build --survey <survey> --target twin-probability-job \
      --heldout-questions <q1,q2,...> --context-question-count 8 \
      --sample-respondents 200 --seed 20260706 --complete-cases \
      --model openai:gpt-5.5 --model google:gemini-2.5-pro \
      --allow-unapproved \
-     --path twin.edsl.json
-   zwill edsl-run --job twin.edsl.json --path twin_results.json.gz
-   zwill twin-results import --survey <survey> --input-path twin_results.json.gz
+     --path twin_jobs.ep
+   ep run twin_jobs.ep --output twin_results.ep
+   zwill twin-results import --survey <survey> --input-path twin_results.ep
    ```
    Respondent metadata (panel covariates like age/party/region) is included as
    twin context **by default** — rendered as a "Respondent profile" block — for
@@ -172,13 +172,13 @@ next command. The full path:
    `twin-probability-job` exports require an approved plan; this one-off/debug
    form passes `--allow-unapproved`. For a validation run, drop that flag and use
    `--approved-plan <plan.json>` (see the `twin-experiment` plan flow below).
-   (For a single survey you can also use `zwill twin-study run`.)
+   For a single survey, `zwill twin-study build` packages the same job and returns the exact `ep run` command.
    If import reports a non-zero `issue_count` (a few provider rows returned
    malformed JSON), recover just those without re-running the whole job:
    ```bash
-   zwill twin-results retry-malformed --survey <survey> --job-id <twin_job_id> --job twin.edsl.json
-   zwill edsl-run --job <retry.edsl.json> --path <retry_results.json.gz>
-   zwill twin-results import --survey <survey> --job-id <twin_job_id> --merge --input-path <retry_results.json.gz>
+   zwill twin-results retry-malformed --survey <survey> --job-id <twin_job_id> --job twin_jobs.ep
+   ep run <retry_jobs.ep> --output <retry_results.ep>
+   zwill twin-results import --survey <survey> --job-id <twin_job_id> --merge --input-path <retry_results.ep>
    ```
    For validation runs beyond one-off debugging, prefer `twin-experiment` plans:
    the plan must specify held-out targets, all eligible questions considered,
@@ -206,16 +206,20 @@ next command. The full path:
      --job-id <twin_job_id> --probability-job-id <probability_job_id>
    ```
    If `zwill report render --final` reports missing generated interpretation,
-   generate both required interpretations (one-shot analysis + twin executive
-   summary) with one command that runs every export -> edsl-run -> import ->
-   render step for you:
+   build each required interpretation job (one-shot analysis + twin executive
+   summary), run its `.ep` package with the external `ep` CLI, then import and
+   render it:
    ```bash
-   zwill report generate-interpretations --survey <survey> --path report_out \
-     --job-id <twin_job_id> --probability-job-id <probability_job_id>
+   zwill prob-results analysis-export --survey <survey> --job-id <probability_job_id>
+   ep run <one_shot_analysis_jobs.ep> --output <one_shot_analysis_results.ep>
+   zwill prob-results analysis-import --report-id <report_id> --input-path <one_shot_analysis_results.ep>
+   zwill prob-results analysis-render --report-id <report_id> --path report_out/one-shot-marginals.html
+
+   zwill twin-results executive-summary-export --survey <survey> --job-id <twin_job_id>
+   ep run <executive_summary_jobs.ep> --output <executive_summary_results.ep>
+   zwill twin-results executive-summary-import --report-id <report_id> --input-path <executive_summary_results.ep>
+   zwill twin-results executive-summary-render --report-id <report_id> --path report_out/twin-executive-summary.html
    ```
-   (Or run the eight steps by hand — `twin-results executive-summary-export` ->
-   `edsl-run` -> `executive-summary-import` -> `executive-summary-render`, and the
-   parallel `prob-results analysis-*` chain — if you need per-step control.)
 11. **Final gate** — render the final report only after the one-shot and twin
    generated interpretations are imported:
    ```bash
@@ -233,10 +237,10 @@ has rank batteries, `twin-validate` warns you (`rank_tasks_not_validated_here`).
 Validate them separately:
 
 ```bash
-zwill edsl-export --survey <survey> --target rank-utility-twin-job \
-  --rank-task-id <rank_task_id> --allow-unapproved --path rank.edsl.json
-zwill edsl-run --job rank.edsl.json --path rank_results.json.gz
-zwill twin-results import --survey <survey> --input-path rank_results.json.gz
+zwill edsl build --survey <survey> --target rank-utility-twin-job \
+  --rank-task-id <rank_task_id> --allow-unapproved --path rank_jobs.ep
+ep run rank_jobs.ep --output rank_results.ep
+zwill twin-results import --survey <survey> --input-path rank_results.ep
 zwill twin-results rank-report --survey <survey> --rank-task-id <rank_task_id> \
   --format html --path report_out/rank-<rank_task_id>.html
 ```
@@ -254,10 +258,10 @@ scoring rules (pinball loss, CRPS), interval coverage, and skill vs a marginal-
 quantile climatology baseline:
 
 ```bash
-zwill edsl-export --survey <survey> --target numeric-twin-job \
-  --heldout-question <numeric_q> --allow-unapproved --path numeric.edsl.json
-zwill edsl-run --job numeric.edsl.json --path numeric_results.json.gz
-zwill numeric-results import --survey <survey> --input-path numeric_results.json.gz
+zwill edsl build --survey <survey> --target numeric-twin-job \
+  --heldout-question <numeric_q> --allow-unapproved --path numeric_jobs.ep
+ep run numeric_jobs.ep --output numeric_results.ep
+zwill numeric-results import --survey <survey> --input-path numeric_results.ep
 zwill numeric-results report --survey <survey> --job-id <job_id> \
   --format html --path report_out/numeric.html
 ```
@@ -273,16 +277,16 @@ export → run → import cycles:
 
 ```bash
 # 1. Derive a codebook of themes from a sample of the answers
-zwill edsl-export --survey <survey> --target open-codebook-job \
-  --heldout-question <free_text_q> --n-themes 8 --model openai:gpt-5.5 --path cb.json
-zwill edsl-run --job cb.json --path cb_results.json.gz
-zwill open-coding codebook-import --survey <survey> --input-path cb_results.json.gz
+zwill edsl build --survey <survey> --target open-codebook-job \
+  --heldout-question <free_text_q> --n-themes 8 --model openai:gpt-5.5 --path cb_jobs.ep
+ep run cb_jobs.ep --output cb_results.ep
+zwill open-coding codebook-import --survey <survey> --input-path cb_results.ep
 
 # 2. Code every respondent's answer into one theme -> new multiple_choice question
-zwill edsl-export --survey <survey> --target open-coding-job \
-  --heldout-question <free_text_q> --model openai:gpt-5.5 --path coding.json
-zwill edsl-run --job coding.json --path coding_results.json.gz
-zwill open-coding import --survey <survey> --input-path coding_results.json.gz \
+zwill edsl build --survey <survey> --target open-coding-job \
+  --heldout-question <free_text_q> --model openai:gpt-5.5 --path coding_jobs.ep
+ep run coding_jobs.ep --output coding_results.ep
+zwill open-coding import --survey <survey> --input-path coding_results.ep \
   --coded-question-name <free_text_q>_coded
 ```
 

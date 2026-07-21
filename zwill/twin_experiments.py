@@ -532,7 +532,7 @@ def cmd_twin_experiment_init_plan(args: argparse.Namespace) -> dict[str, Any]:
         "approval": {
             "approved": False,
             "status": "draft",
-            "required_before": ["twin-experiment export-plan", "twin-study run", "twin-study export-holdout", "edsl-export --target twin-probability-job"],
+            "required_before": ["twin-experiment export-plan", "twin-study build", "twin-study export-holdout", "edsl build --target twin-probability-job"],
         },
     }
     estimate = estimate_plan_prediction_count(plan, sdir)
@@ -675,8 +675,8 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
         }
         job_id = job_dict.get("zwill", {}).get("digital_twin_job_id") or digital_twin_job_id_from_job(job_dict)
         approach_id = source_approach["approach_id"]
-        job_path = output_dir / f"{index:02d}_{approach_id}_{job_id}.edsl.json"
-        write_json(job_path, job_dict)
+        job_path = output_dir / f"{index:02d}_{approach_id}_{job_id}_jobs.ep"
+        save_ep_export(job_path, job_dict, "twin-probability-job")
         experiment_id = twin_approach_id(str(arm.get("experiment_id") or f"{plan_id}-{approach_id}"))
         experiment = {
             "experiment_id": experiment_id,
@@ -715,13 +715,6 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
 
     exported_prediction_count = sum(int(row.get("prediction_count_exported") or 0) for row in exported)
     export_count_check = prediction_count_check(approved_estimate, exported_prediction_count)
-    for row in exported:
-        job_path = Path(str(row["job_path"]))
-        job_dict = read_json(job_path, {})
-        approved_meta = job_dict.setdefault("zwill", {}).setdefault("approved_validation_plan", {})
-        approved_meta["export_count_check"] = export_count_check
-        write_json(job_path, job_dict)
-
     manifest = {
         "kind": "twin_experiment_plan_export",
         "plan_id": plan_id,
@@ -753,11 +746,11 @@ def cmd_twin_experiment_export_plan(args: argparse.Namespace) -> dict[str, Any]:
             (
                 f"zwill twin-experiment approve --input-path {plan_path}"
                 if export_count_check.get("requires_reapproval")
-                else f"zwill edsl-run --job {exported[0]['job_path']} --path <results.json.gz>"
+                else f"ep run {exported[0]['job_path']} --output <results.ep>"
             )
             if exported
             else "",
-            f"zwill twin-results import --survey {survey} --input-path <results.json.gz>",
+            f"zwill twin-results import --survey {survey} --input-path <results.ep>",
             (
                 f"zwill twin-validate --survey {survey} "
                 f"--jobs {','.join(e.get('job_id', '') for e in exported)} "
@@ -878,7 +871,7 @@ def twin_plan_experiments(sdir: Path, plan_id: str) -> list[dict[str, Any]]:
 
 def infer_results_job_id(path: Path) -> str | None:
     try:
-        payload = read_json_or_gzip(path)
+        payload = read_edsl_results(path)
     except Exception:
         return None
     if not isinstance(payload, dict) or payload.get("edsl_class_name") != "Results":
@@ -959,7 +952,7 @@ def cmd_twin_experiment_import_plan_results(args: argparse.Namespace) -> dict[st
         [
             path
             for path in results_dir.iterdir()
-            if path.is_file() and (path.suffix == ".json" or path.name.endswith(".json.gz"))
+            if path.is_file() and path.suffix == ".ep"
         ]
     )
     imports = []
@@ -1042,7 +1035,7 @@ def render_twin_experiment_package_runbook(manifest: dict[str, Any], package_man
         if job_path and result_path:
             package_job_path = Path("jobs") / Path(str(job_path)).name
             package_result_path = Path("results") / Path(str(result_path)).name
-            lines.append(f"zwill edsl-run --job {package_job_path} --path {package_result_path}{env_arg}")
+            lines.append(f"ep run {package_job_path} --output {package_result_path}{env_arg}")
     lines.extend(
         [
             "```",
@@ -1094,7 +1087,7 @@ def cmd_twin_experiment_package(args: argparse.Namespace) -> dict[str, Any]:
             continue
         destination = output_dir / "jobs" / source.name
         copied = copy_package_artifact(source, destination)
-        result_path = output_dir / "results" / f"{export.get('approach_id') or export.get('job_id')}_results.json.gz"
+        result_path = output_dir / "results" / f"{export.get('approach_id') or export.get('job_id')}_results.ep"
         job_rows.append(
             {
                 **export,
@@ -1205,7 +1198,7 @@ def cmd_twin_experiment_bundle(args: argparse.Namespace) -> dict[str, Any]:
                 jobs=jobs_arg,
                 model=args.model,
                 metric=args.metric,
-                job_path=str(output_dir / "report_job.edsl.json"),
+                job_path=str(output_dir / "report_jobs.ep"),
                 prompt_path=str(output_dir / "report_prompt.md"),
                 context_path=str(output_dir / "report_context.json"),
                 include_plots=[plot_manifest_path] if plot_manifest_path else None,
@@ -1273,8 +1266,8 @@ def cmd_twin_experiment_bundle_show(args: argparse.Namespace) -> None:
         "next_steps": [
             f"open {manifest.get('microdata_html_path')}" if manifest.get("microdata_html_path") else None,
             (
-                f"zwill edsl-run --job {(manifest.get('report_export') or {}).get('job_path')} "
-                f"--path {(manifest.get('report_export') or {}).get('report_dir')}/results.json.gz"
+                f"ep run {(manifest.get('report_export') or {}).get('job_path')} "
+                f"--output {(manifest.get('report_export') or {}).get('report_dir')}/results.ep"
                 if manifest.get("report_export")
                 else None
             ),
@@ -2114,4 +2107,3 @@ def cmd_twin_experiment_select(args: argparse.Namespace) -> dict[str, Any]:
             "candidate_count": len(rows),
         },
     )
-

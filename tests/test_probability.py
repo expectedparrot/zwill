@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import math
+from pathlib import Path
+import pytest
 
 from zwill.cli import balanced_by_actual, respondent_selection, selected_heldout_question_names, stratified_by_actual
 from zwill.probability import (
@@ -12,6 +14,9 @@ from zwill.probability import (
     probability_metrics,
 )
 from zwill.twin import one_hot_metrics, select_context_questions
+from zwill.cli import read_edsl_jobs, read_edsl_results
+from zwill.edsl_integration import save_ep_export
+from zwill.errors import ZwillError
 
 
 def test_parse_probability_json_accepts_fenced_json() -> None:
@@ -78,6 +83,38 @@ def test_probability_job_id_is_stable_for_key_order() -> None:
     second = {"scenarios": [{"source_question_name": "q1"}], "models": [{"model": "gpt-5.5"}]}
 
     assert probability_job_id_from_payload(first) == probability_job_id_from_payload(second)
+
+
+def test_read_edsl_results_loads_results_ep_with_git_api(tmp_path: Path) -> None:
+    from edsl import Results, Survey
+
+    path = tmp_path / "results.ep"
+    Results(survey=Survey([]), data=[]).git.save(path, message="Test zwill .ep loading")
+
+    loaded = read_edsl_results(path)
+
+    assert loaded["edsl_class_name"] == "Results"
+    assert loaded["data"] == []
+
+
+def test_save_ep_export_writes_loadable_jobs_package(tmp_path: Path) -> None:
+    from edsl import Jobs, QuestionFreeText, Survey
+
+    job = Jobs(Survey([QuestionFreeText(question_name="q", question_text="Say hi")]))
+    path = tmp_path / "jobs.ep"
+
+    saved = save_ep_export(path, job.to_dict(), "probability-job")
+
+    assert Path(saved["path"]) == path
+    assert read_edsl_jobs(path)["edsl_class_name"] == "Jobs"
+
+
+def test_edsl_artifact_readers_reject_json_legacy_files(tmp_path: Path) -> None:
+    path = tmp_path / "results.json"
+    path.write_text('{"edsl_class_name":"Results","data":[]}')
+
+    with pytest.raises(ZwillError, match="must be a .ep package"):
+        read_edsl_results(path)
 
 
 def test_twin_context_selection_excludes_heldout_and_limits() -> None:

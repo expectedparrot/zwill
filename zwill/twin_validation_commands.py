@@ -298,8 +298,8 @@ def cmd_twin_results_executive_summary_export(args: argparse.Namespace) -> dict[
             "raw_prediction_rows_in_prompt": False,
         },
         next_steps=[
-            f"zwill edsl-run --job {data['job_path']} --path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
-            f"zwill twin-results executive-summary-import --report-id {report_id} --input-path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
+            f"ep run {data['job_path']} --output {default_practitioner_report_paths(report_id)['dir'] / 'results.ep'}",
+            f"zwill twin-results executive-summary-import --report-id {report_id} --input-path {default_practitioner_report_paths(report_id)['dir'] / 'results.ep'}",
             f"zwill twin-results executive-summary-render --report-id {report_id} --path {path}",
         ],
     )
@@ -325,7 +325,7 @@ def cmd_twin_results_executive_summary_render(args: argparse.Namespace) -> dict[
         raise ZwillError(
             "not_found",
             f"No imported generated executive summary Markdown found for report id {args.report_id}.",
-            hint=f"Run `zwill twin-results executive-summary-import --report-id {args.report_id} --input-path <results.json.gz>`.",
+            hint=f"Run `zwill twin-results executive-summary-import --report-id {args.report_id} --input-path <results.ep>`.",
         )
     context = read_json(paths["context"], {})
     report_context = context.get("executive_report_context", {})

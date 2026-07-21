@@ -9,7 +9,7 @@ Two LLM steps, each an ordinary EDSL export -> run -> import cycle:
 2. **Coding** — one scenario per respondent classifies that respondent's actual
    answer into exactly one codebook theme. The import step then writes a new
    ``multiple_choice`` question (options = theme codes) plus the coded answers,
-   so ``edsl-export --target twin-probability-job`` validates it unchanged.
+   so ``edsl build --target twin-probability-job`` validates it unchanged.
 
 This module holds the pure pieces (prompts, parsing, job builders) with no
 dependency on ``cli.py``; the import commands live in ``open_ends_commands.py``.
@@ -269,7 +269,7 @@ def build_open_coding_job_dict_impl(survey_name: str, args: Any, deps: DigitalTw
         raise ZwillError(
             "not_found",
             f"No codebook found for {question_name!r}.",
-            hint="Run the codebook step first: edsl-export --target open-codebook-job, edsl-run, then open-coding codebook-import.",
+            hint="Run the codebook step first: edsl build --target open-codebook-job, `ep run`, then open-coding codebook-import.",
         )
     import json as _json
 

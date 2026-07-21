@@ -347,7 +347,7 @@ Context flagged there should be excluded from the rank export.
 
 Respondents who rank only a subset (their top few of N) are missing an actual rank
 for the items they did not pick. Pass `--allow-missing-actual` to **both**
-`edsl-export --target rank-utility-twin-job` **and** `twin-results import` to score
+`zwill edsl build --target rank-utility-twin-job --path rank_jobs.ep` **and** `twin-results import` to score
 them on the items they did rank; without it on import, those rows are dropped as
 `missing_actual_ranks` (the import warns and points to the flag).
 - Holding out feature ranking `c11_bplus_feat_app` should exclude all `q021`-`q036` and `q074_top_feature`.

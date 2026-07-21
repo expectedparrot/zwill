@@ -196,7 +196,7 @@ def cmd_twin_benchmark_run(args: argparse.Namespace) -> dict[str, Any]:
     config = load_twin_benchmark_config(args.config)
     output_dir = benchmark_output_dir(config, args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    # Load API keys before the studies make model calls (parity with edsl-run).
+    # Load API keys before the benchmark's model-backed validation steps.
     # Skipped for --dry-run, which only exports jobs.
     loaded_env = None
     if not args.dry_run:
@@ -460,7 +460,7 @@ def default_practitioner_report_paths(report_id: str) -> dict[str, Path]:
     rdir = practitioner_report_dir(report_id)
     return {
         "dir": rdir,
-        "job": rdir / "job.edsl.json",
+        "job": rdir / "jobs.ep",
         "prompt": rdir / "prompt.md",
         "context": rdir / "context.json",
         "markdown": rdir / "report.md",
@@ -485,12 +485,16 @@ def write_practitioner_report_export(
     stored_job_path = job_path or paths["job"]
     stored_prompt_path = prompt_path or paths["prompt"]
     stored_context_path = context_path_arg or paths["context"]
-    write_json(stored_job_path, job_dict)
+    if stored_job_path.suffix != ".ep":
+        raise ZwillError("invalid_input", "Practitioner report jobs must use a .ep path.")
+    from .edsl_integration import save_ep_export
+
+    save_ep_export(stored_job_path, job_dict, "practitioner-report-job")
     stored_prompt_path.parent.mkdir(parents=True, exist_ok=True)
     stored_prompt_path.write_text(prompt)
     write_json(stored_context_path, context)
     if stored_job_path != paths["job"]:
-        write_json(paths["job"], job_dict)
+        save_ep_export(paths["job"], job_dict, "practitioner-report-job")
     if stored_prompt_path != paths["prompt"]:
         paths["prompt"].write_text(prompt)
     if stored_context_path != paths["context"]:
@@ -573,8 +577,8 @@ def cmd_twin_benchmark_practitioner_report_export(args: argparse.Namespace) -> d
         "ok",
         data,
         next_steps=[
-            f"zwill edsl-run --job {data['job_path']} --path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
-            f"zwill twin-benchmark practitioner-report-import --report-id {report_id} --input-path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
+            f"ep run {data['job_path']} --output {default_practitioner_report_paths(report_id)['dir'] / 'results.ep'}",
+            f"zwill twin-benchmark practitioner-report-import --report-id {report_id} --input-path {default_practitioner_report_paths(report_id)['dir'] / 'results.ep'}",
             f"zwill twin-benchmark practitioner-report-render --report-id {report_id}",
         ],
     )
@@ -599,8 +603,8 @@ def cmd_twin_study_practitioner_report_export(args: argparse.Namespace) -> dict[
         "ok",
         data,
         next_steps=[
-            f"zwill edsl-run --job {data['job_path']} --path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
-            f"zwill twin-study practitioner-report-import --report-id {report_id} --input-path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
+            f"ep run {data['job_path']} --output {default_practitioner_report_paths(report_id)['dir'] / 'results.ep'}",
+            f"zwill twin-study practitioner-report-import --report-id {report_id} --input-path {default_practitioner_report_paths(report_id)['dir'] / 'results.ep'}",
             f"zwill twin-study practitioner-report-render --report-id {report_id}",
         ],
     )
@@ -610,7 +614,7 @@ def cmd_twin_benchmark_practitioner_report_import(args: argparse.Namespace) -> d
     source = Path(args.input_path)
     if not source.exists():
         raise ZwillError("not_found", f"Results file does not exist: {args.input_path}.")
-    results = read_json_or_gzip(source)
+    results = read_edsl_results(source)
     if not isinstance(results, dict) or results.get("edsl_class_name") != "Results":
         raise ZwillError("invalid_input", "Expected an EDSL Results serialization.")
     report_id = args.report_id or results.get("zwill", {}).get("practitioner_report_id")
@@ -682,7 +686,7 @@ def cmd_twin_benchmark_practitioner_report_render(args: argparse.Namespace) -> N
         raise ZwillError(
             "not_found",
             f"No imported practitioner report Markdown found for report id {report_id}.",
-            hint=f"Run `zwill twin-benchmark practitioner-report-import --report-id {report_id} --input-path <results.json.gz>`.",
+            hint=f"Run `zwill twin-benchmark practitioner-report-import --report-id {report_id} --input-path <results.ep>`.",
         )
     context = read_json(paths["context"], {})
     payload = context.get("benchmark_payload")
@@ -717,7 +721,7 @@ def generate_practitioner_report_markdown(
 ) -> tuple[str, dict[str, Any]]:
     output_path = resolve_output_path(args.path) if args.path else None
     prompt_path = resolve_output_path(args.prompt_path) if args.prompt_path else (output_path.with_suffix(".prompt.md") if output_path else None)
-    job_path = Path(args.job_path) if args.job_path else (output_path.with_suffix(".report_job.edsl.json") if output_path else None)
+    job_path = Path(args.job_path) if args.job_path else (output_path.with_suffix(".report_jobs.ep") if output_path else None)
     job_dict, context, prompt = _cli().build_edsl_practitioner_report_job_dict(args, payload, studies)
     report_id = job_dict["zwill"]["practitioner_report_id"]
     export_data = write_practitioner_report_export(
@@ -729,7 +733,7 @@ def generate_practitioner_report_markdown(
         prompt_path=prompt_path,
     )
     default_paths = default_practitioner_report_paths(report_id)
-    results_path = resolve_output_path(args.results_path) if args.results_path else default_paths["dir"] / "results.json.gz"
+    results_path = resolve_output_path(args.results_path) if args.results_path else default_paths["dir"] / "results.ep"
     run_result = _cli().cmd_edsl_run(
         argparse.Namespace(
             job=export_data["job_path"],
@@ -1047,8 +1051,8 @@ def cmd_twin_experiment_report_export(args: argparse.Namespace) -> dict[str, Any
         "ok",
         data,
         next_steps=[
-            f"zwill edsl-run --job {data['job_path']} --path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
-            f"zwill twin-experiment report-import --report-id {report_id} --input-path {default_practitioner_report_paths(report_id)['dir'] / 'results.json.gz'}",
+            f"ep run {data['job_path']} --output {default_practitioner_report_paths(report_id)['dir'] / 'results.ep'}",
+            f"zwill twin-experiment report-import --report-id {report_id} --input-path {default_practitioner_report_paths(report_id)['dir'] / 'results.ep'}",
             f"zwill twin-experiment report-render --report-id {report_id}",
         ],
     )
@@ -1075,7 +1079,7 @@ def cmd_twin_experiment_report(args: argparse.Namespace) -> None:
     report_id = job_dict["zwill"]["practitioner_report_id"]
     output_path = resolve_output_path(args.path) if args.path else None
     prompt_path = resolve_output_path(args.prompt_path) if args.prompt_path else (output_path.with_suffix(".prompt.md") if output_path else None)
-    job_path = Path(args.job_path) if args.job_path else (output_path.with_suffix(".report_job.edsl.json") if output_path else None)
+    job_path = Path(args.job_path) if args.job_path else (output_path.with_suffix(".report_jobs.ep") if output_path else None)
     export_data = write_practitioner_report_export(
         report_id,
         job_dict,
@@ -1085,7 +1089,7 @@ def cmd_twin_experiment_report(args: argparse.Namespace) -> None:
         prompt_path=prompt_path,
     )
     default_paths = default_practitioner_report_paths(report_id)
-    results_path = resolve_output_path(args.results_path) if args.results_path else default_paths["dir"] / "results.json.gz"
+    results_path = resolve_output_path(args.results_path) if args.results_path else default_paths["dir"] / "results.ep"
     cmd_edsl_run(
         argparse.Namespace(
             job=export_data["job_path"],

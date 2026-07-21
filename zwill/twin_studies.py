@@ -281,7 +281,7 @@ def cmd_twin_study_run(args: argparse.Namespace) -> dict[str, Any]:
     sdir = cli.require_survey(args.survey)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    approved_plan = require_twin_plan_approval(args, command="zwill twin-study run")
+    approved_plan = require_twin_plan_approval(args, command="zwill twin-study build")
 
     job_dict = cli.build_edsl_digital_twin_job_dict(args.survey, args)
     if approved_plan:
@@ -290,103 +290,25 @@ def cmd_twin_study_run(args: argparse.Namespace) -> dict[str, Any]:
     if not job_id:
         raise ZwillError("invalid_output", "Digital twin job export did not include a job id.")
 
-    job_path = Path(args.job_path) if args.job_path else output_dir / f"{args.survey}_twin_{job_id}.edsl.json"
-    results_path = resolve_output_path(args.results_path) if args.results_path else output_dir / f"{args.survey}_twin_{job_id}_results.json.gz"
-    report_html_path = resolve_output_path(args.report_html) if args.report_html else output_dir / f"{args.survey}_twin_{job_id}_report.html"
-    report_json_path = resolve_output_path(args.report_json) if args.report_json else None
-    report_csv_path = resolve_output_path(args.report_csv) if args.report_csv else None
+    job_path = Path(args.job_path) if args.job_path else output_dir / f"{args.survey}_twin_{job_id}_jobs.ep"
+    if job_path.suffix != ".ep":
+        raise ZwillError("invalid_input", "Twin study jobs must use a .ep path.")
+    results_path = Path(args.results_path) if args.results_path else output_dir / f"{args.survey}_twin_{job_id}_results.ep"
+    from .edsl_integration import save_ep_export
 
-    job_path.parent.mkdir(parents=True, exist_ok=True)
-    job_path.write_text(json.dumps(job_dict, indent=2) + "\n")
-    if args.dry_run:
-        upsert_twin_run_manifest(
-            sdir,
-            {
-                "job_id": job_id,
-                "survey": args.survey,
-                "status": "dry_run",
-                "created_at": utc_now(),
-                "job_path": str(job_path),
-                "results_path": str(results_path),
-                "report_paths": {},
-                "heldout_questions": job_dict.get("zwill", {}).get("heldout_questions", []),
-                "scenario_count": job_dict.get("zwill", {}).get("scenario_count"),
-                "model_count": len(job_dict.get("models", [])),
-                "models": [
-                    model_label(model.get("inference_service"), model.get("model"))
-                    for model in job_dict.get("models", [])
-                ],
-                "approved_validation_plan": approved_plan,
-            },
-        )
-        return envelope(
-            "zwill twin-study run",
-            "ok",
-            {
-                "dry_run": True,
-                "survey": args.survey,
-                "job_id": job_id,
-                "job_path": str(job_path),
-                "scenario_count": job_dict.get("zwill", {}).get("scenario_count"),
-                "model_count": len(job_dict.get("models", [])),
-            },
-        )
-
-    run_result = cli.cmd_edsl_run(
-        argparse.Namespace(
-            job=str(job_path),
-            path=str(results_path),
-            n=args.n,
-            progress_bar=args.progress_bar,
-            fresh=args.fresh,
-            stop_on_exception=args.stop_on_exception,
-            check_api_keys=args.check_api_keys,
-            verbose=args.verbose,
-            print_exceptions=args.print_exceptions,
-            offload_execution=args.offload_execution,
-            use_api_proxy=args.use_api_proxy,
-            run_param=args.run_param,
-            dry_run=False,
-        )
-    )
-    import_result = cli.cmd_twin_results_import(
-        argparse.Namespace(
-            survey=args.survey,
-            input_path=str(results_path),
-            job_id=job_id,
-            replace=args.replace,
-        )
-    )
-
-    report_paths: dict[str, str] = {}
-    for report_format, report_path in [
-        ("html", report_html_path),
-        ("json", report_json_path),
-        ("csv", report_csv_path),
-    ]:
-        if report_path is None:
-            continue
-        cli.cmd_twin_results_report(
-            argparse.Namespace(
-                survey=args.survey,
-                job_id=job_id,
-                model=None,
-                format=report_format,
-                path=str(report_path),
-            )
-        )
-        report_paths[report_format] = str(report_path)
+    saved = save_ep_export(job_path, job_dict, "twin-probability-job")
+    run_command = f"ep run {saved['path']} --output {results_path}"
 
     upsert_twin_run_manifest(
         sdir,
         {
             "job_id": job_id,
             "survey": args.survey,
-            "status": "ok",
+            "status": "built",
             "created_at": utc_now(),
             "job_path": str(job_path),
             "results_path": str(results_path),
-            "report_paths": report_paths,
+            "report_paths": {},
             "heldout_questions": job_dict.get("zwill", {}).get("heldout_questions", []),
             "context_question_count": job_dict.get("zwill", {}).get("context_question_count"),
             "sample_respondents": job_dict.get("zwill", {}).get("sample_respondents"),
@@ -395,9 +317,6 @@ def cmd_twin_study_run(args: argparse.Namespace) -> dict[str, Any]:
             "balance_actual": job_dict.get("zwill", {}).get("balance_actual"),
             "stratify_actual": job_dict.get("zwill", {}).get("stratify_actual"),
             "scenario_count": job_dict.get("zwill", {}).get("scenario_count"),
-            "result_count": run_result["data"].get("result_count"),
-            "extracted_count": import_result["data"].get("extracted_count"),
-            "issue_count": import_result["data"].get("issue_count"),
             "model_count": len(job_dict.get("models", [])),
             "models": [
                 model_label(model.get("inference_service"), model.get("model"))
@@ -408,18 +327,16 @@ def cmd_twin_study_run(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     return envelope(
-        "zwill twin-study run",
+        "zwill twin-study build",
         "ok",
         {
             "survey": args.survey,
             "job_id": job_id,
             "job_path": str(job_path),
             "results_path": str(results_path),
-            "report_paths": report_paths,
-            "run": run_result["data"],
-            "import": import_result["data"],
+            "run_command": run_command,
         },
-        next_steps=[f"open {report_html_path}" if report_html_path else f"zwill twin-results report --survey {args.survey} --job-id {job_id}"],
+        next_steps=[run_command, f"zwill twin-results import --survey {args.survey} --input-path {results_path}"],
     )
 
 
@@ -448,15 +365,15 @@ def cmd_twin_study_export_holdout(args: argparse.Namespace) -> dict[str, Any]:
         chunk_job["zwill"]["chunk_index"] = chunk_index
         chunk_job["zwill"]["chunk_size"] = args.chunk_size
         chunk_job["zwill"]["chunk_scenario_count"] = len(chunk)
-        path = output_dir / f"chunk_{chunk_index:03d}_job.edsl.json"
-        path.write_text(json.dumps(chunk_job, indent=2) + "\n")
+        path = output_dir / f"chunk_{chunk_index:03d}_jobs.ep"
+        _cli().save_ep_export(path, chunk_job, "twin-probability-job")
         exported.append(
             {
                 "chunk_index": chunk_index,
                 "job_id": chunk_job["zwill"]["digital_twin_job_id"],
                 "job_path": str(path),
                 "scenario_count": len(chunk),
-                "default_results_path": str(output_dir / f"chunk_{chunk_index:03d}_results.json.gz"),
+                "default_results_path": str(output_dir / f"chunk_{chunk_index:03d}_results.ep"),
             }
         )
     manifest = {
@@ -486,7 +403,7 @@ def cmd_twin_study_export_holdout(args: argparse.Namespace) -> dict[str, Any]:
             "exports": exported,
         },
         next_steps=[
-            f"zwill edsl-run --job {exported[0]['job_path']} --path {exported[0]['default_results_path']}" if exported else "",
+            f"ep run {exported[0]['job_path']} --output {exported[0]['default_results_path']}" if exported else "",
             f"zwill twin-study import-results-dir --survey {args.survey} --results-dir {output_dir} --job-id-prefix {slugify(prefix).lower()} --allow-missing-actual",
         ],
     )
@@ -496,14 +413,14 @@ def cmd_twin_study_import_results_dir(args: argparse.Namespace) -> dict[str, Any
     results_dir = Path(args.results_dir)
     if not results_dir.exists():
         raise ZwillError("not_found", f"Results directory does not exist: {results_dir}.")
-    patterns = args.pattern or ["*results*.json.gz", "*results*.json"]
+    patterns = args.pattern or ["*results*.ep"]
     paths: list[Path] = []
     for pattern in patterns:
         paths.extend(sorted(path for path in results_dir.glob(pattern) if path.is_file()))
     deduped = []
     seen_paths = set()
     for path in paths:
-        if path in seen_paths or path.name.endswith("_job.edsl.json"):
+        if path in seen_paths or path.name.endswith("_jobs.ep"):
             continue
         seen_paths.add(path)
         deduped.append(path)

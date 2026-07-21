@@ -250,7 +250,7 @@ def cmd_twin_validate(args: argparse.Namespace, *, embedder=None) -> dict[str, A
                 "message": (
                     f"This survey has {len(rank_tasks)} rank battery(ies) that twin-validate does NOT cover "
                     "(it gates twin-probability-jobs only). Validate ranking separately via the rank-utility "
-                    "flow: `edsl-export --target rank-utility-twin-job` -> `edsl-run` -> "
+                    "flow: `edsl build --target rank-utility-twin-job` -> `ep run` -> "
                     "`twin-results import` -> `twin-results rank-report`."
                 ),
                 "rank_task_ids": [task["rank_task_id"] for task in rank_tasks],

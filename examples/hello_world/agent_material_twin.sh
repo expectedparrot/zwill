@@ -40,7 +40,7 @@ zwill_cmd agent-material add \
   --tag preference
 zwill_cmd commit --survey agent_material_hello
 
-zwill_cmd edsl-export \
+zwill_cmd edsl build \
   --survey agent_material_hello \
   --target twin-probability-job \
   --allow-unapproved \
@@ -48,15 +48,13 @@ zwill_cmd edsl-export \
   --respondent r001 \
   --context-question-count 0 \
   --model openai:gpt-5.5 \
-  --path without_material_job.edsl.json
-if [[ "${ZWILL_EXAMPLE_DRY_RUN:-0}" == "1" ]]; then
-  zwill_cmd edsl-run --job without_material_job.edsl.json --path without_material_results.json.gz --dry-run
-else
-  zwill_cmd edsl-run --job without_material_job.edsl.json --path without_material_results.json.gz
-  zwill_cmd twin-results import --survey agent_material_hello --input-path without_material_results.json.gz --replace
+  --path without_material_jobs.ep
+if [[ "${ZWILL_EXAMPLE_DRY_RUN:-0}" != "1" ]]; then
+  ep run without_material_jobs.ep --output without_material_results.ep
+  zwill_cmd twin-results import --survey agent_material_hello --input-path without_material_results.ep --replace
 fi
 
-zwill_cmd edsl-export \
+zwill_cmd edsl build \
   --survey agent_material_hello \
   --target twin-probability-job \
   --allow-unapproved \
@@ -66,12 +64,10 @@ zwill_cmd edsl-export \
   --include-agent-material \
   --agent-material-kind profile \
   --model openai:gpt-5.5 \
-  --path with_material_job.edsl.json
-if [[ "${ZWILL_EXAMPLE_DRY_RUN:-0}" == "1" ]]; then
-  zwill_cmd edsl-run --job with_material_job.edsl.json --path with_material_results.json.gz --dry-run
-else
-  zwill_cmd edsl-run --job with_material_job.edsl.json --path with_material_results.json.gz
-  zwill_cmd twin-results import --survey agent_material_hello --input-path with_material_results.json.gz --replace
+  --path with_material_jobs.ep
+if [[ "${ZWILL_EXAMPLE_DRY_RUN:-0}" != "1" ]]; then
+  ep run with_material_jobs.ep --output with_material_results.ep
+  zwill_cmd twin-results import --survey agent_material_hello --input-path with_material_results.ep --replace
 
   zwill_cmd twin-study list --survey agent_material_hello --format json
 fi

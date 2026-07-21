@@ -11,13 +11,14 @@ instruction), so any pipeline stays measurable through the normal validation gat
 Use one on a twin export:
 
 ```bash
-zwill edsl-export --survey <survey> --target twin-probability-job \
+zwill edsl build --survey <survey> --target twin-probability-job \
   --heldout-question <q> --allow-unapproved \
   --twin-prompt-pipeline examples/twin_pipelines/dialectical.json \
-  --model openai:gpt-5.5 --path twin.edsl.json
+  --model openai:gpt-5.5 --path twin_jobs.ep
 ```
 
-Then `edsl-run` / `twin-results import` / `twin-validate` as usual — the gate's
+Then `ep run twin_jobs.ep --output twin_results.ep`, followed by
+`twin-results import` and `twin-validate` — the gate's
 NLL / ECE / p(actual) tell you whether the pipeline builds a better-calibrated
 twin than plain `raw`. Register a pipeline on a `twin-approach` to A/B several
 head-to-head with `twin-experiment` / `twin-study compare`.

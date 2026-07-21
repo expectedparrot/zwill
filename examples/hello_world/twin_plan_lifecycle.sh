@@ -141,9 +141,9 @@ from pathlib import Path
 
 manifest = json.loads(Path("jobs/manifest.json").read_text())
 for export in manifest["exports"]:
-    print(export["job_path"], f"results/{export['approach_id']}_results.json.gz")
+    print(export["job_path"], f"results/{export['approach_id']}_results.ep")
 PY
-    zwill_cmd edsl-run --job "$job_path" --path "$results_path"
+    ep run "$job_path" --output "$results_path"
   done
   zwill_cmd twin-experiment import-plan-results --manifest jobs/manifest.json --results-dir results --replace
   zwill_cmd twin-experiment bundle \

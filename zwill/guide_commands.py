@@ -161,7 +161,7 @@ def _stage_for_survey(survey: str) -> dict[str, Any]:
                 f"--heldout-questions <q1> --sample-respondents 200 --seed 42 "
                 f"--model openai:gpt-5.5  "
                 f"# then: twin-experiment validate -> approve -> export-plan -> "
-                f"edsl-run -> twin-results import"
+                f"ep run -> twin-results import"
             ),
         }
     if not has_baseline:

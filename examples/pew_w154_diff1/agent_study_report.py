@@ -21,7 +21,7 @@ COMMANDS = [
         "stem": "01_agent_list_export",
         "title": "Export a sampled EDSL AgentList",
         "command": (
-            "zwill edsl-export --survey pew_w154_diff1 --target agent-list "
+            "zwill edsl build --survey pew_w154_diff1 --target agent-list "
             "--questions diff1_a,diff1_b,diff1_c,diff1_d,diff1_e --limit 30 "
             "--include-survey-context --path pew_w154_diff1_agent_list.edsl.json"
         ),
@@ -42,7 +42,7 @@ COMMANDS = [
             '--question-text "In general, when it comes to being effective leaders in politics, are men and women basically similar or basically different?" '
             '--question-option "Men and women are basically similar" '
             '--question-option "Men and women are basically different" '
-            "--model openai:gpt-5.5 --model-param temperature=0 --path pew_w154_diff1_agent_study_leadership_job.edsl.json"
+            "--model openai:gpt-5.5 --model-param temperature=0 --path pew_w154_diff1_agent_study_leadership_jobs.ep"
         ),
         "note": "Asks a new, related binary gender-attitudes question that was not in the original DIFF1 battery.",
     },
@@ -53,32 +53,32 @@ COMMANDS = [
             "zwill agent-study export --agent-list pew_w154_diff1_agent_list.edsl.json "
             "--question-name gender_roles_views --question-type free_text "
             '--question-text "Given this respondent\'s prior answers, briefly describe this respondent\'s likely views on gender roles in society. Mention the evidence from their prior survey answers." '
-            "--model openai:gpt-5.5 --model-param temperature=0 --path pew_w154_diff1_agent_study_gender_roles_job.edsl.json"
+            "--model openai:gpt-5.5 --model-param temperature=0 --path pew_w154_diff1_agent_study_gender_roles_jobs.ep"
         ),
         "note": "Asks a qualitative follow-up question about likely views on gender roles, using the same constructed agents.",
     },
     {
         "stem": "05_edsl_run_leadership",
         "title": "Run the multiple-choice EDSL job",
-        "command": "zwill edsl-run --job pew_w154_diff1_agent_study_leadership_job.edsl.json --path pew_w154_diff1_agent_study_leadership_results.json.gz",
+        "command": "ep run pew_w154_diff1_agent_study_leadership_jobs.ep --output pew_w154_diff1_agent_study_leadership_results.ep",
         "note": "Runs the serialized multiple-choice EDSL job and writes a serialized EDSL Results object.",
     },
     {
         "stem": "06_agent_study_import_leadership",
         "title": "Import the multiple-choice Results object",
-        "command": "zwill agent-study import --input-path pew_w154_diff1_agent_study_leadership_results.json.gz --replace",
+        "command": "zwill agent-study import --input-path pew_w154_diff1_agent_study_leadership_results.ep --replace",
         "note": "Stores the raw Results object and extracts one row per agent/model/question answer for reporting.",
     },
     {
         "stem": "07_edsl_run_gender_roles",
         "title": "Run the free-text EDSL job",
-        "command": "zwill edsl-run --job pew_w154_diff1_agent_study_gender_roles_job.edsl.json --path pew_w154_diff1_agent_study_gender_roles_results.json.gz",
+        "command": "ep run pew_w154_diff1_agent_study_gender_roles_jobs.ep --output pew_w154_diff1_agent_study_gender_roles_results.ep",
         "note": "Runs the serialized free-text EDSL job and writes a second serialized EDSL Results object.",
     },
     {
         "stem": "08_agent_study_import_gender_roles",
         "title": "Import the free-text Results object",
-        "command": "zwill agent-study import --input-path pew_w154_diff1_agent_study_gender_roles_results.json.gz --replace",
+        "command": "zwill agent-study import --input-path pew_w154_diff1_agent_study_gender_roles_results.ep --replace",
         "note": "Stores the raw free-text Results object and extracts one row per agent/model/question answer.",
     },
     {

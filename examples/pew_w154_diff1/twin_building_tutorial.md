@@ -30,24 +30,23 @@ mkdir -p "$OUT"
 Export a one-shot probability job for the held-out question:
 
 ```bash
-zwill edsl-export \
+zwill edsl build \
   --survey "$SURVEY" \
   --target probability-job \
   --question "$HELDOUT" \
   --model openai:gpt-5.5 \
-  --path "$OUT/one_shot_prior_job.edsl.json"
+  --path "$OUT/one_shot_prior_jobs.ep"
 ```
 
 Run and import it:
 
 ```bash
-zwill edsl-run \
-  --job "$OUT/one_shot_prior_job.edsl.json" \
-  --path "$OUT/one_shot_prior_results.json.gz"
+ep run "$OUT/one_shot_prior_jobs.ep" \
+  --output "$OUT/one_shot_prior_results.ep"
 
 zwill prob-results import \
   --survey "$SURVEY" \
-  --input-path "$OUT/one_shot_prior_results.json.gz" \
+  --input-path "$OUT/one_shot_prior_results.ep" \
   --replace
 ```
 
@@ -118,7 +117,7 @@ PY
 Baseline:
 
 ```bash
-zwill twin-study run \
+zwill twin-study build \
   --survey "$SURVEY" \
   --heldout-question "$HELDOUT" \
   --context-questions "$CONTEXT" \
@@ -133,7 +132,7 @@ zwill twin-study run \
 One-shot prior material:
 
 ```bash
-zwill twin-study run \
+zwill twin-study build \
   --survey "$SURVEY" \
   --heldout-question "$HELDOUT" \
   --context-questions "$CONTEXT" \
@@ -149,7 +148,7 @@ zwill twin-study run \
 Empirical-marginal material:
 
 ```bash
-zwill twin-study run \
+zwill twin-study build \
   --survey "$SURVEY" \
   --heldout-question "$HELDOUT" \
   --context-questions "$CONTEXT" \
@@ -164,7 +163,7 @@ zwill twin-study run \
 
 ## 5. Record And Compare Approaches
 
-Use the job ids printed by the three `twin-study run` commands.
+Run each returned Jobs package with its printed `ep run` command, import each Results package, then use the job IDs printed by the three `twin-study build` commands.
 
 ```bash
 zwill twin-experiment record --survey "$SURVEY" --job-id <baseline_job_id> --experiment-id baseline --approach "Prior survey answers only"

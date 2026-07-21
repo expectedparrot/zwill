@@ -54,10 +54,10 @@ twin predicts a latent utility score for every item; the report ranks those
 scores and compares them to the respondent's actual ranking:
 
 ```bash
-zwill edsl-export --survey <survey> --target rank-utility-twin-job \
-  --rank-task-id <rank_task_id> --allow-unapproved --path rank.edsl.json
-zwill edsl-run --job rank.edsl.json --path rank_results.json.gz
-zwill twin-results import --survey <survey> --input-path rank_results.json.gz
+zwill edsl build --survey <survey> --target rank-utility-twin-job \
+  --rank-task-id <rank_task_id> --allow-unapproved --path rank_jobs.ep
+ep run rank_jobs.ep --output rank_results.ep
+zwill twin-results import --survey <survey> --input-path rank_results.ep
 zwill twin-results rank-report --survey <survey> --rank-task-id <rank_task_id> \
   --format html --path report_out/rank-<rank_task_id>.html
 ```
@@ -73,9 +73,9 @@ Those respondents are missing an actual rank for the items they did not pick, so
 you must pass **`--allow-missing-actual` to BOTH the export and the import**:
 
 ```bash
-zwill edsl-export ... --target rank-utility-twin-job --rank-task-id <id> \
-  --allow-unapproved --allow-missing-actual --path rank.edsl.json
-zwill twin-results import --survey <survey> --input-path rank_results.json.gz --allow-missing-actual
+zwill edsl build ... --target rank-utility-twin-job --rank-task-id <id> \
+  --allow-unapproved --allow-missing-actual --path rank_jobs.ep
+zwill twin-results import --survey <survey> --input-path rank_results.ep --allow-missing-actual
 ```
 
 Without the flag on import, every partial-ranking row is dropped as

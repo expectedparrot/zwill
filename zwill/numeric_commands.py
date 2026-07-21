@@ -153,7 +153,7 @@ def cmd_numeric_results_import(args: argparse.Namespace) -> dict[str, Any]:
     source = Path(args.input_path)
     if not source.exists():
         raise ZwillError("not_found", f"Results file does not exist: {args.input_path}.")
-    results = read_json_or_gzip(source)
+    results = read_edsl_results(source)
     if not isinstance(results, dict) or results.get("edsl_class_name") != "Results":
         raise ZwillError("invalid_input", "Expected an EDSL Results serialization.")
     job_id = args.job_id or results.get("zwill", {}).get("numeric_twin_job_id") or digital_twin_job_id_from_results(results)

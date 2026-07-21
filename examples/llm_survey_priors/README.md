@@ -63,7 +63,7 @@ Run a small digital twin study dry-run:
 examples/llm_survey_priors/run_small_twin_study.sh
 ```
 
-The script is a sequence of `zwill` commands ending in `zwill twin-study run`. By default it uses `--dry-run`, writes the exported EDSL job into `workdir/`, and does not call model APIs. To actually run the EDSL job and write JSON/CSV/HTML reports:
+The script builds a `.ep` Jobs package with `zwill twin-study build`. By default it stops before model execution. To run the package with EDSL's CLI and import the resulting `.ep` Results package:
 
 ```bash
 ZWILL_RUN_EDSL=1 examples/llm_survey_priors/run_small_twin_study.sh

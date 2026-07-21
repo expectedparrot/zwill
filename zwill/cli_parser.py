@@ -13,7 +13,7 @@ command groups (run `zwill <command> --help` for subcommands):
   survey data       survey, raw, question, respondent, answer, agent-material,
                     quarantine, commit, table, context
   inspection        report, prob-results
-  model jobs        edsl-export, edsl-run, workflow
+  model jobs        edsl build, workflow
   digital twins     twin-study, twin-experiment, twin-approach, twin-baseline,
                     twin-validate, twin-results, twin-benchmark
   agents            agent-list, agent-study
@@ -84,19 +84,6 @@ def build_parser() -> argparse.ArgumentParser:
     add_report_build_args(p)
     p.add_argument("--final", action="store_true", help="Fail unless generated executive analysis is available.")
     p.set_defaults(func=cmd_report_render)
-    p = report.add_parser(
-        "generate-interpretations",
-        help="Run export -> edsl-run -> import -> render for the required generated interpretations (one-shot analysis and/or twin executive summary) in one command.",
-    )
-    p.add_argument("--survey", required=True)
-    p.add_argument("--job-id", help="Twin job id whose executive summary interpretation to generate.")
-    p.add_argument("--probability-job-id", help="One-shot probability job id whose analysis interpretation to generate.")
-    p.add_argument("--path", help="Report output directory for the rendered HTML pages. Defaults to <survey>_report/.")
-    p.add_argument("--env-path", help="Explicit .env file for the edsl-run model calls.")
-    p.add_argument("--permutations", type=int, default=DEFAULT_REPORT_PERMUTATIONS, help="Permutation simulations for the executive-summary chance tests.")
-    p.add_argument("--seed", type=int, default=20260701, help="Random seed for simulation diagnostics.")
-    p.set_defaults(func=cmd_report_generate_interpretations)
-
     project = subparsers.add_parser("project").add_subparsers(dest="project_command", required=True)
     p = project.add_parser("create", help="Create a project under .zwill/projects/.")
     p.add_argument("project_id")
@@ -123,9 +110,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--limit", type=int)
     p.set_defaults(func=cmd_table, table_output=True)
 
-    p = subparsers.add_parser("edsl-export")
+    edsl = subparsers.add_parser("edsl").add_subparsers(dest="edsl_command", required=True)
+    p = edsl.add_parser("build", help="Build a durable EDSL .ep package for external execution with the ep CLI.")
     p.add_argument("--survey", required=True)
-    p.add_argument("--path")
+    p.add_argument("--path", required=True, help="Write the EDSL object to this .ep package path.")
     p.add_argument("--target", choices=["survey", "agent-list", "probability-job", "twin-probability-job", "rank-utility-twin-job", "numeric-twin-job", "open-codebook-job", "open-coding-job"], default="survey")
     p.add_argument("--question", action="append", help="Question name to include. Repeatable.")
     p.add_argument("--questions", help="Comma-separated question names to include.")
@@ -193,18 +181,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--traits-presentation-template-path", help="Path to a Jinja template for presenting AgentList traits in EDSL prompts.")
     p.add_argument("--no-default-traits-presentation-template", action="store_true", help="Use EDSL's default Agent trait presentation instead of zwill's survey-answer template.")
     p.add_argument("--quiet", action="store_true", help="Suppress stdout (the job is still written to --path). Useful when scripting.")
-    p.set_defaults(func=cmd_edsl_export, raw_output=True)
+    p.set_defaults(func=cmd_edsl_build, raw_output=True)
 
     agent_list = subparsers.add_parser("agent-list").add_subparsers(dest="agent_list_command", required=True)
-    p = agent_list.add_parser("inspect", help="Inspect an exported EDSL AgentList JSON file.")
-    p.add_argument("--input-path", required=True, help="Path to an EDSL AgentList JSON file.")
+    p = agent_list.add_parser("inspect", help="Inspect an EDSL AgentList .ep package.")
+    p.add_argument("--input-path", required=True, help="Path to an EDSL AgentList .ep package.")
     p.add_argument("--format", choices=["table", "json"], default="table")
     p.set_defaults(func=cmd_agent_list_inspect, table_output=True)
 
     agent_study = subparsers.add_parser("agent-study").add_subparsers(dest="agent_study_command", required=True)
-    p = agent_study.add_parser("export", help="Export an EDSL job that asks an exported AgentList a new question.")
-    p.add_argument("--agent-list", required=True, help="Path to an exported EDSL AgentList JSON file.")
-    p.add_argument("--path", help="Path to write the exported EDSL Jobs JSON.")
+    p = agent_study.add_parser("export", help="Build an EDSL Jobs .ep package that asks an AgentList a new question.")
+    p.add_argument("--agent-list", required=True, help="Path to an EDSL AgentList .ep package.")
+    p.add_argument("--path", required=True, help="Path to write the EDSL Jobs .ep package.")
     question_group = p.add_mutually_exclusive_group(required=True)
     question_group.add_argument("--question-path", help="Path to a JSON question spec or EDSL Question serialization.")
     question_group.add_argument("--question-name", help="Question name for an inline question spec.")
@@ -235,24 +223,6 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--job-id", required=True)
     p.add_argument("--include-summary", action="store_true")
     p.set_defaults(func=cmd_agent_study_show)
-
-    p = subparsers.add_parser("edsl-run")
-    p.add_argument("--job", required=True, help="Path to an exported EDSL Jobs JSON file.")
-    p.add_argument("--path", required=True, help="Path to write the serialized EDSL Results object. Use .gz for gzip.")
-    p.add_argument("--env-path", help="Explicit .env file to load before importing EDSL. Defaults to nearest .env above the current directory.")
-    p.add_argument("--n", type=int)
-    p.add_argument("--progress-bar", action="store_true")
-    p.add_argument("--fresh", action="store_true")
-    p.add_argument("--stop-on-exception", action="store_true")
-    p.add_argument("--check-api-keys", action="store_true")
-    p.add_argument("--verbose", action=argparse.BooleanOptionalAction)
-    p.add_argument("--print-exceptions", action=argparse.BooleanOptionalAction)
-    p.add_argument("--offload-execution", action="store_true", help="Run through EDSL offloaded execution.")
-    p.add_argument("--use-api-proxy", action="store_true", help="Use EDSL API proxy.")
-    p.add_argument("--allow-count-delta", action="store_true", help="Run an approved validation job even when export count differs from the approved plan.")
-    p.add_argument("--run-param", action="append", help="Additional EDSL RunParameters key=value. Repeatable.")
-    p.add_argument("--dry-run", action="store_true", help="Load and validate the job without running API calls.")
-    p.set_defaults(func=cmd_edsl_run)
 
     workflow = subparsers.add_parser("workflow").add_subparsers(dest="workflow_command", required=True)
     p = workflow.add_parser("run", help="Run a declarative workflow file and capture step artifacts.")
@@ -426,7 +396,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--survey", required=True)
     p.add_argument("--job-id", required=True, help="Imported twin job id whose malformed rows to retry.")
     p.add_argument("--job", required=True, help="The original exported EDSL job file that produced this job's results.")
-    p.add_argument("--path", help="Where to write the retry job. Defaults to the job dir's retry.edsl.json.")
+    p.add_argument("--path", help="Where to write the retry Jobs.ep package. Defaults to the job directory's retry.ep.")
     p.set_defaults(func=cmd_twin_results_retry_malformed)
     p = twin_results.add_parser("export", help="Export stored digital twin predictions to CSV.")
     p.add_argument("--survey", required=True)
@@ -591,11 +561,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_twin_results_marginal_diagnostics, table_output=True)
 
     twin_study = subparsers.add_parser("twin-study").add_subparsers(dest="twin_study_command", required=True)
-    p = twin_study.add_parser("run", help="Export, run, import, and report a digital twin probability study.")
+    p = twin_study.add_parser("build", help="Build a digital-twin Jobs.ep package for external execution with the ep CLI.")
     p.add_argument("--survey", required=True)
     p.add_argument("--output-dir", default=".", help="Directory for default job/results/report paths.")
-    p.add_argument("--job-path", help="Path to write the exported EDSL Jobs JSON.")
-    p.add_argument("--results-path", help="Path to write the serialized EDSL Results object. Use .gz for gzip.")
+    p.add_argument("--job-path", help="Path to write the EDSL Jobs.ep package.")
+    p.add_argument("--results-path", help="Expected Results.ep output path for the returned ep run command.")
     p.add_argument("--report-html", help="Path to write the HTML report. Defaults to output-dir/<survey>_twin_<job_id>_report.html.")
     p.add_argument("--report-json", help="Optional path to write the JSON report.")
     p.add_argument("--report-csv", help="Optional path to write the CSV report.")
@@ -922,7 +892,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--output-dir", help="Directory to write package files.")
     p.add_argument("--survey", help="Override survey from the manifest.")
     p.add_argument("--plan-id", help="Override plan id from the manifest.")
-    p.add_argument("--env-path", help="Explicit .env path to include in RUN.md edsl-run commands.")
+    p.add_argument("--env-path", help="Explicit .env path to mention in the generated EDSL execution runbook.")
     p.set_defaults(func=cmd_twin_experiment_package)
     p = twin_experiment.add_parser("bundle", help="Create comparison, plots, microdata, and report-export artifacts for a plan.")
     p.add_argument("--survey", required=True)

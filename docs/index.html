@@ -31,7 +31,7 @@
   <div class="part">Foundations</div><a href="#orientation">1. What is being tested?</a><a href="#design">2. Study design</a><a href="#install">3. Installation</a>
   <div class="part">Worked example</div><a href="#ingest">4. Ingest a survey</a><a href="#inspect">5. Inspect and commit</a><a href="#oneshot">6. One-shot baseline</a><a href="#twins">7. Predict held-out answers</a><a href="#audit">8. Audit and validate</a>
   <div class="part">Interpretation</div><a href="#metrics">9. Read the evidence</a><a href="#report">10. Publish a report</a><a href="#next">11. From demo to study</a>
-  <div class="small">A self-contained tutorial for the zwill CLI. Commands that call models use Expected Parrot remote inference.</div>
+  <div class="small">A self-contained tutorial for zwill and the EDSL ep CLI. Model execution happens outside zwill through Expected Parrot remote inference.</div>
 </nav>
 <main><article>
   <header>
@@ -78,7 +78,8 @@ pip install -e .
 zwill guide
 zwill next</code></pre>
     <p><code>zwill guide</code> is the source of truth for the complete workflow. <code>zwill next</code> inspects local state and returns the next command after every completed stage.</p>
-    <p>Model runs require an <code>EXPECTED_PARROT_API_KEY</code> in a nearby <code>.env</code>. The conditional baseline can use Expected Parrot embeddings, OpenAI embeddings, sentence-transformers, or the built-in lexical fallback.</p>
+    <p>Model runs require an <code>EXPECTED_PARROT_API_KEY</code> in a nearby <code>.env</code>. zwill prepares durable EDSL <code>.ep</code> job packages; EDSL’s <code>ep</code> CLI runs them and writes a <code>Results</code> package. This keeps credentials, remote execution, waiting, and retries in the inference tool rather than the validation tool.</p>
+    <div class="callout"><strong>The execution boundary.</strong> zwill builds and imports artifacts; it does not run models. Inspect a job with <code>ep inspect jobs.ep</code>, execute it with <code>ep run jobs.ep --output results.ep</code>, and reopen the result in Python with <code>Results.git.load("results.ep")</code>.</div>
   </section>
 
   <section id="ingest">
@@ -169,20 +170,20 @@ zwill next --survey hiring_study</code></pre>
   <section id="oneshot">
     <h2><span class="chapter">06</span> Establish the one-shot marginal</h2>
     <p>Before claiming respondent-level prediction, ask the model for the aggregate distribution without constructing individual twins. This reveals how much population structure can be produced from the question alone.</p>
-    <pre><code>zwill edsl-export --survey hiring_study --target probability-job \
+    <pre><code>zwill edsl build --survey hiring_study --target probability-job \
   --questions remote_work --model openai:gpt-5.5 \
-  --path one_shot.edsl.json
+  --path one_shot_jobs.ep
 
-zwill edsl-run --job one_shot.edsl.json \
-  --path one_shot_results.json.gz
+ep inspect one_shot_jobs.ep
+ep run one_shot_jobs.ep --output one_shot_results.ep
 
 zwill prob-results import --survey hiring_study \
-  --input-path one_shot_results.json.gz
+  --input-path one_shot_results.ep
 
 zwill prob-results report --survey hiring_study \
   --job-id &lt;probability_job_id&gt; --format svg \
   --path one-shot-marginals.svg</code></pre>
-    <p>Save the <code>probability_job_id</code> returned by import. You will use it when building the final report.</p>
+    <p>Save the <code>probability_job_id</code> returned by import. You will use it when building the final report. A <code>.ep</code> file is a Git-backed EDSL object package, not renamed JSON: the job preserves its execution specification and the result preserves the completed EDSL <code>Results</code> object and history.</p>
     <figure>
       <img src="assets/hiring-one-shot-marginal.svg" alt="Grouped horizontal bars comparing the hiring survey's observed remote-work distribution with an illustrative one-shot prediction" style="display:block;width:100%;height:auto">
       <figcaption>A standalone comparison of the committed, weighted survey marginal with the one-shot probability estimate. The green values here are illustrative because this tutorial does not ship a model result; your SVG is generated from the probabilities returned by your selected model.</figcaption>
@@ -193,18 +194,18 @@ zwill prob-results report --survey hiring_study \
   <section id="twins">
     <h2><span class="chapter">07</span> Predict held-out answers</h2>
     <p>For a tutorial smoke test, export six twin scenarios—one per respondent—with <code>remote_work</code> held out. The explicit <code>--allow-unapproved</code> marks this as an ad hoc debug run.</p>
-    <pre><code>zwill edsl-export --survey hiring_study \
+    <pre><code>zwill edsl build --survey hiring_study \
   --target twin-probability-job \
   --heldout-questions remote_work \
   --model openai:gpt-5.5 \
   --sample-respondents 6 --seed 20260721 \
-  --allow-unapproved --path twin.edsl.json</code></pre>
+  --allow-unapproved --path twin_jobs.ep</code></pre>
     <div class="callout stop"><strong>Pause before remote inference.</strong> Inspect the export summary and manifest. Confirm the model, target, context fields, and predicted call count. For a real validation, use an approved <code>twin-experiment</code> plan instead of <code>--allow-unapproved</code>.</div>
-    <pre><code>zwill edsl-run --job twin.edsl.json \
-  --path twin_results.json.gz
+    <pre><code>ep inspect twin_jobs.ep
+ep run twin_jobs.ep --output twin_results.ep
 
 zwill twin-results import --survey hiring_study \
-  --input-path twin_results.json.gz</code></pre>
+  --input-path twin_results.ep</code></pre>
     <p>Save the returned <code>twin_job_id</code>. If malformed provider responses are reported, use <code>twin-results retry-malformed</code> and merge the retry rather than silently dropping cases.</p>
   </section>
 
@@ -237,9 +238,22 @@ zwill next --survey hiring_study</code></pre>
   --job-id &lt;twin_job_id&gt; \
   --probability-job-id &lt;probability_job_id&gt;
 
-zwill report generate-interpretations --survey hiring_study \
-  --path report_out --job-id &lt;twin_job_id&gt; \
-  --probability-job-id &lt;probability_job_id&gt;
+# Build, externally run, import, and render each interpretation job.
+zwill prob-results analysis-export --survey hiring_study \
+  --job-id &lt;probability_job_id&gt; --path report_out/one-shot-marginals.html
+ep run &lt;one_shot_analysis_jobs.ep&gt; --output one_shot_analysis_results.ep
+zwill prob-results analysis-import --report-id &lt;report_id&gt; \
+  --input-path one_shot_analysis_results.ep
+zwill prob-results analysis-render --report-id &lt;report_id&gt; \
+  --path report_out/one-shot-marginals.html
+
+zwill twin-results executive-summary-export --survey hiring_study \
+  --job-id &lt;twin_job_id&gt;
+ep run &lt;executive_summary_jobs.ep&gt; --output executive_summary_results.ep
+zwill twin-results executive-summary-import --report-id &lt;report_id&gt; \
+  --input-path executive_summary_results.ep
+zwill twin-results executive-summary-render --report-id &lt;report_id&gt; \
+  --path report_out/twin-executive-summary.html
 
 zwill report render --survey hiring_study --path report_out \
   --job-id &lt;twin_job_id&gt; \

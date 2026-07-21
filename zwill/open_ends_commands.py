@@ -39,7 +39,7 @@ def cmd_open_codebook_import(args: argparse.Namespace) -> dict[str, Any]:
     source = Path(args.input_path)
     if not source.exists():
         raise ZwillError("not_found", f"Results file does not exist: {args.input_path}.")
-    results = read_json_or_gzip(source)
+    results = read_edsl_results(source)
     if not isinstance(results, dict) or results.get("edsl_class_name") != "Results":
         raise ZwillError("invalid_input", "Expected an EDSL Results serialization.")
     zwill_meta = results.get("zwill", {}) or {}
@@ -73,7 +73,7 @@ def cmd_open_codebook_import(args: argparse.Namespace) -> dict[str, Any]:
         },
         warnings=warnings or None,
         next_steps=[
-            f"zwill edsl-export --survey {args.survey} --target open-coding-job --heldout-question {question_name} --model <model> --path coding_job.json",
+            f"zwill edsl build --survey {args.survey} --target open-coding-job --heldout-question {question_name} --model <model> --path coding_jobs.ep",
         ],
     )
 
@@ -83,7 +83,7 @@ def cmd_open_coding_import(args: argparse.Namespace) -> dict[str, Any]:
     source = Path(args.input_path)
     if not source.exists():
         raise ZwillError("not_found", f"Results file does not exist: {args.input_path}.")
-    results = read_json_or_gzip(source)
+    results = read_edsl_results(source)
     if not isinstance(results, dict) or results.get("edsl_class_name") != "Results":
         raise ZwillError("invalid_input", "Expected an EDSL Results serialization.")
     zwill_meta = results.get("zwill", {}) or {}
@@ -151,6 +151,6 @@ def cmd_open_coding_import(args: argparse.Namespace) -> dict[str, Any]:
         },
         warnings=warnings or None,
         next_steps=[
-            f"zwill edsl-export --survey {args.survey} --target twin-probability-job --heldout-question {coded_question_name} --model <model> --path twin_job.json",
+            f"zwill edsl build --survey {args.survey} --target twin-probability-job --heldout-question {coded_question_name} --model <model> --path twin_jobs.ep",
         ],
     )

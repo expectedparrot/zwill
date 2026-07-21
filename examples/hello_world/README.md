@@ -69,9 +69,9 @@ Run a one-respondent digital twin example with and without non-survey agent mate
 ./examples/hello_world/agent_material_twin.sh
 ```
 
-The script creates `examples/hello_world/workdir/agent_material/`, exports two EDSL jobs, runs both with `zwill edsl-run`, imports the Results objects, and lists the two twin runs. The only intended difference between the jobs is that the second one passes `--include-agent-material`, giving the agent a profile note that says the respondent's favorite color is blue.
+The script creates `examples/hello_world/workdir/agent_material/`, builds two EDSL `.ep` job packages, runs both with `ep run`, imports the `.ep` Results packages, and lists the two twin runs. The only intended difference is that the second job passes `--include-agent-material`, giving the agent a profile note that says the respondent's favorite color is blue.
 
-For a no-network smoke run that only exports and dry-runs the EDSL jobs:
+For a no-network smoke run that only builds the EDSL jobs:
 
 ```bash
 ZWILL_EXAMPLE_DRY_RUN=1 ./examples/hello_world/agent_material_twin.sh
@@ -93,7 +93,7 @@ For a no-network smoke run:
 ZWILL_EXAMPLE_DRY_RUN=1 ./examples/hello_world/agent_list_study.sh
 ```
 
-The live run writes `agent_study_results.json.gz` in the workdir and stores imported data under `.zwill/projects/default/agent_studies/`.
+The live run writes `agent_study_results.ep` in the workdir and stores imported data under `.zwill/projects/default/agent_studies/`.
 
 ## Twin Plan Lifecycle
 

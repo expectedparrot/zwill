@@ -84,7 +84,7 @@ def conditional_baseline_rows_for_questions(
 
 
 def cmd_report_generate_interpretations(args: argparse.Namespace) -> dict[str, Any]:
-    """Run the full export -> edsl-run -> import -> render chain for the report's
+    """Run the deprecated in-process export/import/render chain for the report's
     generated interpretations (the one-shot analysis and/or the twin executive
     summary), so the final report gate can be satisfied with one command instead
     of eight."""
@@ -1514,7 +1514,7 @@ def build_probability_coverage_payload(sdir: Path, rows: list[dict[str, Any]]) -
         stored_path = metadata.get("stored_path")
         if stored_path and Path(stored_path).exists():
             try:
-                results = read_json_or_gzip(Path(stored_path))
+                results = read_edsl_results(Path(stored_path))
             except Exception:
                 results = {}
             for result_row in results.get("data", []) if isinstance(results, dict) else []:
@@ -1723,4 +1723,3 @@ def render_validation_diagnostics_section(*, survey: str, artifacts: dict[str, s
       <table><thead><tr><th>Artifact</th><th>File</th></tr></thead><tbody>{''.join(rows)}</tbody></table>
       {''.join(image_blocks)}
     </section>"""
-

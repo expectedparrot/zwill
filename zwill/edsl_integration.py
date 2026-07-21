@@ -629,7 +629,7 @@ def inspect_agent_list_dict(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def cmd_agent_list_inspect(args: argparse.Namespace) -> dict[str, Any]:
-    data = read_json_or_gzip(Path(args.input_path))
+    data = read_edsl_agent_list(Path(args.input_path))
     summary = inspect_agent_list_dict(data)
     if args.format == "json":
         print_json(envelope("zwill agent-list inspect", "ok", summary))
@@ -708,7 +708,7 @@ def agent_study_job_id_from_results(results: dict[str, Any]) -> str:
 
 
 def build_edsl_agent_study_job_dict(args: argparse.Namespace) -> dict[str, Any]:
-    agent_list_dict = read_json_or_gzip(Path(args.agent_list))
+    agent_list_dict = read_edsl_agent_list(Path(args.agent_list))
     agent_list_summary = inspect_agent_list_dict(agent_list_dict)
     question_spec = load_question_spec_from_args(args)
     required = ["question_name", "question_type", "question_text"]
@@ -770,10 +770,32 @@ def emit_raw_export(
         print(output)
 
 
+def save_ep_export(path: Path, export_dict: dict[str, Any], target: str) -> dict[str, Any]:
+    """Save an EDSL object as a durable git-backed .ep package."""
+    try:
+        from edsl import AgentList, Jobs, Survey
+
+        object_cls = Survey if target == "survey" else AgentList if target == "agent-list" else Jobs
+        obj = object_cls.from_dict(export_dict)
+        return obj.git.save(path, message=f"Export {target} from zwill")
+    except Exception as exc:
+        raise ZwillError(
+            "edsl_export_failed",
+            f"Could not save EDSL {target} package: {path}.",
+            hint="Verify that the local EDSL installation supports git-backed .ep packages.",
+        ) from exc
+
+
 def cmd_agent_study_export(args: argparse.Namespace) -> None:
     export_dict = build_edsl_agent_study_job_dict(args)
-    output = json.dumps(export_dict, indent=2)
-    emit_raw_export("zwill agent-study export", args, output, {})
+    path = Path(args.path)
+    if path.suffix != ".ep":
+        raise ZwillError("invalid_input", "Agent-study jobs must be written to a .ep package.")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    saved = save_ep_export(path, export_dict, "agent-study-job")
+    if not args.quiet:
+        results_path = path.with_name(path.stem.replace("jobs", "results").replace("job", "results") + ".ep")
+        print_json(envelope("zwill agent-study export", "ok", {"path": saved["path"], "run_command": f"ep run {saved['path']} --output {results_path}"}))
 
 
 
@@ -1131,132 +1153,10 @@ def build_edsl_rank_utility_twin_job_dict(survey_name: str, args: argparse.Names
 
 
 
-def cmd_edsl_run(args: argparse.Namespace) -> dict[str, Any]:
-    job_path = Path(args.job)
-    if not job_path.exists():
-        raise ZwillError("not_found", f"EDSL job file does not exist: {args.job}.")
-    job_dict = read_json_or_gzip(job_path)
-    if not isinstance(job_dict, dict) or job_dict.get("edsl_class_name") != "Jobs":
-        raise ZwillError("invalid_input", "Expected an EDSL Jobs serialization.")
-
-    env_path = Path(args.env_path) if getattr(args, "env_path", None) else None
-    loaded_env = load_local_env(env_path)
-    Jobs, RunParameters = _cli().load_edsl_runner_classes()
-    job = Jobs.from_dict(job_dict)
-    approved_validation_plan = (job_dict.get("zwill") or {}).get("approved_validation_plan")
-    if isinstance(approved_validation_plan, dict):
-        count_check = approved_validation_plan.get("export_count_check")
-        if isinstance(count_check, dict) and count_check.get("requires_reapproval") and not getattr(args, "allow_count_delta", False):
-            raise ZwillError(
-                "approval_required",
-                "Exported validation job prediction count differs from the approved plan.",
-                context=count_check,
-                hint="Review the exported count, re-approve the plan, or pass --allow-count-delta for an explicit debug run.",
-            )
-    run_parameters = {}
-    if args.n is not None:
-        run_parameters["n"] = args.n
-    if args.progress_bar:
-        run_parameters["progress_bar"] = True
-    if args.fresh:
-        run_parameters["fresh"] = True
-    if args.stop_on_exception:
-        run_parameters["stop_on_exception"] = True
-    if args.check_api_keys:
-        run_parameters["check_api_keys"] = True
-    if args.verbose is not None:
-        run_parameters["verbose"] = args.verbose
-    if args.print_exceptions is not None:
-        run_parameters["print_exceptions"] = args.print_exceptions
-    if args.offload_execution:
-        run_parameters["offload_execution"] = True
-    if args.use_api_proxy:
-        run_parameters["use_api_proxy"] = True
-    for item in args.run_param or []:
-        if "=" not in item:
-            raise ZwillError("invalid_input", f"Invalid run parameter: {item}.", hint="Use key=value.")
-        key, value = item.split("=", 1)
-        if key not in RunParameters.__dataclass_fields__:
-            raise ZwillError(
-                "invalid_input",
-                f"Unknown EDSL run parameter: {key}.",
-                context={"available_parameters": sorted(RunParameters.__dataclass_fields__)},
-            )
-        run_parameters[key] = parse_model_param_value(value)
-
-    output_path = Path(args.path)
-    if args.dry_run:
-        return envelope(
-            "zwill edsl-run",
-            "ok",
-            {
-                "job_path": str(job_path),
-                "results_path": str(output_path),
-                "dry_run": True,
-                "estimated_cost": estimate_job_cost_summary(job),
-                "scenario_count": len(job.scenarios),
-                "model_count": len(job.models),
-                "question_count": len(job.survey.questions),
-                "probability_job_id": job_dict.get("zwill", {}).get("probability_job_id"),
-                "digital_twin_job_id": job_dict.get("zwill", {}).get("digital_twin_job_id"),
-                "rank_utility_twin_job_id": job_dict.get("zwill", {}).get("rank_utility_twin_job_id"),
-                "agent_study_job_id": job_dict.get("zwill", {}).get("agent_study_job_id"),
-                "practitioner_report_id": job_dict.get("zwill", {}).get("practitioner_report_id"),
-                "run_parameters": run_parameters,
-                "loaded_env": loaded_env,
-            },
-        )
-
-    # EDSL prints remote-inference progress ("Initializing.../Progress: <url>") to
-    # stdout during the run. Redirect it to stderr so stdout carries only the
-    # JSON envelope emitted below -- otherwise `json.load(<stdout>)` fails and
-    # scripts must grep for fields.
-    import contextlib as _contextlib
-    import sys as _sys
-
-    with _contextlib.redirect_stdout(_sys.stderr):
-        results = job.run(**run_parameters) if run_parameters else job.run()
-    if results is None:
-        raise ZwillError("edsl_run_failed", "EDSL job did not return a Results object.")
-    results_dict = results.to_dict()
-    if job_dict.get("zwill"):
-        results_dict["zwill"] = job_dict["zwill"]
-    write_json_or_gzip(output_path, results_dict)
-    return envelope(
-        "zwill edsl-run",
-        "ok",
-        {
-            "job_path": str(job_path),
-            "results_path": str(output_path),
-            "result_count": len(results_dict.get("data", [])),
-            "cost": results_cost_summary(results_dict),
-            "probability_job_id": results_dict.get("zwill", {}).get("probability_job_id"),
-            "digital_twin_job_id": results_dict.get("zwill", {}).get("digital_twin_job_id"),
-            "rank_utility_twin_job_id": results_dict.get("zwill", {}).get("rank_utility_twin_job_id"),
-            "agent_study_job_id": results_dict.get("zwill", {}).get("agent_study_job_id"),
-            "practitioner_report_id": results_dict.get("zwill", {}).get("practitioner_report_id"),
-            "run_parameters": run_parameters,
-            "loaded_env": loaded_env,
-        },
-        next_steps=[
-            (
-                f"zwill twin-benchmark practitioner-report-import --input-path {output_path}"
-                if results_dict.get("zwill", {}).get("practitioner_report_id")
-                else f"zwill twin-results import --survey <survey> --input-path {output_path}"
-                if results_dict.get("zwill", {}).get("digital_twin_job_id")
-                else f"zwill twin-results import --survey <survey> --input-path {output_path}"
-                if results_dict.get("zwill", {}).get("rank_utility_twin_job_id")
-                else f"zwill prob-results import --survey <survey> --input-path {output_path}"
-                if results_dict.get("zwill", {}).get("probability_job_id")
-                else f"zwill agent-study import --input-path {output_path}"
-                if results_dict.get("zwill", {}).get("agent_study_job_id")
-                else f"zwill prob-results import --survey <survey> --input-path {output_path}"
-            )
-        ],
-    )
-
-
-def cmd_edsl_export(args: argparse.Namespace) -> None:
+def cmd_edsl_build(args: argparse.Namespace) -> None:
+    path = Path(args.path)
+    if path.suffix != ".ep":
+        raise ZwillError("invalid_input", "EDSL build output must use the .ep package format.", hint="Pass --path jobs.ep.")
     if args.target == "survey":
         export_dict = build_edsl_survey_dict(args.survey)
     elif args.target == "agent-list":
@@ -1264,12 +1164,12 @@ def cmd_edsl_export(args: argparse.Namespace) -> None:
     elif args.target == "probability-job":
         export_dict = build_edsl_probability_job_dict(args.survey, args)
     elif args.target == "rank-utility-twin-job":
-        approved_plan = require_twin_plan_approval(args, command="zwill edsl-export --target rank-utility-twin-job")
+        approved_plan = require_twin_plan_approval(args, command="zwill edsl build --target rank-utility-twin-job")
         export_dict = build_edsl_rank_utility_twin_job_dict(args.survey, args)
         if approved_plan:
             export_dict.setdefault("zwill", {})["approved_validation_plan"] = approved_plan
     elif args.target == "numeric-twin-job":
-        approved_plan = require_twin_plan_approval(args, command="zwill edsl-export --target numeric-twin-job")
+        approved_plan = require_twin_plan_approval(args, command="zwill edsl build --target numeric-twin-job")
         export_dict = build_edsl_numeric_twin_job_dict(args.survey, args)
         if approved_plan:
             export_dict.setdefault("zwill", {})["approved_validation_plan"] = approved_plan
@@ -1278,11 +1178,10 @@ def cmd_edsl_export(args: argparse.Namespace) -> None:
     elif args.target == "open-coding-job":
         export_dict = build_open_coding_job_dict(args.survey, args)
     else:
-        approved_plan = require_twin_plan_approval(args, command="zwill edsl-export --target twin-probability-job")
+        approved_plan = require_twin_plan_approval(args, command="zwill edsl build --target twin-probability-job")
         export_dict = build_edsl_digital_twin_job_dict(args.survey, args)
         if approved_plan:
             export_dict.setdefault("zwill", {})["approved_validation_plan"] = approved_plan
-    output = json.dumps(export_dict, indent=2)
     zwill_meta = export_dict.get("zwill") if isinstance(export_dict.get("zwill"), dict) else {}
     scenario_count = zwill_meta.get("scenario_count")
     if scenario_count is None:
@@ -1319,10 +1218,26 @@ def cmd_edsl_export(args: argparse.Namespace) -> None:
     }
     if model_labels is not None:
         export_data["models"] = model_labels
-    emit_raw_export(
-        "zwill edsl-export",
-        args,
-        output,
-        export_data,
-        warnings=warnings,
-    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    saved = save_ep_export(path, export_dict, args.target)
+    saved_path = Path(saved["path"])
+    data = {"path": str(saved_path), **export_data}
+    if args.target not in {"survey", "agent-list"}:
+        results_path = saved_path.with_name(
+            saved_path.name.replace("jobs.ep", "results.ep")
+            if saved_path.name.endswith("jobs.ep")
+            else f"{saved_path.stem}_results.ep"
+        )
+        data["run_command"] = f"ep run {saved_path} --output {results_path}"
+        data["results_path"] = str(results_path)
+    if not getattr(args, "quiet", False):
+        next_steps = [data["run_command"]] if data.get("run_command") else []
+        print_json(
+            envelope(
+                "zwill edsl build",
+                "ok",
+                data,
+                warnings=warnings or None,
+                next_steps=next_steps,
+            )
+        )

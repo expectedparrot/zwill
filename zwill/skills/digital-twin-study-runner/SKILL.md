@@ -26,7 +26,7 @@ Core rule: always expand survey codebooks before import/export. Use human-readab
 
 3. **Run the twin jobs**
    - Use provider-qualified models, such as `openai:gpt-5.5` and `google:gemini-2.5-pro`.
-   - Prefer `zwill twin-study run` for one survey, or the explicit `edsl-export` → `edsl-run` → `twin-results import` flow. Let `zwill edsl-run` load the nearest `.env`; do not hand-reconstruct EDSL run code unless debugging.
+   - Use the explicit `zwill edsl build` → `ep run` → `twin-results import` flow. EDSL's CLI owns credentials and execution; zwill only builds and imports packages.
    - **Do not set `temperature`.** Newer Anthropic and OpenAI models (Fable 5, Opus 4.7+, Sonnet 5, etc.) reject the `temperature` parameter and will error on every call; EDSL omits it for those models automatically. Only pass `temperature` for an older model that requires it, and never rely on `temperature=0` for "comparability."
    - For Gemini free-text JSON jobs, pass a larger `max_tokens` (and `thinking_budget` when supported) so responses are not truncated.
 
