@@ -103,6 +103,11 @@ def natural_question_sort_key(value: Any) -> tuple[str, int, str]:
     return (prefix, int(digits) if digits else 10**9, text)
 
 
+def read_twin_raw_results(path: Path) -> dict[str, Any]:
+    """Load a git-backed Results package or a JSON report artifact."""
+    return read_edsl_results(path) if path.suffix == ".ep" else read_json_or_gzip(path)
+
+
 def build_twin_run_report_payload(sdir: Path, survey: str, job_id: str, *, example_limit: int = 6) -> dict[str, Any]:
     import_metadata = twin_import_metadata(sdir, job_id)
     if not import_metadata:
@@ -112,7 +117,7 @@ def build_twin_run_report_payload(sdir: Path, survey: str, job_id: str, *, examp
     raw_path_text = import_metadata.get("stored_path") or run.get("stored_raw")
     raw_results = {}
     if raw_path_text and Path(raw_path_text).exists():
-        raw_results = read_json_or_gzip(Path(raw_path_text))
+        raw_results = read_twin_raw_results(Path(raw_path_text))
     construction = raw_results.get("zwill", {}) if isinstance(raw_results, dict) else {}
 
     questions = []
