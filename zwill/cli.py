@@ -122,7 +122,7 @@ SCHEMA_VERSION = 1
 DEFAULT_PROJECT_ID = "default"
 DEFAULT_REPORT_PERMUTATIONS = 1000
 PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
-SKILL_NAMES = ["digital-twin-study-runner", "digital-twin-practitioner-report"]
+SKILL_NAMES = ["digital-twin-study-runner"]
 
 
 def utc_now() -> str:
@@ -1060,16 +1060,6 @@ def report_stage_envelope(*args, **kwargs):
 
     return impl(*args, **kwargs)
 
-def find_imported_executive_summary_report(*args, **kwargs):
-    from .report_bundle import find_imported_executive_summary_report as impl
-
-    return impl(*args, **kwargs)
-
-def find_imported_one_shot_analysis_report(*args, **kwargs):
-    from .report_bundle import find_imported_one_shot_analysis_report as impl
-
-    return impl(*args, **kwargs)
-
 def cmd_report_facts(*args, **kwargs):
     from .report_bundle import cmd_report_facts as impl
 
@@ -1082,11 +1072,6 @@ def cmd_report_analyze(*args, **kwargs):
 
 def cmd_report_render(*args, **kwargs):
     from .report_bundle import cmd_report_render as impl
-
-    return impl(*args, **kwargs)
-
-def cmd_report_generate_interpretations(*args, **kwargs):
-    from .report_bundle import cmd_report_generate_interpretations as impl
 
     return impl(*args, **kwargs)
 
@@ -1421,36 +1406,6 @@ def cmd_probability_results_report(*args, **kwargs):
 
 def filtered_probability_prediction_rows(*args, **kwargs):
     from .probability_commands import filtered_probability_prediction_rows as impl
-
-    return impl(*args, **kwargs)
-
-def build_one_shot_analysis_report_context(*args, **kwargs):
-    from .probability_commands import build_one_shot_analysis_report_context as impl
-
-    return impl(*args, **kwargs)
-
-def build_one_shot_analysis_report_prompt(*args, **kwargs):
-    from .probability_commands import build_one_shot_analysis_report_prompt as impl
-
-    return impl(*args, **kwargs)
-
-def build_edsl_one_shot_analysis_report_job_dict(*args, **kwargs):
-    from .probability_commands import build_edsl_one_shot_analysis_report_job_dict as impl
-
-    return impl(*args, **kwargs)
-
-def cmd_probability_results_analysis_export(*args, **kwargs):
-    from .probability_commands import cmd_probability_results_analysis_export as impl
-
-    return impl(*args, **kwargs)
-
-def cmd_probability_results_analysis_import(*args, **kwargs):
-    from .probability_commands import cmd_probability_results_analysis_import as impl
-
-    return impl(*args, **kwargs)
-
-def cmd_probability_results_analysis_render(*args, **kwargs):
-    from .probability_commands import cmd_probability_results_analysis_render as impl
 
     return impl(*args, **kwargs)
 
@@ -2275,41 +2230,6 @@ def cmd_twin_results_report(*args, **kwargs):
 
 def cmd_twin_results_executive_summary(*args, **kwargs):
     from .twin_validation_commands import cmd_twin_results_executive_summary as impl
-
-    return impl(*args, **kwargs)
-
-def build_executive_summary_report_context(*args, **kwargs):
-    from .twin_validation_commands import build_executive_summary_report_context as impl
-
-    return impl(*args, **kwargs)
-
-def build_executive_summary_report_prompt(*args, **kwargs):
-    from .twin_validation_commands import build_executive_summary_report_prompt as impl
-
-    return impl(*args, **kwargs)
-
-def build_executive_summary_report_section_prompts(*args, **kwargs):
-    from .twin_validation_commands import build_executive_summary_report_section_prompts as impl
-
-    return impl(*args, **kwargs)
-
-def build_edsl_executive_summary_report_job_dict(*args, **kwargs):
-    from .twin_validation_commands import build_edsl_executive_summary_report_job_dict as impl
-
-    return impl(*args, **kwargs)
-
-def cmd_twin_results_executive_summary_export(*args, **kwargs):
-    from .twin_validation_commands import cmd_twin_results_executive_summary_export as impl
-
-    return impl(*args, **kwargs)
-
-def cmd_twin_results_executive_summary_import(*args, **kwargs):
-    from .twin_validation_commands import cmd_twin_results_executive_summary_import as impl
-
-    return impl(*args, **kwargs)
-
-def cmd_twin_results_executive_summary_render(*args, **kwargs):
-    from .twin_validation_commands import cmd_twin_results_executive_summary_render as impl
 
     return impl(*args, **kwargs)
 

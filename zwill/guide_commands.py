@@ -91,7 +91,7 @@ def _report_stage_for_survey(survey: str) -> dict[str, Any] | None:
         if manifest.get("survey") != survey:
             continue
         output_dir = manifest.get("output_dir") or str(manifest_path.parent)
-        for stage_id in ("final_report", "generated_analysis"):
+        for stage_id in ("final_report",):
             stage = (manifest.get("stages") or {}).get(stage_id) or {}
             next_step = str(stage.get("next_step") or "").strip()
             if stage.get("status") != "ready" and next_step:
@@ -116,7 +116,7 @@ def _report_stage_for_survey(survey: str) -> dict[str, Any] | None:
         if final_stage.get("status") == "ready":
             return {
                 "stage": "ready",
-                "why": f"Report bundle '{output_dir}' has passed the final report gate.",
+                "why": f"Report bundle '{output_dir}' has assembled the available evidence for agent-authored reporting.",
                 "next_command": f"open {output_dir}/index.html",
                 "report_bundle": output_dir,
                 "stage_manifest": str(manifest_path),

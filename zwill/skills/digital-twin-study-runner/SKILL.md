@@ -65,7 +65,7 @@ Core rule: always expand survey codebooks before import/export. Use human-readab
    zwill report build --survey <survey_id> --path report_out
    ```
 
-   This writes `report_out/report.html` (also `report_out/index.html`). **The task is not complete until that file exists and you have told the user its path.** Never end a validation request with "standing by" or "here when you need me" — run the command, confirm the file was written, and report where it is. If the frontier-model executive narrative has not been generated, the report is still complete and viewable (the narrative is optional and can be added later); say so rather than treating a "blocked" interpretation stage as "no report."
+   This writes `report_out/report.html` (also `report_out/index.html`). **The task is not complete until that file exists and you have told the user its path.** The bundle supplies contextualized evidence; use it to author the interpretation rather than delegating the narrative to another model job.
 
 ## Useful single-step commands
 
@@ -83,7 +83,7 @@ zwill twin-results run-report --survey <survey> --job-id <job> --path run_audit.
 
 ## Stop Conditions
 
-Do not proceed to a practitioner report or make a positive claim until:
+Do not make a positive claim until:
 
 - codebook expansion is confirmed and the report has valid rows for each intended model;
 - import issues and malformed responses are reviewed;

@@ -241,7 +241,7 @@ Build a report folder whenever you want to inspect a survey or refresh the curre
 zwill report build --survey <survey> --path reports/<survey>/
 ```
 
-The report folder is incremental. `index.html` is always written and links to every page that can be generated from currently available inputs. Pages whose analyses have not been run yet are shown as not ready with the missing inputs and next command. Rerun the same command after importing one-shot, generated one-shot analysis, or twin results to refresh the same folder.
+The report folder is incremental. `index.html` is always written and links to every page that can be generated from currently available inputs. Pages whose analyses have not been run yet are shown as not ready with the missing inputs and next command. Rerun the same command after importing one-shot or twin results to refresh the same folder.
 
 Report bundles also use a Makefile-like staged layout. You can run the stages explicitly:
 
@@ -249,12 +249,9 @@ Report bundles also use a Makefile-like staged layout. You can run the stages ex
 zwill report facts --survey <survey> --path reports/<survey>/
 zwill report analyze --survey <survey> --path reports/<survey>/ --job-id <job_id>
 zwill report render --survey <survey> --path reports/<survey>/ --job-id <job_id>
-zwill report render --survey <survey> --path reports/<survey>/ --job-id <job_id> --final
 ```
 
-`report render --final` is gated: for twin validation bundles it fails until a frontier-model executive analysis has been exported, run, imported, and rendered. Until then, `executive-summary.html` is a diagnostics preview, not a final executive interpretation.
-
-When a matching generated one-shot analysis or generated executive analysis already exists under `.zwill/projects/<project>/practitioner_reports/<report_id>/`, `zwill report build` discovers it and uses the imported Markdown in the corresponding HTML page. One-shot matching uses the survey, probability job id, probability-model filter, and question set. Executive matching uses the survey, selected twin job ids, held-out questions, and prediction-model filter.
+Zwill renders contextualized evidence, diagnostics, plots, and machine-readable facts. The coding agent using zwill is responsible for writing the final interpretation and keeping claims traceable to those artifacts.
 
 ```text
 reports/<survey>/
@@ -287,25 +284,12 @@ The report catalog checks local survey state and lists page readiness, available
 | report | when to use it | command |
 |---|---|---|
 | Survey Profile | Before twin work: inspect question text, options, response distributions, missingness, and data-quality issues. | `zwill report build --survey <survey> --path reports/<survey>/` |
-| One-Shot Marginals and Coverage | After importing frontier-model marginal predictions for survey questions; includes requested/imported/malformed rows by job and model. Generate the analysis section with a frontier-model report job before treating this page as interpreted. | `zwill prob-results analysis-export --survey <survey> --path reports/<survey>/one-shot-marginals.html` then run/import/render |
+| One-Shot Marginals and Coverage | After importing model marginal predictions; compares predicted distributions with committed survey marginals and reports coverage. | `zwill report build --survey <survey> --path reports/<survey>/` |
 | Twin Validation | Evaluate one or more twin result sets against observed held-out answers and empirical marginals. | `zwill report build --survey <survey> --path reports/<survey>/ --job-id <job_id>` |
-| Executive Summary and Diagnostics | Deterministic diagnostic bundle for a validated AgentList: uniform and empirical-oracle lift, within-question permutation tests, Spearman rank order, and option-ordering diagnostics. Use the generated executive flow below before circulating decision-facing prose. | `zwill report build --survey <survey> --path reports/<survey>/ --job-id <job_id>` |
+| Executive Summary and Diagnostics | Deterministic diagnostic bundle for a validated AgentList: uniform and empirical-oracle lift, within-question permutation tests, Spearman rank order, and option-ordering diagnostics. | `zwill report build --survey <survey> --path reports/<survey>/ --job-id <job_id>` |
 | Twin Run Audit | Audit one imported twin job: construction metadata, prompt template, rendered prompts, twin identity, and raw model responses. | `zwill report build --survey <survey> --path reports/<survey>/ --audit-job-id <job_id>` |
 | Twin Comparison | Compare two or more imported twin jobs side by side, including empirical versus twin-implied marginals and option-level winners. | `zwill report build --survey <survey> --path reports/<survey>/ --jobs <job1>,<job2>` |
 | Twin Experiment Microdata Audit | Inspect respondent-level changes across recorded construction approaches. | `zwill twin-experiment microdata --survey <survey> --jobs <job1>,<job2> --path experiment_microdata.html` |
-| Generated Executive Summary | Ask a frontier model to interpret the actual validation diagnostics and render a decision-facing executive report. | `zwill twin-results executive-summary-export --survey <survey> --job-id <job_id> --path executive-summary.html` then run/import/render |
-
-One-shot generated analysis uses the same staged pattern as the executive report:
-
-```bash
-zwill prob-results analysis-export --survey <survey> --job-id <probability_job_id> --path reports/<survey>/one-shot-marginals.html
-ep run .zwill/projects/default/practitioner_reports/<report_id>/jobs.ep --output .zwill/projects/default/practitioner_reports/<report_id>/results.ep
-zwill prob-results analysis-import --report-id <report_id> --input-path .zwill/projects/default/practitioner_reports/<report_id>/results.ep
-zwill prob-results analysis-render --report-id <report_id> --path reports/<survey>/one-shot-marginals.html
-```
-
-The exported one-shot prompt uses compact summary statistics and per-question best/worst summaries, not raw prediction-row dumps. The model-written analysis should explain what one-shot aggregate marginal prediction means, how it performed against uniform, where it worked or failed, and what that implies as a deployable baseline for later digital twin validation.
-| Practitioner Narrative Report | Generate a model-authored final interpretation from recorded artifacts. | `zwill twin-study practitioner-report --survey <survey> --job-id <job_id> --path practitioner_report.html` |
 
 For a higher-level company-facing validation plan, see [Evaluating Digital Twins With Existing Company Data](guides/company_digital_twin_evaluation.md).
 
@@ -643,8 +627,7 @@ zwill twin-experiment bundle \
   --plan-id policy_holdout_v1 \
   --metric nll \
   --model openai:gpt-5.5 \
-  --output-dir policy_holdout_v1_bundle \
-  --report-export
+  --output-dir policy_holdout_v1_bundle
 
 zwill twin-experiment dashboard \
   --survey w158_ccpolicy \
@@ -662,7 +645,7 @@ zwill twin-approach diff \
   --path policy_holdout_v1_approach_diff.html
 ```
 
-The bundle writes `comparison.json`, plot artifacts, standalone microdata audit HTML/JSON, and, with `--report-export`, an EDSL report-writing job plus prompt/context files. It does not run the report-writing model.
+The bundle writes `comparison.json`, plot artifacts, and standalone microdata audit HTML/JSON.
 
 The dashboard gives a deterministic plan-level status and performance page: arms, imported rows, selected metric, winning approach, paired response-change diagnostics, and links to bundle artifacts. `twin-approach diff` compares construction settings and metadata so performance differences can be tied back to what actually changed.
 
@@ -786,79 +769,7 @@ zwill twin-benchmark report --manifest small_preflight_run.json --format csv --p
 
 If jobs have already been run, put `job_id` on each study and use `zwill twin-benchmark report --config benchmark.json`. Practitioner interpretation should focus on whether models beat empirical marginals, whether ECE is acceptable, and whether NLL p95/max reveals overconfident misses hidden by accuracy.
 
-Executive and practitioner reports use the same artifact-first flow as digital twin jobs. The report bundle computes deterministic diagnostics, plots, and supporting tables, but the decision-facing executive interpretation should be written by a frontier model from those actual artifacts.
-
-For an executive validation summary, export a report-writing job, run it, import the Results object, and render HTML:
-
-```bash
-zwill twin-results executive-summary-export \
-  --survey w158_ccpolicy \
-  --job-id <job_id> \
-  --path executive-summary.html \
-  --model openai:gpt-5.5
-
-ep run .zwill/projects/default/practitioner_reports/<report_id>/jobs.ep \
-  --output .zwill/projects/default/practitioner_reports/<report_id>/results.ep
-
-zwill twin-results executive-summary-import \
-  --report-id <report_id> \
-  --input-path .zwill/projects/default/practitioner_reports/<report_id>/results.ep
-
-zwill twin-results executive-summary-render \
-  --report-id <report_id> \
-  --path executive-summary.html
-```
-
-The exported prompt includes the uniform lift, empirical-oracle diagnostics, within-question permutation test, pairwise option-ordering accuracy, Spearman/rank diagnostics, available one-shot/no-persona baseline, held-out question count, run metadata, and context-policy warnings. It intentionally uses compact summary statistics, per-question tables, aggregate diagnostics, and a capped set of illustrative failures; it does not put every respondent-level prediction row or full raw prompt context into the report-writing prompt. The model-authored report must reconcile those facts; for example, a null permutation test should be framed as aggregate opinion structure rather than individual predictive power.
-
-If a report-writing Results object imports with null Markdown, `zwill` reports that the job ran but returned no text and includes answer diagnostics. Usually the next step is to inspect the stored Results object and rerun with the compact executive export or a report model/context budget that can handle the prompt.
-
-For a broader practitioner-facing report, prefer the single-survey validation flow: one survey, one imported twin-study job, and one report about what that survey's twins can and cannot support.
-
-```bash
-zwill twin-study practitioner-report-export \
-  --survey w158_ccpolicy \
-  --job-id <job_id>
-```
-
-Run the exported report-writing job, import the Results object, and render HTML:
-
-```bash
-ep run .zwill/projects/default/practitioner_reports/<report_id>/jobs.ep \
-  --output .zwill/projects/default/practitioner_reports/<report_id>/results.ep
-
-zwill twin-study practitioner-report-import \
-  --input-path .zwill/projects/default/practitioner_reports/<report_id>/results.ep
-
-zwill twin-study practitioner-report-render \
-  --report-id <report_id> \
-  --path practitioner_report.html
-```
-
-`twin-study practitioner-report` is the one-step version: it exports the EDSL job, runs it, imports the Results object, and renders HTML.
-
-Cross-survey practitioner reports are still available, but they are better treated as benchmark/meta reports rather than the default practitioner narrative. To export an EDSL report-writing job from recorded cross-survey benchmark data:
-
-```bash
-zwill twin-benchmark practitioner-report-export \
-  --manifest small_preflight_run.json
-```
-
-The export stores the prompt, assembled report context, and EDSL job under `.zwill/projects/<project_id>/practitioner_reports/<report_id>/`. Run the job, import the raw Results object, and render HTML:
-
-```bash
-ep run .zwill/projects/default/practitioner_reports/<report_id>/jobs.ep \
-  --output .zwill/projects/default/practitioner_reports/<report_id>/results.ep
-
-zwill twin-benchmark practitioner-report-import \
-  --input-path .zwill/projects/default/practitioner_reports/<report_id>/results.ep
-
-zwill twin-benchmark practitioner-report-render \
-  --report-id <report_id> \
-  --path practitioner_report.html
-```
-
-`twin-benchmark practitioner-report` remains one-step syntactic sugar: it exports the EDSL job, runs it, imports the Results object, and renders HTML. The separated commands are better for agents, inspection, rerendering after wrapper changes, and preserving provenance. The final HTML uses Expected Parrot branding, embeds the benchmark JSON, includes a `Copy Markdown` button for LLM use, and adds canned methodology sections explaining digital twins, the held-out-question design, and practical use cases.
+The bundle is intentionally evidence-first: it computes diagnostics, plots, and supporting tables. The coding agent authors decision-facing prose from those artifacts and is responsible for reconciling null tests, baseline comparisons, uncertainty, leakage checks, and sample limitations.
 
 ## Declarative Workflows
 
@@ -909,15 +820,11 @@ The older `zwill workflow pew-demo` command is a packaged demo helper for the PE
 Package-installed Codex skills for survey twin workflows live in `zwill/skills/`:
 
 - `digital-twin-study-runner`: plans, runs, validates, and benchmarks zwill digital twin studies.
-- `digital-twin-practitioner-report`: writes practitioner-focused reports about practical uses, failure modes, baselines, and next validation steps.
-
-These skills are intended to turn uploaded surveys and zwill artifacts into practical guidance, not just metric tables.
+The study-runner skill turns uploaded surveys and zwill artifacts into a validated evidence bundle and guides the coding agent's interpretation.
 
 Discover installed skill paths with:
 
 ```bash
 zwill skills list
-zwill skills path digital-twin-practitioner-report
+zwill skills path digital-twin-study-runner
 ```
-
-See `examples/llm_survey_priors/sample_digital_twin_practitioner_report.html` for a model-authored report generated by `zwill twin-benchmark practitioner-report` from the cross-survey benchmark artifacts.

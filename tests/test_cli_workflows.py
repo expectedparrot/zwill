@@ -22,7 +22,6 @@ import zwill.result_commands as result_commands_module
 import zwill.edsl_integration as edsl_integration_module
 import zwill.twin_experiments as twin_experiments_module
 from zwill.cli import build_twin_report, main
-from zwill.generated_reports import compact_twin_specific_diagnostics_for_report
 
 FIXTURES = Path(__file__).parent / "fixtures"
 DEFAULT_EDSL_TEST_PYTHON = Path("/Users/johnhorton/tools/ep/edsl/.venv/bin/python")
@@ -271,10 +270,10 @@ def default_agent_list_export_args(**overrides) -> argparse.Namespace:
 
 
 def test_installed_skills_are_discoverable(capsys) -> None:
-    rc = main(["skills", "path", "digital-twin-practitioner-report"])
+    rc = main(["skills", "path", "digital-twin-study-runner"])
     assert rc == 0
     skill_path = Path(capsys.readouterr().out.strip())
-    assert skill_path.name == "digital-twin-practitioner-report"
+    assert skill_path.name == "digital-twin-study-runner"
     assert (skill_path / "SKILL.md").exists()
     assert (skill_path / "agents" / "openai.yaml").exists()
 
@@ -282,7 +281,7 @@ def test_installed_skills_are_discoverable(capsys) -> None:
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
     names = {row["name"] for row in payload["data"]["skills"]}
-    assert {"digital-twin-study-runner", "digital-twin-practitioner-report"} <= names
+    assert names == {"digital-twin-study-runner"}
 
 
 def test_workflow_explain_and_run_capture_outputs(tmp_path: Path, capsys) -> None:
@@ -692,7 +691,7 @@ def test_report_catalog_lists_readiness_and_commands(tmp_path: Path, monkeypatch
     assert ready_reports["twin-job-comparison"]["ready"] is True
     assert "--jobs fixture-twin,fixture-twin-2" in ready_reports["twin-job-comparison"]["command"]
     assert ready_reports["twin-validation"]["ready"] is True
-    assert "zwill twin-results executive-summary-export --survey demo" in ready_reports["twin-validation"]["command"]
+    assert "zwill report build --survey demo" in ready_reports["twin-validation"]["command"]
 
     executive_path = tmp_path / "executive.html"
     run_cli(
@@ -713,7 +712,7 @@ def test_report_catalog_lists_readiness_and_commands(tmp_path: Path, monkeypatch
     assert (tmp_path / "executive_individual_predictive_power_permutation.json").exists()
 
 
-def test_executive_summary_prompt_asks_for_plain_language_use_examples() -> None:
+def removed_legacy_executive_summary_prompt_asks_for_plain_language_use_examples() -> None:
     prompt = cli.build_executive_summary_report_prompt(
         {
             "survey": "demo",
@@ -742,7 +741,7 @@ def test_executive_summary_prompt_asks_for_plain_language_use_examples() -> None
     assert "State each major recommendation once" in prompt
 
 
-def test_executive_summary_report_uses_section_prompts() -> None:
+def removed_legacy_executive_summary_report_uses_section_prompts() -> None:
     sections = cli.build_executive_summary_report_section_prompts(
         {
             "survey": "demo",
@@ -759,7 +758,8 @@ def test_executive_summary_report_uses_section_prompts() -> None:
     assert "Appendix A: Detailed Metrics" in sections[2]["prompt"]
 
 
-def test_executive_summary_context_compacts_twin_specific_diagnostics() -> None:
+def removed_legacy_executive_summary_context_compacts_twin_specific_diagnostics() -> None:
+    from zwill.generated_reports import compact_twin_specific_diagnostics_for_report
     bulky_distribution = {f"option_{index:03d}": index / 1000 for index in range(100)}
     diagnostics = {
         "joint_structure": {
@@ -810,7 +810,7 @@ def test_executive_summary_context_compacts_twin_specific_diagnostics() -> None:
     assert len(json.dumps(compact)) < 10_000
 
 
-def test_practitioner_report_import_concatenates_multiple_sections(tmp_path: Path, monkeypatch) -> None:
+def removed_legacy_practitioner_report_import_concatenates_multiple_sections(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     run_cli("init")
     report_dir = zwill_project_path(tmp_path) / "practitioner_reports" / "multi-report"
@@ -936,12 +936,7 @@ def test_report_build_creates_incremental_bundle(tmp_path: Path, monkeypatch) ->
     assert (report_dir / "analysis" / "executive-summary.md").exists()
     assert (report_dir / "report" / "twin-validation.html").exists()
     assert stage_manifest["stages"]["analysis"]["status"] == "ready"
-    assert stage_manifest["stages"]["generated_analysis"]["status"] == "blocked"
-    assert stage_manifest["stages"]["final_report"]["status"] == "blocked"
-    assert "frontier-model one-shot marginal analysis Markdown" in stage_manifest["stages"]["generated_analysis"]["missing"]
-    assert "frontier-model executive twin validation Markdown" in stage_manifest["stages"]["generated_analysis"]["missing"]
-    assert len(stage_manifest["required_generated_interpretations"]) == 2
-    assert main(["report", "render", "--survey", "demo", "--path", str(report_dir), "--job-id", "fixture-twin", "--final"]) != 0
+    assert stage_manifest["stages"]["final_report"]["status"] == "ready"
     # index.html is now the single consolidated report (the digest index is gone),
     # with a table of contents and the pages folded in as sections.
     assert (report_dir / "report.html").exists()
@@ -2972,86 +2967,8 @@ def test_probability_results_import_and_reports(tmp_path: Path, monkeypatch) -> 
     html = html_path.read_text()
     assert "perf-arrow" in html
     assert "report-data" in html
-    assert "No generated one-shot analysis has been imported" in html
+    assert "How to read this evidence" in html
     assert "Observed survey marginal vs. one-shot prediction" in svg_path.read_text()
-
-    def fake_build_one_shot_job(args, report_context):
-        assert report_context["report_kind"] == "frontier_generated_one_shot_marginal_analysis"
-        assert report_context["survey"] == "demo"
-        assert report_context["analysis_target"]["raw_prediction_rows_in_context"] is False
-        assert report_context["headline_metrics"]["questions_evaluated"] == 1
-        job = {
-            "edsl_class_name": "Jobs",
-            "survey": {"questions": [{"question_name": "one_shot_analysis_markdown"}]},
-            "zwill": {
-                "practitioner_report_id": "one-shot-report-demo",
-                "practitioner_report_question_name": "one_shot_analysis_markdown",
-                "report_kind": "one_shot_marginal_analysis",
-            },
-        }
-        context = {
-            "report_id": "one-shot-report-demo",
-            "one_shot_analysis_context": report_context,
-            "generation": {"mode": "job_exported", "report_id": "one-shot-report-demo", "model": "openai:gpt-5.5"},
-        }
-        return job, context, "Write a generated one-shot analysis"
-
-    monkeypatch.setattr(cli, "build_edsl_one_shot_analysis_report_job_dict", fake_build_one_shot_job)
-    generated_html_path = tmp_path / "one-shot-generated.html"
-    run_cli(
-        "prob-results",
-        "analysis-export",
-        "--survey",
-        "demo",
-        "--job-id",
-        "job-demo",
-        "--path",
-        str(generated_html_path),
-        "--model",
-        "openai:gpt-5.5",
-    )
-    report_dir = zwill_project_path(tmp_path) / "practitioner_reports" / "one-shot-report-demo"
-    assert (report_dir / "context.json").exists()
-    stored_context = json.loads((report_dir / "context.json").read_text())
-    assert stored_context["one_shot_analysis_context"]["analysis_target"]["raw_prediction_rows_in_context"] is False
-
-    analysis_results = {
-        "edsl_class_name": "Results",
-        "zwill": {
-            "practitioner_report_id": "one-shot-report-demo",
-            "practitioner_report_question_name": "one_shot_analysis_markdown",
-        },
-        "data": [
-            {
-                "answer": {
-                    "one_shot_analysis_markdown": (
-                        "## Analysis\n\n"
-                        "The one-shot baseline tracks this aggregate split and should be treated as the deployable baseline."
-                    )
-                }
-            }
-        ],
-    }
-    analysis_results_path = tmp_path / "one_shot_analysis_results.json.gz"
-    with gzip.open(analysis_results_path, "wt") as f:
-        json.dump(analysis_results, f)
-
-    run_cli("prob-results", "analysis-import", "--report-id", "one-shot-report-demo", "--input-path", str(analysis_results_path))
-    run_cli("prob-results", "analysis-render", "--report-id", "one-shot-report-demo", "--path", str(generated_html_path))
-    rendered = generated_html_path.read_text()
-    assert "The one-shot baseline tracks this aggregate split" in rendered
-    assert rendered.count("<h2>Analysis</h2>") == 1
-
-    bundle_dir = tmp_path / "bundle"
-    run_cli("report", "build", "--survey", "demo", "--probability-job-id", "job-demo", "--path", str(bundle_dir))
-    bundle_html = (bundle_dir / "one-shot-marginals.html").read_text()
-    assert "The one-shot baseline tracks this aggregate split" in bundle_html
-    assert (bundle_dir / "data" / "one-shot-analysis.md").exists()
-
-    default_bundle_dir = tmp_path / "bundle-default"
-    run_cli("report", "build", "--survey", "demo", "--path", str(default_bundle_dir))
-    default_bundle_html = (default_bundle_dir / "one-shot-marginals.html").read_text()
-    assert "The one-shot baseline tracks this aggregate split" in default_bundle_html
 
 
 def test_twin_results_import_and_reports(tmp_path: Path, monkeypatch) -> None:
@@ -4384,7 +4301,7 @@ def test_twin_experiment_records_compares_and_selects_approaches(tmp_path: Path,
     assert selected["data"]["candidate_count"] == 2
 
 
-def test_twin_experiment_report_export_import_render(tmp_path: Path, monkeypatch) -> None:
+def removed_legacy_twin_experiment_report_export_import_render(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()
 
@@ -4527,24 +4444,9 @@ def test_twin_benchmark_report_from_config(tmp_path: Path, monkeypatch) -> None:
     json_path = tmp_path / "benchmark_report.json"
     csv_path = tmp_path / "benchmark_report.csv"
     html_path = tmp_path / "benchmark_report.html"
-    practitioner_path = tmp_path / "benchmark_practitioner_report.html"
-
-    def fake_generate_practitioner_report(args, payload, studies):
-        return (
-            "# Practitioner Report\n\n"
-            "## Executive Summary\n\n"
-            "Good Enough To Act for low-stakes decisions.\n\n"
-            "## Stakes-Based Recommendation\n\n"
-            "- Use more validation as stakes rise.\n",
-            {"mode": "test", "model": "fake"},
-        )
-
-    monkeypatch.setattr(cli, "generate_practitioner_report_markdown", fake_generate_practitioner_report)
-
     run_cli("twin-benchmark", "report", "--config", str(config_path), "--format", "json", "--path", str(json_path))
     run_cli("twin-benchmark", "report", "--config", str(config_path), "--format", "csv", "--path", str(csv_path))
     run_cli("twin-benchmark", "report", "--config", str(config_path), "--format", "html", "--path", str(html_path))
-    run_cli("twin-benchmark", "practitioner-report", "--config", str(config_path), "--path", str(practitioner_path))
 
     report = json.loads(json_path.read_text())
     assert report["benchmark"] == "fixture_twin_benchmark"
@@ -4555,18 +4457,9 @@ def test_twin_benchmark_report_from_config(tmp_path: Path, monkeypatch) -> None:
     assert "Twin Benchmark" in html
     assert "Practical Guidance" in html
     assert "twin-benchmark-data" in html
-    practitioner_html = practitioner_path.read_text()
-    assert "Survey Digital Twin Report" in practitioner_html
-    assert "Practitioner Report" not in practitioner_html
-    assert "Copy Markdown" in practitioner_html
-    assert "twin-practitioner-data" in practitioner_html
-    data_block = practitioner_html.split('id="twin-practitioner-data">', 1)[1].split("</script>", 1)[0]
-    assert json.loads(data_block)["benchmark"] == "fixture_twin_benchmark"
-    assert "Stakes-Based Recommendation" in practitioner_html
-    assert "Good Enough To Act" in practitioner_html
 
 
-def test_twin_benchmark_practitioner_report_export_import_render(tmp_path: Path, monkeypatch) -> None:
+def removed_legacy_twin_benchmark_practitioner_report_export_import_render(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()
     run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(FIXTURES / "twin_results.json"))
@@ -4637,7 +4530,7 @@ def test_twin_benchmark_practitioner_report_export_import_render(tmp_path: Path,
     assert "twin-practitioner-data" in html
 
 
-def test_twin_study_practitioner_report_export_import_render(tmp_path: Path, monkeypatch) -> None:
+def removed_legacy_twin_study_practitioner_report_export_import_render(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()
     run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(FIXTURES / "twin_results.json"))
@@ -4705,7 +4598,7 @@ def test_twin_study_practitioner_report_export_import_render(tmp_path: Path, mon
     assert "twin-practitioner-data" in html
 
 
-def test_twin_results_executive_summary_export_import_render(tmp_path: Path, monkeypatch) -> None:
+def removed_legacy_twin_results_executive_summary_export_import_render(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     create_tiny_binary_survey()
     run_cli("twin-results", "import", "--survey", "demo", "--input-path", str(FIXTURES / "twin_results.json"))

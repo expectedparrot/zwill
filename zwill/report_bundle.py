@@ -83,79 +83,6 @@ def conditional_baseline_rows_for_questions(
     return [row for row in candidates if str(row.get("job_id")) == best_job]
 
 
-def cmd_report_generate_interpretations(args: argparse.Namespace) -> dict[str, Any]:
-    """Run the deprecated in-process export/import/render chain for the report's
-    generated interpretations (the one-shot analysis and/or the twin executive
-    summary), so the final report gate can be satisfied with one command instead
-    of eight."""
-    from .cli_parser import build_parser
-
-    parser = build_parser()
-
-    def run_sub(argv: list[str]) -> dict[str, Any]:
-        sub_args = parser.parse_args(argv)
-        result = sub_args.func(sub_args)
-        if isinstance(result, dict) and result.get("status") not in (None, "ok"):
-            raise ZwillError(
-                "subcommand_failed",
-                f"Step failed: zwill {' '.join(argv[:2])}.",
-                context={"argv": argv, "result": result},
-            )
-        return result if isinstance(result, dict) else {}
-
-    survey = args.survey
-    if not getattr(args, "job_id", None) and not getattr(args, "probability_job_id", None):
-        raise ZwillError(
-            "invalid_input",
-            "Pass --job-id (twin executive summary) and/or --probability-job-id (one-shot analysis).",
-        )
-    require_survey(survey)
-    out_dir = resolve_output_path(args.path) if getattr(args, "path", None) else resolve_output_path(f"{survey}_report")
-    out_dir.mkdir(parents=True, exist_ok=True)
-    env_args = ["--env-path", args.env_path] if getattr(args, "env_path", None) else []
-    steps: dict[str, Any] = {}
-
-    if getattr(args, "probability_job_id", None):
-        html = str(out_dir / "one-shot-marginals.html")
-        export = run_sub(
-            ["prob-results", "analysis-export", "--survey", survey, "--job-id", args.probability_job_id, "--path", html]
-        )
-        report_id = export["data"]["report_id"]
-        job_path = export["data"]["job_path"]
-        results_path = str(default_practitioner_report_paths(report_id)["dir"] / "results.json.gz")
-        run_sub(["edsl-run", "--job", job_path, "--path", results_path, *env_args])
-        run_sub(["prob-results", "analysis-import", "--report-id", report_id, "--path", results_path])
-        rendered = run_sub(["prob-results", "analysis-render", "--report-id", report_id, "--path", html])
-        steps["one_shot_analysis"] = {"report_id": report_id, "path": rendered["data"]["path"]}
-
-    if getattr(args, "job_id", None):
-        html = str(out_dir / "executive-summary.html")
-        export = run_sub(
-            [
-                "twin-results", "executive-summary-export", "--survey", survey, "--job-id", args.job_id,
-                "--path", html, "--permutations", str(args.permutations), "--seed", str(args.seed),
-            ]
-        )
-        report_id = export["data"]["report_id"]
-        job_path = export["data"]["job_path"]
-        results_path = str(default_practitioner_report_paths(report_id)["dir"] / "results.json.gz")
-        run_sub(["edsl-run", "--job", job_path, "--path", results_path, *env_args])
-        run_sub(["twin-results", "executive-summary-import", "--report-id", report_id, "--path", results_path])
-        rendered = run_sub(["twin-results", "executive-summary-render", "--report-id", report_id, "--path", html])
-        steps["executive_summary"] = {"report_id": report_id, "path": rendered["data"]["path"]}
-
-    return envelope(
-        "zwill report generate-interpretations",
-        "ok",
-        {"survey": survey, "output_dir": str(out_dir), "steps": steps},
-        next_steps=[
-            f"zwill report render --survey {survey} --path {out_dir} --final"
-            + (f" --job-id {args.job_id}" if getattr(args, "job_id", None) else "")
-            + (f" --probability-job-id {args.probability_job_id}" if getattr(args, "probability_job_id", None) else "")
-        ],
-    )
-
-
 def report_catalog_entry(
     *,
     report_id: str,
@@ -216,7 +143,6 @@ def build_report_catalog(survey: str) -> dict[str, Any]:
             questions_by_twin_job[job_id].add(str(row.get("heldout_question")))
     twin_experiments = read_twin_experiments(sdir)
     recorded_experiment_jobs = [str(row.get("job_id")) for row in twin_experiments if row.get("job_id")]
-    practitioner_reports = list(practitioner_reports_dir().glob("*/report.html")) if practitioner_reports_dir().exists() else []
     base = re.sub(r"[^A-Za-z0-9_.-]+", "_", survey).strip("_") or "survey"
     bundle_command = f"zwill report build --survey {survey} --path {base}_report/"
     latest_twin_job = ordered_twin_job_ids[0] if ordered_twin_job_ids else "<job_id>"
@@ -251,13 +177,13 @@ def build_report_catalog(survey: str) -> dict[str, Any]:
             report_id="probability-results",
             stage="one-shot",
             name="One-Shot Marginals Report",
-            purpose="Frontier-model marginal predictions compared with committed empirical survey marginals. Export a frontier-model one-shot analysis job before treating the page as interpreted.",
+            purpose="Frontier-model marginal predictions compared with committed empirical survey marginals, with structured data for agent-authored interpretation.",
             ready=bool(probability_rows),
             inputs="Imported probability-job results.",
             available=f"{len(probability_rows)} prediction rows across {len(probability_job_ids)} job ids",
-            command=f"zwill prob-results analysis-export --survey {survey} --path {base}_report/one-shot-marginals.html",
+            command=bundle_command,
             path=f"{base}_report/one-shot-marginals.html",
-            notes="The report bundle renders diagnostics. The analysis section should be generated from compact one-shot summary statistics by a report-writing model.",
+            notes="Zwill renders the evidence; a coding agent authors the narrative interpretation.",
         ),
         report_catalog_entry(
             report_id="twin-run",
@@ -275,13 +201,13 @@ def build_report_catalog(survey: str) -> dict[str, Any]:
             report_id="twin-validation",
             stage="validation",
             name="Twin Validation Report",
-            purpose="Main twin validation page: held-out performance, generated interpretation, recommendation, deterministic diagnostics, lift distribution, individual predictive-power test, and rank-order evidence.",
+            purpose="Main twin validation evidence: held-out performance, baselines, deterministic diagnostics, lift distribution, individual predictive-power tests, and rank-order evidence.",
             ready=bool(twin_rows),
             inputs="Imported digital twin predictions with observed held-out answers.",
             available=(str(executive_summary_path) if executive_summary_path.exists() else f"{len(twin_rows)} twin prediction rows available"),
-            command=f"zwill twin-results executive-summary-export --survey {survey} --jobs {compare_jobs} --path {base}_report/executive-summary.html",
+            command=f"{bundle_command} --jobs {compare_jobs}",
             path=f"{base}_report/twin-validation.html",
-            notes="The report bundle folds deterministic diagnostics and generated executive interpretation into the main twin validation page.",
+            notes="The report bundle provides contextualized evidence for a coding agent to interpret.",
         ),
         report_catalog_entry(
             report_id="twin-job-comparison",
@@ -307,17 +233,6 @@ def build_report_catalog(survey: str) -> dict[str, Any]:
             path=f"{base}_report/audit/twin-experiment-microdata.html",
             notes="Record approaches first with `zwill twin-experiment record` if this is not ready.",
             primary=False,
-        ),
-        report_catalog_entry(
-            report_id="practitioner-narrative",
-            stage="final",
-            name="Practitioner Narrative Report",
-            purpose="Model-authored final narrative report over a twin study or benchmark, using recorded artifacts as context.",
-            ready=bool(twin_job_ids),
-            inputs="One imported twin study job plus report-generation model access.",
-            available=f"{len(practitioner_reports)} rendered practitioner report files currently under the project report store",
-            command=f"zwill twin-study practitioner-report --survey {survey} --job-id {latest_twin_job} --path {base}_practitioner_report.html",
-            path=f"{base}_practitioner_report.html",
         ),
     ]
     return {
@@ -425,28 +340,6 @@ def copy_bundle_file(source: Path, destination: Path) -> str | None:
     return str(destination)
 
 
-def copy_generated_report_provenance(generation: dict[str, Any] | None, output_dir: Path, *, prefix: str) -> list[Path]:
-    if not generation or generation.get("mode") != "imported_results":
-        return []
-    report_id = str(generation.get("report_id") or "").strip()
-    if not report_id:
-        return []
-    paths = default_practitioner_report_paths(report_id)
-    destination_dir = output_dir / "analysis" / "generated-reports" / f"{prefix}-{report_id}"
-    copied: list[Path] = []
-    for name, source in [
-        ("job.edsl.json", paths["job"]),
-        ("prompt.md", paths["prompt"]),
-        ("context.json", paths["context"]),
-        ("import.json", paths["import"]),
-        ("report.md", paths["markdown"]),
-    ]:
-        copied_path = copy_bundle_file(source, destination_dir / name)
-        if copied_path:
-            copied.append(Path(copied_path))
-    return copied
-
-
 def report_stage_status(*, ready: bool, label: str, files: list[str], missing: list[str] | None = None, next_step: str = "") -> dict[str, Any]:
     return {
         "status": "ready" if ready else "blocked",
@@ -497,14 +390,6 @@ def render_report_bundle_checklist(stage_manifest: dict[str, Any]) -> str:
             lines.append(f"- `{command}`")
     lines.append("")
     return "\n".join(lines)
-
-
-def page_is_ready(manifest: dict[str, Any], page_id: str) -> bool:
-    return any(page.get("page_id") == page_id and page.get("status") == "ready" for page in manifest.get("pages", []))
-
-
-def imported_generation_ready(generation: dict[str, Any] | None) -> bool:
-    return bool(generation) and generation.get("mode") == "imported_results"
 
 
 def write_report_stage_artifacts(output_dir: Path, manifest: dict[str, Any]) -> dict[str, Any]:
@@ -567,55 +452,6 @@ def write_report_stage_artifacts(output_dir: Path, manifest: dict[str, Any]) -> 
         if copied:
             report_files.append(copied)
     survey = str(manifest.get("survey", ""))
-    one_shot_page_ready = page_is_ready(manifest, "one-shot-marginals")
-    twin_pages_ready = page_is_ready(manifest, "twin-validation")
-    one_shot_generation = manifest.get("one_shot_analysis_generation") or {}
-    executive_generation = (manifest.get("executive_summary") or {}).get("generation") or {}
-    one_shot_generated_ready = imported_generation_ready(one_shot_generation)
-    executive_generated_ready = imported_generation_ready(executive_generation)
-    one_shot_generated_file = analysis_dir / "one-shot-analysis.md"
-    executive_generated_file = analysis_dir / "executive-summary.md"
-    one_shot_generated_next = (
-        f"zwill prob-results analysis-export --survey {survey} --path {output_dir / 'one-shot-marginals.html'}"
-        if survey
-        else "Run `zwill prob-results analysis-export`, then run/import/render the report-writing job."
-    )
-    executive_generated_next = (
-        f"zwill twin-results executive-summary-export --survey {survey} --path {output_dir / 'executive-summary.html'}"
-        if survey
-        else "Run `zwill twin-results executive-summary-export`, then run/import/render the report-writing job."
-    )
-    required_generated = []
-    if one_shot_page_ready:
-        required_generated.append(
-            {
-                "id": "one-shot-analysis",
-                "label": "Generated One-Shot Analysis",
-                "ready": one_shot_generated_ready,
-                "file": str(one_shot_generated_file),
-                "missing": "frontier-model one-shot marginal analysis Markdown",
-                "next_step": "" if one_shot_generated_ready else one_shot_generated_next,
-            }
-        )
-    if twin_pages_ready:
-        required_generated.append(
-            {
-                "id": "executive-twin-validation",
-                "label": "Generated Executive Twin Validation",
-                "ready": executive_generated_ready,
-                "file": str(executive_generated_file),
-                "missing": "frontier-model executive twin validation Markdown",
-                "next_step": "" if executive_generated_ready else executive_generated_next,
-            }
-        )
-    missing_generated = [item["missing"] for item in required_generated if not item["ready"]]
-    generated_files = [
-        item["file"]
-        for item in required_generated
-        if item["ready"] and Path(item["file"]).exists()
-    ]
-    generated_analysis_ready = not missing_generated
-    first_generated_next = next((item["next_step"] for item in required_generated if not item["ready"] and item.get("next_step")), "")
     stages = {
         "facts": report_stage_status(
             ready=bool(facts_files),
@@ -631,13 +467,6 @@ def write_report_stage_artifacts(output_dir: Path, manifest: dict[str, Any]) -> 
             missing=[] if analysis_files else ["deterministic diagnostics"],
             next_step="Import one-shot or twin results, then rerun `zwill report analyze`.",
         ),
-        "generated_analysis": report_stage_status(
-            ready=generated_analysis_ready,
-            label="Generated Interpretations",
-            files=generated_files if generated_analysis_ready else generated_files,
-            missing=missing_generated,
-            next_step="" if generated_analysis_ready else first_generated_next,
-        ),
         "report_preview": report_stage_status(
             ready=bool(report_files),
             label="Report Preview",
@@ -646,11 +475,11 @@ def write_report_stage_artifacts(output_dir: Path, manifest: dict[str, Any]) -> 
             next_step="Open report/index.html or index.html.",
         ),
         "final_report": report_stage_status(
-            ready=bool(report_files) and generated_analysis_ready,
+            ready=bool(report_files),
             label="Final Report",
-            files=report_files if generated_analysis_ready else [],
-            missing=missing_generated,
-            next_step="Ready." if generated_analysis_ready else first_generated_next,
+            files=report_files,
+            missing=[] if report_files else ["rendered report HTML"],
+            next_step="Ready for a coding agent to author the narrative." if report_files else "Run `zwill report build`.",
         ),
     }
     page_views = [
@@ -672,7 +501,7 @@ def write_report_stage_artifacts(output_dir: Path, manifest: dict[str, Any]) -> 
             [
                 f"zwill report list --survey {survey}",
                 f"zwill report build --survey {survey} --path {output_dir}",
-                f"zwill report render --survey {survey} --path {output_dir} --final",
+                f"zwill report render --survey {survey} --path {output_dir}",
             ]
         )
     stage_manifest = {
@@ -688,7 +517,6 @@ def write_report_stage_artifacts(output_dir: Path, manifest: dict[str, Any]) -> 
         "stages": stages,
         "pages": page_views,
         "canonical_commands": canonical_commands,
-        "required_generated_interpretations": required_generated,
     }
     checklist_markdown = render_report_bundle_checklist(stage_manifest)
     (output_dir / "CHECKLIST.md").write_text(checklist_markdown)
@@ -950,16 +778,6 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
         probability_payload = build_probability_report(probability_rows, read_json(truth_path, {}))
         probability_html_path = output_dir / "one-shot-marginals.html"
         probability_data_path = data_dir / "one-shot-marginals.json"
-        probability_markdown_path = data_dir / "one-shot-analysis.md"
-        generated_one_shot = find_imported_one_shot_analysis_report(
-            survey=survey,
-            job_id=getattr(args, "probability_job_id", None),
-            model=getattr(args, "probability_model", None),
-            questions=sorted({str(row.get("question")) for row in probability_payload["rows"] if row.get("question")}),
-        )
-        if generated_one_shot:
-            one_shot_analysis_generation = generated_one_shot.get("generation") or {}
-            probability_markdown_path.write_text(generated_one_shot["markdown"].strip() + "\n")
         coverage_payload = build_probability_coverage_payload(sdir, probability_rows)
         coverage_html_path = output_dir / "one-shot-coverage.html"
         coverage_data_path = data_dir / "one-shot-coverage.json"
@@ -967,8 +785,6 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
             survey,
             probability_payload["rows"],
             probability_payload["summary"],
-            generated_analysis_markdown=generated_one_shot.get("markdown") if generated_one_shot else None,
-            generation=generated_one_shot.get("generation") if generated_one_shot else None,
         )
         probability_html = insert_before_main_close(probability_html, render_probability_coverage_section(coverage_payload))
         probability_html_path.write_text(probability_html)
@@ -976,15 +792,6 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
         coverage_html_path.write_text(render_probability_coverage_html(coverage_payload))
         write_bundle_json(coverage_data_path, coverage_payload)
         generated_files = [probability_html_path, probability_data_path, coverage_html_path, coverage_data_path]
-        if generated_one_shot:
-            generated_files.append(probability_markdown_path)
-            generated_files.extend(
-                copy_generated_report_provenance(
-                    generated_one_shot.get("generation"),
-                    output_dir,
-                    prefix="one-shot",
-                )
-            )
         add_page(
             report_bundle_page(
                 page_id="one-shot-marginals",
@@ -995,12 +802,8 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
                 path=probability_html_path,
                 data_path=probability_data_path,
                 inputs=f"{len(probability_rows)} imported probability prediction rows",
-                next_step=(
-                    "Use this as an aggregate baseline before individual twin validation."
-                    if generated_one_shot
-                    else f"Run `zwill prob-results analysis-export --survey {survey} --path {probability_html_path}`, then run/import/render the report-writing job."
-                ),
-                notes="Generated one-shot analysis imported." if generated_one_shot else "Generated one-shot analysis has not been imported yet.",
+                next_step="Use this structured aggregate baseline as evidence for the coding agent's report.",
+                notes="Deterministic evidence page; narrative interpretation belongs to the coding agent.",
                 generated_files=generated_files,
             )
         )
@@ -1043,31 +846,6 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
 
         executive_path = output_dir / "executive-summary.html"
         executive_markdown_path = data_dir / "executive-summary.md"
-        heldout_questions_for_report = sorted({str(row.get("heldout_question")) for row in twin_rows if row.get("heldout_question")})
-        generated_executive = find_imported_executive_summary_report(
-            survey=survey,
-            job_ids=twin_job_ids,
-            model=getattr(args, "model", None),
-            questions=heldout_questions_for_report,
-        )
-        # Flag a cached narrative that predates the current model set: the prose
-        # is matched on jobs+questions but not on the models inside them, so an
-        # added/removed model can leave stale prose over fresh tables.
-        if generated_executive:
-            current_models = sorted(
-                {
-                    str(row.get("model_label"))
-                    for row in twin_rows
-                    if row.get("model_label") and not str(row.get("model_label")).startswith("baseline:")
-                }
-            )
-            narrative_models = generated_executive["generation"].get("narrative_model_labels")
-            if narrative_models is not None and sorted(narrative_models) != current_models:
-                generated_executive["generation"]["stale"] = True
-                generated_executive["generation"]["stale_reason"] = (
-                    f"written for {', '.join(narrative_models) or 'no models'}; "
-                    f"current: {', '.join(current_models) or 'no models'}"
-                )
         executive_result = build_executive_summary(
             twin_rows,
             survey=survey,
@@ -1076,18 +854,9 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
             simulations=getattr(args, "permutations", DEFAULT_REPORT_PERMUTATIONS),
             seed=getattr(args, "seed", 20260701),
             baseline_rows=baseline_rows,
-            generated_markdown=generated_executive.get("markdown") if generated_executive else None,
-            generation=generated_executive.get("generation") if generated_executive else None,
         )
         executive_generated = [Path(path) for path in executive_result.get("artifacts", {}).values()]
         executive_generated.extend([executive_path, executive_markdown_path])
-        executive_generated.extend(
-            copy_generated_report_provenance(
-                generated_executive.get("generation") if generated_executive else None,
-                output_dir,
-                prefix="twin-executive",
-            )
-        )
         diagnostics_html_path = output_dir / "validation-diagnostics.html"
         diagnostics_data_path = data_dir / "validation-diagnostics.json"
         diagnostics_payload = {"survey": survey, "artifacts": executive_result.get("artifacts", {})}
@@ -1112,7 +881,6 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
             twin_payload.get("diagnostics"),
             twin_payload.get("health"),
         )
-        twin_html = insert_after_main_open(twin_html, render_generated_executive_interpretation_section(generated_executive))
         twin_html = insert_before_main_close(
             twin_html,
             render_validation_diagnostics_section(
@@ -1143,16 +911,12 @@ def build_report_bundle(args: argparse.Namespace) -> dict[str, Any]:
                 title="Twin Validation",
                 stage="validation",
                 status="ready",
-                description="Held-out twin performance, generated interpretation, uniform baseline comparisons, calibration diagnostics, marginal fit, and supporting validation diagnostics.",
+                description="Held-out twin performance, conditional and uniform baseline comparisons, calibration diagnostics, marginal fit, and supporting validation evidence.",
                 path=twin_html_path,
                 data_path=twin_data_path,
                 inputs=f"{len(twin_rows)} twin prediction rows across {len(twin_job_ids)} job ids",
-                next_step=(
-                    "Use this as the main technical validation and decision-readout page."
-                    if generated_executive
-                    else f"Run `zwill twin-results executive-summary-export --survey {survey} --jobs {','.join(twin_job_ids)} --path {executive_path}`, then run/import/render the report-writing job."
-                ),
-                notes="Generated twin validation interpretation imported." if generated_executive else "Generated twin validation interpretation has not been imported yet.",
+                next_step="Give this evidence package to the coding agent that will author the final narrative.",
+                notes="Deterministic validation evidence; narrative interpretation is intentionally external to zwill.",
                 generated_files=twin_generated_files,
             )
         )
@@ -1348,122 +1112,6 @@ def report_stage_envelope(command: str, manifest: dict[str, Any], stage_name: st
     )
 
 
-def find_imported_executive_summary_report(
-    *,
-    survey: str,
-    job_ids: list[str],
-    model: str | None,
-    questions: list[str],
-) -> dict[str, Any] | None:
-    reports_root = practitioner_reports_dir()
-    if not reports_root.exists():
-        return None
-    expected_jobs = set(job_ids)
-    expected_questions = set(questions)
-    candidates: list[dict[str, Any]] = []
-    for context_path_candidate in sorted(reports_root.glob("*/context.json")):
-        report_dir = context_path_candidate.parent
-        markdown_path = report_dir / "report.md"
-        import_path = report_dir / "import.json"
-        if not markdown_path.exists() or not import_path.exists():
-            continue
-        context = read_json(context_path_candidate, {})
-        report_context = context.get("executive_report_context", {})
-        if report_context.get("report_kind") != "frontier_generated_executive_twin_validation":
-            continue
-        if report_context.get("survey") != survey:
-            continue
-        filters = report_context.get("filters", {})
-        context_jobs = set(str(job) for job in filters.get("job_ids", []) if job)
-        context_questions = set(str(question) for question in filters.get("questions", []) if question)
-        context_model = filters.get("model")
-        if expected_jobs and context_jobs != expected_jobs:
-            continue
-        if expected_questions and context_questions != expected_questions:
-            continue
-        if (model or None) != (context_model or None):
-            continue
-        imported = read_json(import_path, {})
-        generation = {
-            **context.get("generation", {}),
-            "mode": "imported_results",
-            "report_id": context.get("report_id") or report_dir.name,
-            "context_path": str(context_path_candidate),
-            "markdown_path": str(markdown_path),
-            "import_path": str(import_path),
-            "imported_at": imported.get("imported_at"),
-            # The model set this narrative was written against (None for narratives
-            # generated before fingerprinting existed).
-            "narrative_model_labels": filters.get("model_labels"),
-        }
-        candidates.append(
-            {
-                "report_id": generation["report_id"],
-                "markdown": markdown_path.read_text(),
-                "generation": generation,
-                "imported_at": imported.get("imported_at") or "",
-            }
-        )
-    if not candidates:
-        return None
-    return sorted(candidates, key=lambda item: (item.get("imported_at") or "", item.get("report_id") or ""))[-1]
-
-
-def find_imported_one_shot_analysis_report(
-    *,
-    survey: str,
-    job_id: str | None,
-    model: str | None,
-    questions: list[str],
-) -> dict[str, Any] | None:
-    reports_root = practitioner_reports_dir()
-    if not reports_root.exists():
-        return None
-    expected_questions = set(questions)
-    candidates: list[dict[str, Any]] = []
-    for context_path_candidate in sorted(reports_root.glob("*/context.json")):
-        report_dir = context_path_candidate.parent
-        markdown_path = report_dir / "report.md"
-        import_path = report_dir / "import.json"
-        if not markdown_path.exists() or not import_path.exists():
-            continue
-        context = read_json(context_path_candidate, {})
-        report_context = context.get("one_shot_analysis_context", {})
-        if report_context.get("report_kind") != "frontier_generated_one_shot_marginal_analysis":
-            continue
-        if report_context.get("survey") != survey:
-            continue
-        filters = report_context.get("filters", {})
-        context_questions = set(str(question) for question in filters.get("questions", []) if question)
-        if expected_questions and context_questions != expected_questions:
-            continue
-        if job_id is not None and (job_id or None) != (filters.get("job_id") or None):
-            continue
-        if model is not None and (model or None) != (filters.get("model") or None):
-            continue
-        imported = read_json(import_path, {})
-        generation = {
-            **context.get("generation", {}),
-            "mode": "imported_results",
-            "report_id": context.get("report_id") or report_dir.name,
-            "context_path": str(context_path_candidate),
-            "markdown_path": str(markdown_path),
-            "import_path": str(import_path),
-            "imported_at": imported.get("imported_at"),
-        }
-        candidates.append(
-            {
-                "report_id": generation["report_id"],
-                "markdown": markdown_path.read_text(),
-                "generation": generation,
-                "imported_at": imported.get("imported_at") or "",
-            }
-        )
-    if not candidates:
-        return None
-    return sorted(candidates, key=lambda item: (item.get("imported_at") or "", item.get("report_id") or ""))[-1]
-
-
 def cmd_report_facts(args: argparse.Namespace) -> dict[str, Any]:
     manifest = build_report_bundle(args)
     return report_stage_envelope("zwill report facts", manifest, "facts")
@@ -1476,15 +1124,7 @@ def cmd_report_analyze(args: argparse.Namespace) -> dict[str, Any]:
 
 def cmd_report_render(args: argparse.Namespace) -> dict[str, Any]:
     manifest = build_report_bundle(args)
-    final_stage = manifest.get("stages", {}).get("stages", {}).get("final_report", {})
-    if args.final and final_stage.get("status") != "ready":
-        raise ZwillError(
-            "blocked",
-            "Final report is blocked because required generated interpretations are missing.",
-            hint=final_stage.get("next_step") or "Run the relevant export/run/import/render generated-interpretation flow.",
-            context={"stage_manifest": str(Path(manifest["output_dir"]) / "stage-manifest.json"), "missing": final_stage.get("missing", [])},
-        )
-    return report_stage_envelope("zwill report render", manifest, "final_report" if args.final else "report_preview")
+    return report_stage_envelope("zwill report render", manifest, "final_report")
 
 
 def read_probability_imports(sdir: Path) -> list[dict[str, Any]]:
@@ -1631,32 +1271,6 @@ def insert_before_main_close(html_text: str, section: str) -> str:
     if "</main>" in html_text:
         return html_text.replace("</main>", f"{section}\n  </main>", 1)
     return html_text + section
-
-
-def insert_after_main_open(html_text: str, section: str) -> str:
-    if not section:
-        return html_text
-    if "<main>" in html_text:
-        return html_text.replace("<main>", f"<main>\n{section}", 1)
-    return section + html_text
-
-
-def render_generated_executive_interpretation_section(generated: dict[str, Any] | None) -> str:
-    if not generated:
-        return """
-    <section class="summary-card">
-      <h2>Interpretation and Recommendation</h2>
-      <p>No generated twin-validation interpretation has been imported yet. Run the executive summary export, then run/import/render the report-writing job before circulating this report.</p>
-    </section>"""
-    body = markdown_to_html(remove_leading_executive_summary_heading(generated.get("markdown", "")))
-    generation = generated.get("generation") or {}
-    model = generation.get("model") or generation.get("model_label") or "unknown model"
-    return f"""
-    <section class="summary-card generated-analysis">
-      <h2>Interpretation and Recommendation</h2>
-      {body}
-      <p class="subtle">Generated by {model} from compact twin-validation artifacts.</p>
-    </section>"""
 
 
 def render_validation_diagnostics_html(*, survey: str, artifacts: dict[str, str], output_dir: Path) -> str:

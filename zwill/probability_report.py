@@ -165,9 +165,6 @@ def render_probability_report_html(
     survey: str,
     rows: list[dict[str, Any]],
     summary: dict[str, Any],
-    *,
-    generated_analysis_markdown: str | None = None,
-    generation: dict[str, Any] | None = None,
 ) -> str:
     display_title, _raw_title = report_display_title(survey)
 
@@ -199,24 +196,10 @@ def render_probability_report_html(
         f"<tbody>{''.join(score_rows)}</tbody></table></section>"
     )
 
-    if generated_analysis_markdown:
-        analysis_body = markdown_to_html(remove_leading_one_shot_analysis_heading(generated_analysis_markdown))
-        generation_note = ""
-        if generation:
-            report_model = generation.get("model") or ", ".join(generation.get("models", []) or [])
-            if report_model:
-                generation_note = f"<p class=\"generated-note\">Generated analysis: {escape_html(str(report_model))}</p>"
-        analysis_section = f"""
-    <section class="analysis-card generated-analysis">
-      <h2>Analysis</h2>
-      {analysis_body}
-      {generation_note}
-    </section>"""
-    else:
-        analysis_section = """
-    <section class="analysis-card generated-analysis missing">
-      <h2>Analysis</h2>
-      <p>No generated one-shot analysis has been imported for this report yet. Export a one-shot analysis job, run it with a report-writing model, import the results, and rebuild the report bundle.</p>
+    analysis_section = """
+    <section class="analysis-card">
+      <h2>How to read this evidence</h2>
+      <p>This report compares each model-predicted answer distribution with the committed, weighted survey marginals. Lower Brier, MAE, and KL values indicate a closer match; the uniform columns provide a simple no-information baseline. Use these results as evidence when writing the study interpretation.</p>
     </section>"""
 
     model_series = []

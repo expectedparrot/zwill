@@ -2,10 +2,6 @@ from __future__ import annotations
 
 from .cli import *  # noqa: F403
 
-REPORT_MODEL_PARAM_DEFAULT = ["max_tokens=16000", "reasoning_effort=low"]
-LONG_REPORT_MODEL_PARAM_DEFAULT = ["max_tokens=24000", "reasoning_effort=low"]
-
-
 COMMAND_OVERVIEW = """\
 command groups (run `zwill <command> --help` for subcommands):
 
@@ -80,9 +76,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = report.add_parser("analyze", help="Build deterministic analysis artifacts for the report bundle.")
     add_report_build_args(p)
     p.set_defaults(func=cmd_report_analyze)
-    p = report.add_parser("render", help="Render report HTML from available facts and analysis; use --final to enforce generated-analysis gating.")
+    p = report.add_parser("render", help="Render report HTML from available deterministic facts and analysis.")
     add_report_build_args(p)
-    p.add_argument("--final", action="store_true", help="Fail unless generated executive analysis is available.")
     p.set_defaults(func=cmd_report_render)
     project = subparsers.add_parser("project").add_subparsers(dest="project_command", required=True)
     p = project.add_parser("create", help="Create a project under .zwill/projects/.")
@@ -307,34 +302,6 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--format", choices=["table", "json", "html", "csv", "svg"], default="table")
     p.add_argument("--path", help="Write json/html/csv/svg report output to this path.")
     p.set_defaults(func=cmd_probability_results_report, table_output=True)
-    p = prob_results.add_parser("analysis-export", help="Export an EDSL job that writes the one-shot marginal analysis.")
-    p.add_argument("--survey", required=True)
-    p.add_argument("--job-id", help="Probability job id to include.")
-    p.add_argument("--probability-model", help="Probability prediction model or model label to include.")
-    p.add_argument("--path", help="Final HTML report path to suggest in next steps.")
-    p.add_argument("--job-path", help="Write the EDSL report-generation job to this path.")
-    p.add_argument("--prompt-path", help="Write the model report prompt to this path.")
-    p.add_argument("--context-path", help="Write the assembled report context to this path.")
-    p.add_argument("--model", "--report-model", action="append", dest="model", help="EDSL model for report generation. Repeatable.")
-    p.add_argument("--models", help="Comma-separated EDSL models for report generation. Entries may be service:model.")
-    p.add_argument("--service-name", default="openai", help="EDSL service_name for unqualified report-generation models.")
-    p.add_argument(
-        "--model-param",
-        action="append",
-        default=REPORT_MODEL_PARAM_DEFAULT,
-        help="Report-generation model parameter. Use key=value or service:model:key=value.",
-    )
-    p.set_defaults(func=cmd_probability_results_analysis_export)
-    p = prob_results.add_parser("analysis-import", help="Import EDSL Results from a one-shot analysis report-generation job.")
-    p.add_argument("--input-path", required=True, help="Serialized EDSL Results JSON or JSON.GZ.")
-    p.add_argument("--report-id", help="Report id. Inferred from Results metadata when present.")
-    p.add_argument("--replace", action="store_true", help="Replace an existing imported report result.")
-    p.set_defaults(func=cmd_probability_results_analysis_import)
-    p = prob_results.add_parser("analysis-render", help="Render imported generated one-shot analysis Markdown into the one-shot report HTML.")
-    p.add_argument("--report-id", required=True)
-    p.add_argument("--path", help="Write standalone HTML report output to this path. Defaults to .zwill/practitioner_reports/<id>/report.html.")
-    p.set_defaults(func=cmd_probability_results_analysis_render)
-
     twin_baseline = subparsers.add_parser(
         "twin-baseline",
         help="Cheap conditional baselines that score the same held-out questions as digital twins.",
@@ -467,7 +434,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--format", choices=["table", "json", "csv", "html"], default="table")
     p.add_argument("--path", help="Write json/html/csv report output to this path.")
     p.set_defaults(func=cmd_rank_results_report, table_output=True)
-    p = twin_results.add_parser("executive-summary", help="Generate an executive twin validation summary with plots and diagnostics.")
+    p = twin_results.add_parser("executive-summary", help="Build a deterministic twin validation summary with plots and diagnostics.")
     p.add_argument("--survey", required=True)
     p.add_argument("--job-id", action="append", help="Digital twin job id. Repeatable.")
     p.add_argument("--jobs", help="Comma-separated digital twin job ids.")
@@ -479,42 +446,6 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--permutations", type=int, default=20000, help="Permutation simulations for chance tests.")
     p.add_argument("--seed", type=int, default=20260701, help="Random seed for simulation diagnostics.")
     p.set_defaults(func=cmd_twin_results_executive_summary)
-    p = twin_results.add_parser("executive-summary-export", help="Export an EDSL job that writes the executive twin validation interpretation.")
-    p.add_argument("--survey", required=True)
-    p.add_argument("--job-id", action="append", help="Digital twin job id. Repeatable.")
-    p.add_argument("--jobs", help="Comma-separated digital twin job ids.")
-    p.add_argument("--prediction-model", dest="prediction_model", help="Twin prediction model/model label to include.")
-    p.add_argument("--question", action="append", help="Held-out question to include. Repeatable.")
-    p.add_argument("--questions", help="Comma-separated held-out questions to include.")
-    p.add_argument("--path", help="Final HTML report path to suggest in next steps. A deterministic diagnostics preview is written here during export.")
-    p.add_argument("--markdown-path", help="Deterministic diagnostics Markdown path during export.")
-    p.add_argument("--job-path", help="Write the EDSL report-generation job to this path.")
-    p.add_argument("--prompt-path", help="Write the model report prompt to this path.")
-    p.add_argument("--context-path", help="Write the assembled report context to this path.")
-    p.add_argument("--permutations", type=int, default=20000, help="Permutation simulations for chance tests.")
-    p.add_argument("--seed", type=int, default=20260701, help="Random seed for simulation diagnostics.")
-    p.add_argument("--model", "--report-model", action="append", dest="model", help="EDSL model for report generation. Repeatable.")
-    p.add_argument("--models", help="Comma-separated EDSL models for report generation. Entries may be service:model.")
-    p.add_argument("--service-name", default="openai", help="EDSL service_name for unqualified report-generation models.")
-    p.add_argument(
-        "--model-param",
-        action="append",
-        default=REPORT_MODEL_PARAM_DEFAULT,
-        help="Report-generation model parameter. Use key=value or service:model:key=value.",
-    )
-    p.set_defaults(func=cmd_twin_results_executive_summary_export)
-    p = twin_results.add_parser("executive-summary-import", help="Import EDSL Results from an executive summary report-generation job.")
-    p.add_argument("--input-path", required=True, help="Serialized EDSL Results JSON or JSON.GZ.")
-    p.add_argument("--report-id", help="Executive report id. Inferred from Results metadata when present.")
-    p.add_argument("--replace", action="store_true", help="Replace an existing imported report result.")
-    p.set_defaults(func=cmd_twin_results_executive_summary_import)
-    p = twin_results.add_parser("executive-summary-render", help="Render imported generated executive summary Markdown as HTML.")
-    p.add_argument("--report-id", required=True)
-    p.add_argument("--path", help="Write standalone HTML report output to this path. Defaults to .zwill/practitioner_reports/<id>/report.html.")
-    p.add_argument("--markdown-path", help="Write the generated Markdown companion to this path. Defaults to --path with .md suffix.")
-    p.add_argument("--permutations", type=int, default=20000, help="Permutation simulations for regenerated diagnostic artifacts.")
-    p.add_argument("--seed", type=int, default=20260701, help="Random seed for regenerated diagnostic artifacts.")
-    p.set_defaults(func=cmd_twin_results_executive_summary_render)
     p = twin_results.add_parser("compare-report", help="Compare two or more imported digital twin jobs side by side.")
     p.add_argument("--survey", required=True)
     p.add_argument("--job-id", action="append", help="Digital twin job id. Repeatable.")
@@ -685,50 +616,6 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--format", choices=["table", "json", "csv"], default="table")
     p.add_argument("--path", help="Write json/csv comparison output to this path.")
     p.set_defaults(func=cmd_twin_study_compare, table_output=True)
-    p = twin_study.add_parser("practitioner-report", help="Generate a practitioner-focused HTML report for one survey twin study.")
-    p.add_argument("--survey", required=True)
-    p.add_argument("--job-id", required=True)
-    p.add_argument("--path", help="Write standalone HTML report output to this path.")
-    p.add_argument("--prompt-path", help="Write the model report prompt to this path.")
-    p.add_argument("--job-path", help="Write the EDSL report-generation job to this path.")
-    p.add_argument("--results-path", help="Write the serialized EDSL Results object to this path. Use .gz for gzip.")
-    p.add_argument("--markdown-path", help="Write the generated Markdown report to this path.")
-    p.add_argument("--model", action="append", help="EDSL model for report generation. Repeatable.")
-    p.add_argument("--models", help="Comma-separated EDSL models for report generation. Entries may be service:model.")
-    p.add_argument("--service-name", default="openai", help="EDSL service_name for unqualified report-generation models.")
-    p.add_argument(
-        "--model-param",
-        action="append",
-        default=LONG_REPORT_MODEL_PARAM_DEFAULT,
-        help="Model parameter. Use key=value or service:model:key=value. Repeatable. Defaults request a large report-generation budget.",
-    )
-    p.set_defaults(func=cmd_twin_study_practitioner_report, raw_output=True)
-    p = twin_study.add_parser("practitioner-report-export", help="Export an EDSL job that writes a one-survey practitioner report.")
-    p.add_argument("--survey", required=True)
-    p.add_argument("--job-id", required=True)
-    p.add_argument("--job-path", help="Write the EDSL report-generation job to this path.")
-    p.add_argument("--prompt-path", help="Write the model report prompt to this path.")
-    p.add_argument("--context-path", help="Write the assembled report context to this path.")
-    p.add_argument("--model", action="append", help="EDSL model for report generation. Repeatable.")
-    p.add_argument("--models", help="Comma-separated EDSL models for report generation. Entries may be service:model.")
-    p.add_argument("--service-name", default="openai", help="EDSL service_name for unqualified report-generation models.")
-    p.add_argument(
-        "--model-param",
-        action="append",
-        default=LONG_REPORT_MODEL_PARAM_DEFAULT,
-        help="Model parameter. Use key=value or service:model:key=value. Repeatable. Defaults request a large report-generation budget.",
-    )
-    p.set_defaults(func=cmd_twin_study_practitioner_report_export)
-    p = twin_study.add_parser("practitioner-report-import", help="Import EDSL Results from a one-survey practitioner report job.")
-    p.add_argument("--input-path", required=True, help="Serialized EDSL Results JSON or JSON.GZ.")
-    p.add_argument("--report-id", help="Practitioner report id. Inferred from Results metadata when present.")
-    p.add_argument("--replace", action="store_true", help="Replace an existing imported report result.")
-    p.set_defaults(func=cmd_twin_study_practitioner_report_import)
-    p = twin_study.add_parser("practitioner-report-render", help="Render imported one-survey practitioner report Markdown as HTML.")
-    p.add_argument("--report-id", required=True)
-    p.add_argument("--path", help="Write standalone HTML report output to this path. Defaults to .zwill/practitioner_reports/<id>/report.html.")
-    p.set_defaults(func=cmd_twin_study_practitioner_report_render, raw_output=True)
-
     twin_approach = subparsers.add_parser("twin-approach").add_subparsers(dest="twin_approach_command", required=True)
     p = twin_approach.add_parser("add", help="Add or update a reusable digital twin construction approach.")
     p.add_argument("--survey", required=True)
@@ -894,17 +781,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--plan-id", help="Override plan id from the manifest.")
     p.add_argument("--env-path", help="Explicit .env path to mention in the generated EDSL execution runbook.")
     p.set_defaults(func=cmd_twin_experiment_package)
-    p = twin_experiment.add_parser("bundle", help="Create comparison, plots, microdata, and report-export artifacts for a plan.")
+    p = twin_experiment.add_parser("bundle", help="Create deterministic comparison, plot, and microdata artifacts for a plan.")
     p.add_argument("--survey", required=True)
     p.add_argument("--plan-id", required=True)
     p.add_argument("--metric", choices=sorted(TWIN_EXPERIMENT_METRICS), default="nll")
     p.add_argument("--model", help="Restrict bundle artifacts to one model label, e.g. openai:gpt-5.5.")
     p.add_argument("--output-dir", help="Directory to write bundle artifacts.")
-    p.add_argument("--report-export", action="store_true", help="Also export an EDSL report-writing job.")
-    p.add_argument("--report-model", action="append", help="EDSL model to write the report. Repeatable. Use service:model to set service.")
-    p.add_argument("--model-param", action="append", default=REPORT_MODEL_PARAM_DEFAULT)
-    p.add_argument("--models", help="Comma-separated EDSL models for report generation. Entries may be service:model.")
-    p.add_argument("--service-name", default="openai", help="EDSL service_name for unqualified report-generation models.")
     p.set_defaults(func=cmd_twin_experiment_bundle)
     p = twin_experiment.add_parser("bundle-show", help="Show paths and selected result for a bundle manifest.")
     p.add_argument("--manifest", required=True)
@@ -959,49 +841,6 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--model", help="Restrict selection to one model label, e.g. openai:gpt-5.5.")
     p.add_argument("--metric", choices=sorted(TWIN_EXPERIMENT_METRICS), default="nll")
     p.set_defaults(func=cmd_twin_experiment_select)
-    p = twin_experiment.add_parser("report", help="Generate a model-authored HTML report comparing recorded twin experiments.")
-    p.add_argument("--survey", required=True)
-    p.add_argument("--experiment-id", action="append")
-    p.add_argument("--job-id", action="append")
-    p.add_argument("--jobs", help="Comma-separated job ids to compare.")
-    p.add_argument("--model", help="Restrict comparison to one model label, e.g. openai:gpt-5.5.")
-    p.add_argument("--metric", choices=sorted(TWIN_EXPERIMENT_METRICS), default="nll")
-    p.add_argument("--path", help="Write standalone HTML report output to this path.")
-    p.add_argument("--prompt-path", help="Write the model report prompt to this path.")
-    p.add_argument("--job-path", help="Write the EDSL report-generation job to this path.")
-    p.add_argument("--results-path", help="Write the serialized EDSL Results object to this path. Use .gz for gzip.")
-    p.add_argument("--include-plots", action="append", help="Plot manifest to include in report context and rendered HTML. Repeatable.")
-    p.add_argument("--report-model", action="append", help="EDSL model to write the report. Repeatable. Use service:model to set service.")
-    p.add_argument("--model-param", action="append", default=REPORT_MODEL_PARAM_DEFAULT)
-    p.add_argument("--models", help="Comma-separated EDSL models for report generation. Entries may be service:model.")
-    p.add_argument("--service-name", default="openai", help="EDSL service_name for unqualified report-generation models.")
-    p.set_defaults(func=cmd_twin_experiment_report, raw_output=True)
-    p = twin_experiment.add_parser("report-export", help="Export an EDSL job that writes a twin-experiment comparison report.")
-    p.add_argument("--survey", required=True)
-    p.add_argument("--experiment-id", action="append")
-    p.add_argument("--job-id", action="append")
-    p.add_argument("--jobs", help="Comma-separated job ids to compare.")
-    p.add_argument("--model", help="Restrict comparison to one model label, e.g. openai:gpt-5.5.")
-    p.add_argument("--metric", choices=sorted(TWIN_EXPERIMENT_METRICS), default="nll")
-    p.add_argument("--job-path", help="Write the EDSL report-generation job to this path.")
-    p.add_argument("--prompt-path", help="Write the model report prompt to this path.")
-    p.add_argument("--context-path", help="Write the assembled report context to this path.")
-    p.add_argument("--include-plots", action="append", help="Plot manifest to include in report context and rendered HTML. Repeatable.")
-    p.add_argument("--report-model", action="append", help="EDSL model to write the report. Repeatable. Use service:model to set service.")
-    p.add_argument("--model-param", action="append", default=REPORT_MODEL_PARAM_DEFAULT)
-    p.add_argument("--models", help="Comma-separated EDSL models for report generation. Entries may be service:model.")
-    p.add_argument("--service-name", default="openai", help="EDSL service_name for unqualified report-generation models.")
-    p.set_defaults(func=cmd_twin_experiment_report_export)
-    p = twin_experiment.add_parser("report-import", help="Import EDSL Results from a twin-experiment report job.")
-    p.add_argument("--input-path", required=True, help="Serialized EDSL Results JSON or JSON.GZ.")
-    p.add_argument("--report-id", help="Report id. Inferred from Results metadata when present.")
-    p.add_argument("--replace", action="store_true", help="Replace an existing imported report result.")
-    p.set_defaults(func=cmd_twin_experiment_report_import)
-    p = twin_experiment.add_parser("report-render", help="Render imported twin-experiment report Markdown as HTML.")
-    p.add_argument("--report-id", required=True)
-    p.add_argument("--path", help="Write standalone HTML report output to this path.")
-    p.set_defaults(func=cmd_twin_experiment_report_render, raw_output=True)
-
     twin_benchmark = subparsers.add_parser("twin-benchmark").add_subparsers(dest="twin_benchmark_command", required=True)
     p = twin_benchmark.add_parser("run", help="Run a config-driven cross-survey twin benchmark.")
     p.add_argument("--config", required=True, help="JSON benchmark config.")
@@ -1018,52 +857,6 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--format", choices=["json", "csv", "html"], default="html")
     p.add_argument("--path", help="Write report output to this path.")
     p.set_defaults(func=cmd_twin_benchmark_report, raw_output=True)
-    p = twin_benchmark.add_parser("practitioner-report", help="Generate a practitioner-focused HTML report from a benchmark.")
-    group = p.add_mutually_exclusive_group(required=True)
-    group.add_argument("--config", help="JSON benchmark config with job_id on each study.")
-    group.add_argument("--manifest", help="Benchmark manifest produced by twin-benchmark run.")
-    p.add_argument("--path", help="Write standalone HTML report output to this path.")
-    p.add_argument("--prompt-path", help="Write the model report prompt to this path.")
-    p.add_argument("--job-path", help="Write the EDSL report-generation job to this path.")
-    p.add_argument("--results-path", help="Write the serialized EDSL Results object to this path. Use .gz for gzip.")
-    p.add_argument("--markdown-path", help="Write the generated Markdown report to this path.")
-    p.add_argument("--model", action="append", help="EDSL model for report generation. Repeatable.")
-    p.add_argument("--models", help="Comma-separated EDSL models for report generation. Entries may be service:model.")
-    p.add_argument("--service-name", default="openai", help="EDSL service_name for unqualified report-generation models.")
-    p.add_argument(
-        "--model-param",
-        action="append",
-        default=LONG_REPORT_MODEL_PARAM_DEFAULT,
-        help="Model parameter. Use key=value or service:model:key=value. Repeatable. Defaults request a large report-generation budget.",
-    )
-    p.set_defaults(func=cmd_twin_benchmark_practitioner_report, raw_output=True)
-    p = twin_benchmark.add_parser("practitioner-report-export", help="Export an EDSL job that writes a practitioner report.")
-    group = p.add_mutually_exclusive_group(required=True)
-    group.add_argument("--config", help="JSON benchmark config with job_id on each study.")
-    group.add_argument("--manifest", help="Benchmark manifest produced by twin-benchmark run.")
-    p.add_argument("--job-path", help="Write the EDSL report-generation job to this path.")
-    p.add_argument("--prompt-path", help="Write the model report prompt to this path.")
-    p.add_argument("--context-path", help="Write the assembled report context to this path.")
-    p.add_argument("--model", action="append", help="EDSL model for report generation. Repeatable.")
-    p.add_argument("--models", help="Comma-separated EDSL models for report generation. Entries may be service:model.")
-    p.add_argument("--service-name", default="openai", help="EDSL service_name for unqualified report-generation models.")
-    p.add_argument(
-        "--model-param",
-        action="append",
-        default=LONG_REPORT_MODEL_PARAM_DEFAULT,
-        help="Model parameter. Use key=value or service:model:key=value. Repeatable. Defaults request a large report-generation budget.",
-    )
-    p.set_defaults(func=cmd_twin_benchmark_practitioner_report_export)
-    p = twin_benchmark.add_parser("practitioner-report-import", help="Import EDSL Results from a practitioner report job.")
-    p.add_argument("--input-path", required=True, help="Serialized EDSL Results JSON or JSON.GZ.")
-    p.add_argument("--report-id", help="Practitioner report id. Inferred from Results metadata when present.")
-    p.add_argument("--replace", action="store_true", help="Replace an existing imported report result.")
-    p.set_defaults(func=cmd_twin_benchmark_practitioner_report_import)
-    p = twin_benchmark.add_parser("practitioner-report-render", help="Render imported practitioner report Markdown as HTML.")
-    p.add_argument("--report-id", required=True)
-    p.add_argument("--path", help="Write standalone HTML report output to this path. Defaults to .zwill/practitioner_reports/<id>/report.html.")
-    p.set_defaults(func=cmd_twin_benchmark_practitioner_report_render, raw_output=True)
-
     skills = subparsers.add_parser("skills").add_subparsers(dest="skills_command", required=True)
     p = skills.add_parser("list", help="List zwill agent skills installed with the package.")
     p.add_argument("--format", choices=["table", "json"], default="table")

@@ -298,9 +298,8 @@ def test_html_report_contains_embedded_data_and_baseline_arrows() -> None:
 
     html = render_probability_report_html("demo", rows, summary)
 
-    assert "<h2>Analysis</h2>" in html
-    assert "No generated one-shot analysis has been imported" in html
-    assert "This analysis is deterministic" not in html
+    assert "<h2>How to read this evidence</h2>" in html
+    assert "committed, weighted survey marginals" in html
     assert "Best Fits" not in html
     assert "Weakest Fits" not in html
     assert "KL divergence (lower is better)" in html
@@ -311,17 +310,6 @@ def test_html_report_contains_embedded_data_and_baseline_arrows() -> None:
     assert marker in html
     encoded = html.split(marker, 1)[1].split("</script>", 1)[0]
     assert json.loads(unescape(encoded))["rows"][0]["question"] == "q1"
-
-    generated_html = render_probability_report_html(
-        "demo",
-        rows,
-        summary,
-        generated_analysis_markdown="## Analysis\n\nThe one-shot baseline is useful for aggregate marginals, not individual matching.",
-        generation={"model": "openai:gpt-5.5"},
-    )
-    assert generated_html.count("<h2>Analysis</h2>") == 1
-    assert "The one-shot baseline is useful" in generated_html
-    assert "Generated analysis: openai:gpt-5.5" in generated_html
 
 
 def test_twin_html_report_contains_embedded_data() -> None:

@@ -133,14 +133,9 @@ next command. The full path:
    ```
    The optional SVG is a portable observed-versus-one-shot marginal comparison
    for reports and slides; it requires no browser runtime or plotting dependency.
-   For the final report gate, also generate the one-shot interpretation:
-   ```bash
-   zwill prob-results analysis-export --survey <survey> --job-id <probability_job_id> \
-     --path report_out/one-shot-marginals.html
-   ep run <generated_report_jobs.ep> --output <generated_report_results.ep>
-   zwill prob-results analysis-import --report-id <report_id> --input-path <generated_report_results.ep>
-   zwill prob-results analysis-render --report-id <report_id> --path report_out/one-shot-marginals.html
-   ```
+   Treat these outputs as structured evidence. Explain the observed-versus-model
+   comparison in the final narrative; zwill does not ask another model to write
+   that interpretation.
 8. **Run the twin jobs** — pick 5–10 held-out questions spanning different use
    cases, choose provider-qualified models (e.g. `openai:gpt-5.5`,
    `google:gemini-2.5-pro`), export and run:
@@ -199,32 +194,22 @@ next command. The full path:
    scoring claims. Confirm construction metadata, prompt template, rendered
    prompts, scenario inputs, raw model responses, malformed rows, and import
    issues; held-out answers and leakage fields must be absent from prompts.
-10. **Build the report index and generated twin interpretation** — assemble the
-   incremental HTML report folder with an `index.html` linking every ready page:
+10. **Build the evidence bundle** — assemble the incremental HTML report folder
+   with an `index.html` linking every ready page:
    ```bash
    zwill report build --survey <survey> --path report_out \
      --job-id <twin_job_id> --probability-job-id <probability_job_id>
    ```
-   If `zwill report render --final` reports missing generated interpretation,
-   build each required interpretation job (one-shot analysis + twin executive
-   summary), run its `.ep` package with the external `ep` CLI, then import and
-   render it:
-   ```bash
-   zwill prob-results analysis-export --survey <survey> --job-id <probability_job_id>
-   ep run <one_shot_analysis_jobs.ep> --output <one_shot_analysis_results.ep>
-   zwill prob-results analysis-import --report-id <report_id> --input-path <one_shot_analysis_results.ep>
-   zwill prob-results analysis-render --report-id <report_id> --path report_out/one-shot-marginals.html
-
-   zwill twin-results executive-summary-export --survey <survey> --job-id <twin_job_id>
-   ep run <executive_summary_jobs.ep> --output <executive_summary_results.ep>
-   zwill twin-results executive-summary-import --report-id <report_id> --input-path <executive_summary_results.ep>
-   zwill twin-results executive-summary-render --report-id <report_id> --path report_out/twin-executive-summary.html
-   ```
-11. **Final gate** — render the final report only after the one-shot and twin
-   generated interpretations are imported:
+   Inspect the bundle's contextualized tables, diagnostics, plots, audit pages,
+   and machine-readable facts. These are inputs to the coding agent's report,
+   not a model-authored final narrative.
+11. **Write and check the interpretation** — use the assembled evidence to
+   author the study's claims and limitations. Keep observed results, baseline
+   comparisons, uncertainty, leakage findings, sample restrictions, and costs
+   traceable to bundle artifacts. Then render the deterministic bundle:
    ```bash
    zwill report render --survey <survey> --path report_out \
-     --job-id <twin_job_id> --probability-job-id <probability_job_id> --final
+     --job-id <twin_job_id> --probability-job-id <probability_job_id>
    ```
    Open `report_out/index.html` or `report_out/report/index.html`.
 
@@ -346,7 +331,7 @@ Always compute and show prediction count before running:
 - The model learned population marginals but not respondent-level answer patterns.
 - Small samples or filtering changed the deployment population being evaluated.
 - Malformed provider responses were silently dropped, changing effective sample.
-- Generated executive reports circulated without `zwill report render --final`.
+- Decision-facing claims circulated without checking them against the evidence bundle.
 - Many opaque prompt tweaks were compared without a predeclared construction plan.
 
 ## If you get stuck

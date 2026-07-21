@@ -447,7 +447,7 @@ def render_html(
                 "<div class=\"panel span-12\" style=\"border-left:4px solid #b42318;background:#fef3f2\">"
                 "<strong>⚠ This written summary is out of date.</strong> It was generated for a different set of "
                 f"models than the tables below now show{f' ({reason})' if reason else ''}. Regenerate it with "
-                "<code>zwill twin-results executive-summary-export</code> → run → import, then rebuild the report.</div>"
+                "Use the diagnostics and supporting artifacts below when authoring the study interpretation.</div>"
             )
     if generated_markdown:
         generated_body = markdown_to_html(remove_leading_executive_summary_heading(generated_markdown))

@@ -1188,26 +1188,6 @@ def cmd_twin_experiment_bundle(args: argparse.Namespace) -> dict[str, Any]:
         )
     )
 
-    report_export = None
-    if args.report_export:
-        report_export = cmd_twin_experiment_report_export(
-            argparse.Namespace(
-                survey=args.survey,
-                experiment_id=None,
-                job_id=None,
-                jobs=jobs_arg,
-                model=args.model,
-                metric=args.metric,
-                job_path=str(output_dir / "report_jobs.ep"),
-                prompt_path=str(output_dir / "report_prompt.md"),
-                context_path=str(output_dir / "report_context.json"),
-                include_plots=[plot_manifest_path] if plot_manifest_path else None,
-                report_model=args.report_model,
-                model_param=args.model_param,
-                models=args.models,
-                service_name=args.service_name,
-            )
-        )
     manifest = {
         "kind": "twin_experiment_bundle",
         "survey": args.survey,
@@ -1220,7 +1200,6 @@ def cmd_twin_experiment_bundle(args: argparse.Namespace) -> dict[str, Any]:
         "plot_manifest_path": plot_manifest_path,
         "microdata_html_path": microdata["html_path"],
         "microdata_json_path": microdata["json_path"],
-        "report_export": report_export["data"] if report_export else None,
     }
     manifest_path = output_dir / "manifest.json"
     write_json(manifest_path, manifest)
@@ -1259,18 +1238,9 @@ def cmd_twin_experiment_bundle_show(args: argparse.Namespace) -> None:
             "plot_manifest": manifest.get("plot_manifest_path"),
             "microdata_html": manifest.get("microdata_html_path"),
             "microdata_json": manifest.get("microdata_json_path"),
-            "report_job": (manifest.get("report_export") or {}).get("job_path"),
-            "report_prompt": (manifest.get("report_export") or {}).get("prompt_path"),
-            "report_context": (manifest.get("report_export") or {}).get("context_path"),
         },
         "next_steps": [
             f"open {manifest.get('microdata_html_path')}" if manifest.get("microdata_html_path") else None,
-            (
-                f"ep run {(manifest.get('report_export') or {}).get('job_path')} "
-                f"--output {(manifest.get('report_export') or {}).get('report_dir')}/results.ep"
-                if manifest.get("report_export")
-                else None
-            ),
         ],
     }
     payload["next_steps"] = [step for step in payload["next_steps"] if step]
@@ -1489,9 +1459,6 @@ def cmd_twin_experiment_dashboard(args: argparse.Namespace) -> dict[str, Any]:
             "plot_manifest": bundle_manifest.get("plot_manifest_path"),
             "microdata_html": bundle_manifest.get("microdata_html_path"),
             "microdata_json": bundle_manifest.get("microdata_json_path"),
-            "report_job": (bundle_manifest.get("report_export") or {}).get("job_path"),
-            "report_prompt": (bundle_manifest.get("report_export") or {}).get("prompt_path"),
-            "report_context": (bundle_manifest.get("report_export") or {}).get("context_path"),
         }
     output_path = resolve_output_path(args.path) if args.path else digital_twin_jobs_dir(sdir) / "plans" / args.plan_id / "dashboard.html"
     payload = {
