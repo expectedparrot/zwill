@@ -277,24 +277,23 @@ zwill next --survey pew_w158</code></pre>
     </tbody></table>
 
     <h3>Write and review the validation plan</h3>
-    <p>A 100-call run is no longer an ad hoc smoke test, so we record the target, allowed context, sample, seed, model, and primary metric before export. <code>--stratify-actual</code> makes the fixed sample retain representation from both actual answer classes; here all 100 excerpt respondents are used anyway.</p>
+    <p>Create a reusable specification for the run: the held-out target, permitted context, respondents, model, and primary metric. The tutorial includes all 100 excerpt respondents, so no sampling or outcome-based stratification is needed.</p>
     <pre><code>zwill twin-experiment init-plan \
   --survey pew_w158 \
   --plan-id carbon_tax_v1 \
   --heldout-questions carbon_tax \
   --context-questions tree_planting,carbon_capture_credit,zero_carbon_power,methane_leaks,home_efficiency_credit \
-  --sample-respondents 100 --seed 42 --stratify-actual \
   --model openai:gpt-5.5 --primary-metric nll \
   --path carbon_tax_v1.json</code></pre>
     <p>The response reports <code>prediction_count_estimate: 100</code> and writes the plan beneath zwill’s output root as <code>zwill_work/carbon_tax_v1.json</code>. Validation checks question names, context policy, arms, and the prediction-count calculation without approving or running anything:</p>
     <pre><code>zwill twin-experiment validate \
   --input-path zwill_work/carbon_tax_v1.json</code></pre>
     <p><strong>Expected result:</strong> <code>status: ok</code>, no validation errors, one held-out question, one arm, one model, and an estimated 100 predictions. Treat any error or unexpected count as a stop condition.</p>
-    <p>Read the plan itself before approving it. Confirm that <code>carbon_tax</code> is the only held-out target, precisely five different questions are context, the sample and seed are correct, the model is intended, and the estimate is 100 calls.</p>
+    <p>Read the plan itself before approving it. Confirm that <code>carbon_tax</code> is the only held-out target, precisely five different questions are context, all 100 eligible respondents are included, the model is intended, and the estimate is 100 calls.</p>
     <pre><code>zwill twin-experiment approve \
   --input-path zwill_work/carbon_tax_v1.json \
   --approved-by tutorial_reader \
-  --note "Approved one target, five context questions, 100 respondents, seed 42, one model, and NLL as the primary metric."</code></pre>
+  --note "Approved one target, five context questions, all 100 eligible respondents, one model, and NLL as the primary metric."</code></pre>
     <p>Approval records who reviewed which design and when. It is evidence of a deliberate specification, not a claim that the design is scientifically sufficient.</p>
     <p><strong>Expected result:</strong> the response shows <code>approval.approved: true</code>, <code>approved_by: tutorial_reader</code>, the review note, and the unchanged 100-prediction estimate. The command updates the plan file in place, so <code>export-plan</code> below reads the approved version.</p>
 
