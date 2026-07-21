@@ -167,6 +167,16 @@ def cmd_probability_results_report(args: argparse.Namespace) -> None:
             print(output)
         return
 
+    if args.format == "svg":
+        output = render_probability_report_svg(args.survey, report_rows)
+        if args.path:
+            path = resolve_output_path(args.path)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(output + "\n")
+        else:
+            print(output)
+        return
+
     table = Table(title=f"{args.survey} probability report")
     for column in ["question", "model", "actual", "predicted", "uniform", "brier", "uniform_brier", "brier_delta", "kl", "uniform_kl"]:
         table.add_column(column)

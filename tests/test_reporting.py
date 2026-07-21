@@ -13,6 +13,7 @@ from zwill.reporting import (
     remove_redundant_report_title,
     remove_reusable_practitioner_guidance,
     render_probability_report_html,
+    render_probability_report_svg,
     render_twin_job_comparison_report_html,
     render_twin_practitioner_report_html,
     render_twin_report_html,
@@ -50,6 +51,27 @@ def test_build_probability_report_compares_model_to_truth_and_uniform() -> None:
     assert row["brier"] < row["uniform_brier"]
     assert row["kl_divergence"] < row["uniform_kl_divergence"]
     assert report["summary"]["gpt-5.5"]["rows"] == 1
+
+
+def test_probability_report_svg_compares_observed_and_model_marginals() -> None:
+    rows = [
+        {
+            "question": "q1",
+            "question_text": "How often?",
+            "service": "openai",
+            "model": "gpt-5.5",
+            "actual": {"Never": 0.25, "Often": 0.75},
+            "predicted": {"Never": 0.4, "Often": 0.6},
+        }
+    ]
+
+    svg = render_probability_report_svg("demo", rows)
+
+    assert svg.startswith('<svg xmlns="http://www.w3.org/2000/svg"')
+    assert "Observed survey marginal vs. one-shot prediction" in svg
+    assert "openai:gpt-5.5" in svg
+    assert "How often?" in svg
+    assert "75.0%" in svg
 
 
 def test_generated_executive_summary_heading_is_not_duplicated() -> None:

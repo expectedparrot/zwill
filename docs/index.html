@@ -177,8 +177,17 @@ zwill edsl-run --job one_shot.edsl.json \
   --path one_shot_results.json.gz
 
 zwill prob-results import --survey hiring_study \
-  --input-path one_shot_results.json.gz</code></pre>
+  --input-path one_shot_results.json.gz
+
+zwill prob-results report --survey hiring_study \
+  --job-id &lt;probability_job_id&gt; --format svg \
+  --path one-shot-marginals.svg</code></pre>
     <p>Save the <code>probability_job_id</code> returned by import. You will use it when building the final report.</p>
+    <figure>
+      <img src="assets/hiring-one-shot-marginal.svg" alt="Grouped horizontal bars comparing the hiring survey's observed remote-work distribution with an illustrative one-shot prediction" style="display:block;width:100%;height:auto">
+      <figcaption>A standalone comparison of the committed, weighted survey marginal with the one-shot probability estimate. The green values here are illustrative because this tutorial does not ship a model result; your SVG is generated from the probabilities returned by your selected model.</figcaption>
+    </figure>
+    <p>The comparison makes two different questions visible. The blue distribution is what these respondents actually said after survey weights were applied. The green distribution is what the model expected from the question and options alone. Close agreement means the model has useful aggregate prior knowledge; it does not yet show that a respondent-specific twin can distinguish one person from another.</p>
   </section>
 
   <section id="twins">

@@ -62,6 +62,7 @@ from .reporting import (
     fmt_probs,
     markdown_to_html,
     render_probability_report_html,
+    render_probability_report_svg,
     render_twin_benchmark_report_html,
     render_twin_job_comparison_report_html,
     render_twin_practitioner_report_html,

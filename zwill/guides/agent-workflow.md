@@ -128,7 +128,11 @@ next command. The full path:
    zwill prob-results import --survey <survey> --input-path one_shot_results.json.gz
    zwill prob-results report --survey <survey> --job-id <probability_job_id> \
      --format html --path one-shot-marginals.html
+   zwill prob-results report --survey <survey> --job-id <probability_job_id> \
+     --format svg --path one-shot-marginals.svg
    ```
+   The optional SVG is a portable observed-versus-one-shot marginal comparison
+   for reports and slides; it requires no browser runtime or plotting dependency.
    For the final report gate, also generate the one-shot interpretation:
    ```bash
    zwill prob-results analysis-export --survey <survey> --job-id <probability_job_id> \

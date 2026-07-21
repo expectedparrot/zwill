@@ -80,6 +80,87 @@ def build_probability_report(rows: list[dict[str, Any]], truth: dict[str, Any]) 
     return {"rows": report_rows, "summary": summary}
 
 
+def render_probability_report_svg(survey: str, rows: list[dict[str, Any]]) -> str:
+    """Render a portable observed-versus-one-shot marginal comparison."""
+    rows_by_question: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        rows_by_question[row["question"]].append(row)
+
+    width = 960
+    left = 260
+    right = 72
+    plot_width = width - left - right
+    legend_height = 58
+    question_gap = 38
+    option_height = 30
+    question_header = 68
+    question_heights = [question_header + len(next(iter(qrows))["actual"]) * option_height for qrows in rows_by_question.values()]
+    height = 36 + legend_height + sum(question_heights) + max(0, len(question_heights) - 1) * question_gap + 42
+    colors = ["#428a5f", "#7a5ba7", "#c46a2b", "#2686a3", "#b54b62"]
+
+    series: list[str] = []
+    for row in rows:
+        label = f"{row.get('service')}:{row['model']}" if row.get("service") else str(row["model"])
+        if label not in series:
+            series.append(label)
+
+    parts = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-labelledby="title desc">',
+        f'<title id="title">{escape_html(survey)} observed and one-shot response marginals</title>',
+        '<desc id="desc">Horizontal bars compare committed weighted survey response shares with one-shot model probability estimates.</desc>',
+        '<rect width="100%" height="100%" fill="#ffffff"/>',
+        '<style>text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;fill:#203229}.title{font:700 20px Georgia,serif}.question{font:700 15px Georgia,serif}.subtle{fill:#667069;font-size:11px}.label{font-size:12px}.value{font-size:11px;font-variant-numeric:tabular-nums}.grid{stroke:#dfe5e0;stroke-width:1}.track{fill:#eef2ef}</style>',
+        f'<text class="title" x="24" y="30">Observed survey marginal vs. one-shot prediction</text>',
+    ]
+
+    legend_y = 61
+    legend = [("Observed", "#2563eb"), *[(label, colors[index % len(colors)]) for index, label in enumerate(series)]]
+    legend_x = 24
+    for label, color in legend:
+        parts.append(f'<rect x="{legend_x}" y="{legend_y - 10}" width="12" height="12" rx="2" fill="{color}"/>')
+        parts.append(f'<text class="subtle" x="{legend_x + 18}" y="{legend_y}">{escape_html(label)}</text>')
+        legend_x += min(230, 42 + len(label) * 7)
+
+    y = 36 + legend_height
+    for question, question_rows in rows_by_question.items():
+        first = question_rows[0]
+        question_text = str(first.get("question_text") or question)
+        if len(question_text) > 92:
+            question_text = question_text[:89] + "…"
+        parts.append(f'<text class="question" x="24" y="{y + 18}">{escape_html(question_text)}</text>')
+        parts.append(f'<text class="subtle" x="24" y="{y + 37}">{escape_html(question)} · weighted observed shares and model probabilities</text>')
+        chart_top = y + question_header
+        for tick in range(0, 101, 25):
+            x = left + plot_width * tick / 100
+            parts.append(f'<line class="grid" x1="{x:.1f}" y1="{chart_top - 18}" x2="{x:.1f}" y2="{chart_top + len(first["actual"]) * option_height}"/>')
+            parts.append(f'<text class="subtle" text-anchor="middle" x="{x:.1f}" y="{chart_top - 23}">{tick}%</text>')
+
+        for option_index, option in enumerate(first["actual"]):
+            row_y = chart_top + option_index * option_height
+            option_label = str(option)
+            if len(option_label) > 32:
+                option_label = option_label[:29] + "…"
+            parts.append(f'<text class="label" x="24" y="{row_y + 17}">{escape_html(option_label)}</text>')
+            parts.append(f'<rect class="track" x="{left}" y="{row_y + 3}" width="{plot_width}" height="20" rx="3"/>')
+            bar_count = len(question_rows) + 1
+            bar_height = max(3.0, 17 / bar_count)
+            values = [(float(first["actual"][option]), "#2563eb")]
+            values.extend(
+                (float(row["predicted"].get(option, 0.0)), colors[series.index(f"{row.get('service')}:{row['model']}" if row.get("service") else str(row["model"])) % len(colors)])
+                for row in question_rows
+            )
+            for bar_index, (value, color) in enumerate(values):
+                bar_y = row_y + 4 + bar_index * bar_height
+                bar_width = max(0.0, min(1.0, value)) * plot_width
+                parts.append(f'<rect x="{left}" y="{bar_y:.1f}" width="{bar_width:.1f}" height="{max(2.0, bar_height - 1):.1f}" rx="1.5" fill="{color}"/>')
+            parts.append(f'<text class="value" x="{width - 18}" text-anchor="end" y="{row_y + 17}">{first["actual"][option] * 100:.1f}%</text>')
+        y += question_header + len(first["actual"]) * option_height + question_gap
+
+    parts.append(f'<text class="subtle" x="24" y="{height - 18}">Generated by zwill · observed labels show the committed weighted survey share</text>')
+    parts.append("</svg>")
+    return "\n".join(parts)
+
+
 def render_probability_report_html(
     survey: str,
     rows: list[dict[str, Any]],

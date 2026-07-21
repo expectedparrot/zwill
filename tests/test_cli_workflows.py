@@ -2916,9 +2916,11 @@ def test_probability_results_import_and_reports(tmp_path: Path, monkeypatch) -> 
     json_path = tmp_path / "report.json"
     csv_path = tmp_path / "report.csv"
     html_path = tmp_path / "report.html"
+    svg_path = tmp_path / "report.svg"
     run_cli("prob-results", "report", "--survey", "demo", "--job-id", "job-demo", "--format", "json", "--path", str(json_path))
     run_cli("prob-results", "report", "--survey", "demo", "--job-id", "job-demo", "--format", "csv", "--path", str(csv_path))
     run_cli("prob-results", "report", "--survey", "demo", "--job-id", "job-demo", "--format", "html", "--path", str(html_path))
+    run_cli("prob-results", "report", "--survey", "demo", "--job-id", "job-demo", "--format", "svg", "--path", str(svg_path))
 
     report = json.loads(json_path.read_text())
     assert report["rows"][0]["kl_divergence"] >= 0
@@ -2927,6 +2929,7 @@ def test_probability_results_import_and_reports(tmp_path: Path, monkeypatch) -> 
     assert "perf-arrow" in html
     assert "report-data" in html
     assert "No generated one-shot analysis has been imported" in html
+    assert "Observed survey marginal vs. one-shot prediction" in svg_path.read_text()
 
     def fake_build_one_shot_job(args, report_context):
         assert report_context["report_kind"] == "frontier_generated_one_shot_marginal_analysis"
