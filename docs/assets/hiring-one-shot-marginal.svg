@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="350" viewBox="0 0 960 350" role="img" aria-labelledby="title desc">
+  <title id="title">Remote-work preference: observed survey marginal and illustrative one-shot prediction</title>
+  <desc id="desc">Horizontal bars compare the weighted answers from six example respondents with an illustrative model prediction.</desc>
+  <rect width="960" height="350" fill="#fff"/>
+  <style>text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;fill:#203229}.title{font:700 20px Georgia,serif}.question{font:700 15px Georgia,serif}.subtle{fill:#667069;font-size:11px}.label{font-size:12px}.value{font-size:11px}.grid{stroke:#dfe5e0}.track{fill:#eef2ef}</style>
+  <text class="title" x="24" y="31">Observed survey marginal vs. one-shot prediction</text>
+  <rect x="24" y="50" width="12" height="12" rx="2" fill="#2563eb"/><text class="subtle" x="42" y="61">Observed (weighted)</text>
+  <rect x="170" y="50" width="12" height="12" rx="2" fill="#428a5f"/><text class="subtle" x="188" y="61">Illustrative one-shot prediction</text>
+  <text class="question" x="24" y="99">How many days per week do you prefer to work remotely?</text>
+  <text class="subtle" x="24" y="119">remote_work · six-person teaching fixture</text>
+  <g>
+    <line class="grid" x1="270" y1="146" x2="270" y2="294"/><line class="grid" x1="420" y1="146" x2="420" y2="294"/><line class="grid" x1="570" y1="146" x2="570" y2="294"/><line class="grid" x1="720" y1="146" x2="720" y2="294"/><line class="grid" x1="870" y1="146" x2="870" y2="294"/>
+    <text class="subtle" text-anchor="middle" x="270" y="140">0%</text><text class="subtle" text-anchor="middle" x="420" y="140">25%</text><text class="subtle" text-anchor="middle" x="570" y="140">50%</text><text class="subtle" text-anchor="middle" x="720" y="140">75%</text><text class="subtle" text-anchor="middle" x="870" y="140">100%</text>
+  </g>
+  <g>
+    <text class="label" x="24" y="174">Never</text><rect class="track" x="270" y="157" width="600" height="25" rx="3"/><rect x="270" y="159" width="105" height="10" rx="2" fill="#2563eb"/><rect x="270" y="171" width="72" height="9" rx="2" fill="#428a5f"/><text class="value" x="924" text-anchor="end" y="174">17.5%</text>
+    <text class="label" x="24" y="211">One or two days</text><rect class="track" x="270" y="194" width="600" height="25" rx="3"/><rect x="270" y="196" width="152" height="10" rx="2" fill="#2563eb"/><rect x="270" y="208" width="168" height="9" rx="2" fill="#428a5f"/><text class="value" x="924" text-anchor="end" y="211">25.4%</text>
+    <text class="label" x="24" y="248">Three or four days</text><rect class="track" x="270" y="231" width="600" height="25" rx="3"/><rect x="270" y="233" width="252" height="10" rx="2" fill="#2563eb"/><rect x="270" y="245" width="258" height="9" rx="2" fill="#428a5f"/><text class="value" x="924" text-anchor="end" y="248">42.1%</text>
+    <text class="label" x="24" y="285">Five days</text><rect class="track" x="270" y="268" width="600" height="25" rx="3"/><rect x="270" y="270" width="90" height="10" rx="2" fill="#2563eb"/><rect x="270" y="282" width="102" height="9" rx="2" fill="#428a5f"/><text class="value" x="924" text-anchor="end" y="285">15.1%</text>
+  </g>
+  <text class="subtle" x="24" y="326">Blue labels show the committed weighted survey share; green probabilities are illustrative.</text>
+</svg>

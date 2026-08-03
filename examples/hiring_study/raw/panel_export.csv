@@ -1,0 +1,7 @@
+respondent_id,final_weight,sample_source,age_band,region,industry,remote_work,job_search_stage,pay_transparency
+r001,1.25,panel_a,25-34,northeast,technology,3-4,interviewing,essential
+r002,0.85,panel_b,35-44,south,healthcare,1-2,applied,very_important
+r003,1.10,panel_a,45-54,midwest,education,0,not_searching,moderately_important
+r004,0.95,panel_c,25-34,west,finance,5,offer,essential
+r005,1.40,panel_b,55-64,south,retail,3-4,browsing,very_important
+r006,0.75,panel_c,18-24,west,technology,1-2,applied,refused

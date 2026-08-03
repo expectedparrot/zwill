@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="430" viewBox="0 0 980 430" role="img">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<style>text{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;fill:#172033}.muted{fill:#5c667a}.grid{stroke:#e6e9ef;stroke-width:1}.bar{fill:#1f6feb}.bad{fill:#b42318}.chance{stroke:#188038;stroke-width:3;stroke-dasharray:6 5}.marker{stroke:#188038;stroke-width:3}.label{font-size:12px}.title{font-size:20px;font-weight:700}.small{font-size:12px}</style>
+<text class="title" x="58" y="28">Probability on actual answer vs empirical marginal oracle</text>
+<line class="grid" x1="58" x2="952" y1="348.0" y2="348.0"/>
+<text class="label muted" x="48" y="352.0" text-anchor="end">0</text>
+<line class="grid" x1="58" x2="952" y1="272.0" y2="272.0"/>
+<text class="label muted" x="48" y="276.0" text-anchor="end">10</text>
+<line class="grid" x1="58" x2="952" y1="196.0" y2="196.0"/>
+<text class="label muted" x="48" y="200.0" text-anchor="end">20</text>
+<line class="grid" x1="58" x2="952" y1="120.0" y2="120.0"/>
+<text class="label muted" x="48" y="124.0" text-anchor="end">30</text>
+<line class="grid" x1="58" x2="952" y1="44.0" y2="44.0"/>
+<text class="label muted" x="48" y="48.0" text-anchor="end">40</text>
+<rect class="bar" x="58.0" y="310.0" width="61.4" height="38.0" rx="2"/>
+<text class="label" x="88.7" y="305.0" text-anchor="middle">5</text>
+<text class="label muted" x="88.7" y="366.0" text-anchor="middle" transform="rotate(-35 88.7 366.0)">0-0.25x</text>
+<rect class="bar" x="127.4" y="249.2" width="61.4" height="98.8" rx="2"/>
+<text class="label" x="158.1" y="244.2" text-anchor="middle">13</text>
+<text class="label muted" x="158.1" y="366.0" text-anchor="middle" transform="rotate(-35 158.1 366.0)">0.25-0.5x</text>
+<rect class="bar" x="196.8" y="310.0" width="61.4" height="38.0" rx="2"/>
+<text class="label" x="227.5" y="305.0" text-anchor="middle">5</text>
+<text class="label muted" x="227.5" y="366.0" text-anchor="middle" transform="rotate(-35 227.5 366.0)">0.5-0.75x</text>
+<rect class="bar" x="266.2" y="234.0" width="61.4" height="114.0" rx="2"/>
+<text class="label" x="296.8" y="229.0" text-anchor="middle">15</text>
+<text class="label muted" x="296.8" y="366.0" text-anchor="middle" transform="rotate(-35 296.8 366.0)">0.75-1x</text>
+<rect class="bar" x="335.5" y="44.0" width="61.4" height="304.0" rx="2"/>
+<text class="label" x="366.2" y="39.0" text-anchor="middle">40</text>
+<text class="label muted" x="366.2" y="366.0" text-anchor="middle" transform="rotate(-35 366.2 366.0)">1-1.25x</text>
+<rect class="bar" x="404.9" y="173.2" width="61.4" height="174.8" rx="2"/>
+<text class="label" x="435.6" y="168.2" text-anchor="middle">23</text>
+<text class="label muted" x="435.6" y="366.0" text-anchor="middle" transform="rotate(-35 435.6 366.0)">1.25-1.5x</text>
+<rect class="bar" x="474.3" y="150.4" width="61.4" height="197.6" rx="2"/>
+<text class="label" x="505.0" y="145.4" text-anchor="middle">26</text>
+<text class="label muted" x="505.0" y="366.0" text-anchor="middle" transform="rotate(-35 505.0 366.0)">1.5-2x</text>
+<rect class="bar" x="543.7" y="173.2" width="61.4" height="174.8" rx="2"/>
+<text class="label" x="574.4" y="168.2" text-anchor="middle">23</text>
+<text class="label muted" x="574.4" y="366.0" text-anchor="middle" transform="rotate(-35 574.4 366.0)">2-3x</text>
+<rect class="bar" x="613.1" y="348.0" width="61.4" height="0.0" rx="2"/>
+<text class="label" x="643.8" y="343.0" text-anchor="middle">0</text>
+<text class="label muted" x="643.8" y="366.0" text-anchor="middle" transform="rotate(-35 643.8 366.0)">3-4x</text>
+<rect class="bar" x="682.5" y="348.0" width="61.4" height="0.0" rx="2"/>
+<text class="label" x="713.2" y="343.0" text-anchor="middle">0</text>
+<text class="label muted" x="713.2" y="366.0" text-anchor="middle" transform="rotate(-35 713.2 366.0)">4-5x</text>
+<rect class="bar" x="751.8" y="348.0" width="61.4" height="0.0" rx="2"/>
+<text class="label" x="782.5" y="343.0" text-anchor="middle">0</text>
+<text class="label muted" x="782.5" y="366.0" text-anchor="middle" transform="rotate(-35 782.5 366.0)">5-6x</text>
+<rect class="bar" x="821.2" y="348.0" width="61.4" height="0.0" rx="2"/>
+<text class="label" x="851.9" y="343.0" text-anchor="middle">0</text>
+<text class="label muted" x="851.9" y="366.0" text-anchor="middle" transform="rotate(-35 851.9 366.0)">6-8x</text>
+<rect class="bar" x="890.6" y="348.0" width="61.4" height="0.0" rx="2"/>
+<text class="label" x="921.3" y="343.0" text-anchor="middle">0</text>
+<text class="label muted" x="921.3" y="366.0" text-anchor="middle" transform="rotate(-35 921.3 366.0)">8x+</text>
+<line class="marker" x1="335.5" x2="335.5" y1="44" y2="348"/>
+<text class="small" x="341.5" y="60" fill="#188038">1x baseline</text>
+<text class="small muted" x="952" y="28" text-anchor="end">N=150 | mean lift=1.27x | median=1.25x | &gt;1x=75%</text>
+</svg>

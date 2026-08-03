@@ -1,0 +1,94 @@
+[project]
+name = "zwill"
+version = "0.1.0"
+description = "An open validation harness for survey digital twins: ingest survey microdata, build EDSL twin-prediction jobs for external execution, and score the results into validation evidence."
+requires-python = ">=3.10"
+classifiers = ["License :: OSI Approved :: MIT License"]
+dependencies = [
+    "python-dotenv>=1.0",
+    "PyYAML>=6.0",
+    "rich>=13.0",
+    "edsl>=1.0.8",
+    "openai>=1.0",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=8.0",
+]
+# Local, API-key-free embeddings for the conditional baseline (--embedder sentence-transformers).
+local-embeddings = [
+    "sentence-transformers>=2.2",
+]
+survey-formats = [
+    "pandas>=2.0",
+]
+# Everything needed to run the conditional baseline locally: the XGBoost model
+# plus local embeddings (no API key required).
+conditional-baseline = [
+    "xgboost>=2.0",
+    "scikit-learn>=1.3",
+    "sentence-transformers>=2.2",
+]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "xgboost>=2.0",
+    "scikit-learn>=1.3",
+]
+
+# edsl resolves from PyPI by default so `pip install zwill` works anywhere.
+# Contributors co-developing EDSL can point at a local checkout without editing
+# this file, e.g. `uv pip install -e ../edsl` (or `pip install -e ../edsl`) after
+# installing zwill.
+
+[project.scripts]
+zwill = "zwill.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["zwill*"]
+
+[tool.setuptools.package-data]
+zwill = [
+    "skills/*/SKILL.md",
+    "skills/*/agents/openai.yaml",
+    "assets/*.css",
+    "guides/*.md",
+    "examples/*/*.md",
+    "examples/*/*.json",
+    "examples/*/*.jsonl",
+]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+# Keep the lint policy stable across Ruff releases. Ruff 0.16 expanded its
+# defaults, so extending them implicitly enabled dozens of unrelated rules.
+select = ["E4", "E7", "E9", "F", "I"]
+# The codebase deliberately re-exports shared helpers via `from .cli import *`,
+# so star-import warnings are expected noise rather than real defects.
+ignore = ["F403", "F405"]
+
+[tool.ruff.lint.per-file-ignores]
+# cli.py is the shared hub: every command module does `from .cli import *`,
+# so cli.py imports many names purely to re-export them. Those look "unused"
+# to F401 but removing them breaks the re-export contract.
+"zwill/cli.py" = ["F401"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+# `from .cli import *` re-exports mean mypy sees every shared helper as a
+# redefinition; that noise is inherent to the architecture, not a defect.
+disable_error_code = ["no-redef"]
+# mypy is advisory here (run `mypy zwill`), not a hard gate: the remaining
+# findings are mostly dict/None-invariant false positives the checker cannot
+# prove. Tighten incrementally as modules gain annotations.
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

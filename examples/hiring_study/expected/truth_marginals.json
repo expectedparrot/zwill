@@ -1,0 +1,42 @@
+{
+  "survey": "hiring_study",
+  "respondent_count": 6,
+  "question_count": 5,
+  "answer_count": 30,
+  "marginals": {
+    "remote_work": {
+      "0": {"count": 1, "weighted_count": 1.1},
+      "1-2": {"count": 2, "weighted_count": 1.6},
+      "3-4": {"count": 2, "weighted_count": 2.65},
+      "5": {"count": 1, "weighted_count": 0.95}
+    },
+    "job_search_stage": {
+      "not_searching": {"count": 1, "weighted_count": 1.1},
+      "browsing": {"count": 1, "weighted_count": 1.4},
+      "applied": {"count": 2, "weighted_count": 1.6},
+      "interviewing": {"count": 1, "weighted_count": 1.25},
+      "offer": {"count": 1, "weighted_count": 0.95}
+    },
+    "pay_transparency": {
+      "not_important": {"count": 0, "weighted_count": 0.0},
+      "slightly_important": {"count": 0, "weighted_count": 0.0},
+      "moderately_important": {"count": 1, "weighted_count": 1.1},
+      "very_important": {"count": 2, "weighted_count": 2.25},
+      "essential": {"count": 2, "weighted_count": 2.2},
+      "__missing__": {"count": 1, "weighted_count": 0.75}
+    },
+    "region": {
+      "northeast": {"count": 1, "weighted_count": 1.25},
+      "midwest": {"count": 1, "weighted_count": 1.1},
+      "south": {"count": 2, "weighted_count": 2.25},
+      "west": {"count": 2, "weighted_count": 1.7}
+    },
+    "industry": {
+      "technology": {"count": 2, "weighted_count": 2.0},
+      "healthcare": {"count": 1, "weighted_count": 0.85},
+      "education": {"count": 1, "weighted_count": 1.1},
+      "finance": {"count": 1, "weighted_count": 0.95},
+      "retail": {"count": 1, "weighted_count": 1.4}
+    }
+  }
+}

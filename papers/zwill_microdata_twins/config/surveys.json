@@ -1,0 +1,35 @@
+{
+  "source_root": "../microdata_twins/data/computed_objects/normalized",
+  "sample_respondents": 200,
+  "seed": 20260730,
+  "heldout_count": 5,
+  "context_question_count": 8,
+  "models": ["openai:gpt-5.5"],
+  "surveys": [
+    "W132_SPIRESSENT1",
+    "W141_PROVIDER",
+    "W150_SMUSE",
+    "W152_HUMANVAI",
+    "W154_DIFF1",
+    "W157_SKILLIMP",
+    "W158_CCPOLICY",
+    "W163_SM9",
+    "ASIAN2022_23_ORIGINBATTERY",
+    "GALLUP_REMOTE_COVID_gallup_remote_covid",
+    "GALLUP_WELLBEING_gallup_wellbeing",
+    "DATAVERSE_478TLG_KOREA_MOBILITY_FAIRNESS",
+    "DATAVERSE_6RK7RD_BRAZIL_DIGITAL_CREDIT",
+    "DATAVERSE_DNZT11_DNZT11_VIGNETTE_OUTCOMES",
+    "DATAVERSE_IQ6EBZ_IQ6EBZ_2024_DEMOCRACY_NORMS"
+  ],
+  "excluded_surveys": [
+    {
+      "survey": "DATAVERSE_QHXQTH_QHXQTH_TRUST_CORRUPTION",
+      "reason": "No complete-case respondents in the normalized source."
+    },
+    {
+      "survey": "DATAVERSE_MHG3A9_LA_POLICE_STOP_EXPERIENCE",
+      "reason": "Only one complete-case respondent; respondent-level validation is not meaningful."
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+workdir/
+output/
+writeup/paper.aux
+writeup/paper.bbl
+writeup/paper.blg
+writeup/paper.log
+writeup/paper.out
+writeup/paper.pdf

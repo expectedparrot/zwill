@@ -1,0 +1,170 @@
+{
+  "source": {
+    "title": "Digital Information Provision and Behavior Change: Lessons from Six Experiments in East Africa",
+    "repository": "AEA Data and Code Repository / openICPSR",
+    "project": "E186241V1",
+    "doi": "10.3886/E186241V1",
+    "sample": "KALRO baseline survey"
+  },
+  "respondent_id": "a3_resp_id",
+  "weight_value": 1,
+  "covariates": [
+    {
+      "variable": "e1_resp_gender",
+      "name": "gender",
+      "labels": {
+        "1": "Female",
+        "2": "Male"
+      }
+    },
+    {
+      "variable": "e2_resp_age",
+      "name": "age"
+    },
+    {
+      "variable": "a4_county",
+      "name": "county"
+    },
+    {
+      "variable": "a5_subcounty",
+      "name": "subcounty"
+    }
+  ],
+  "batteries": [
+    {
+      "id": "kalro_input_awareness",
+      "context": "Pre-treatment KALRO baseline questions about awareness of agricultural inputs.",
+      "items": [
+        {
+          "variable": "f29_heard_of_npk",
+          "question_text": "Have you ever heard of NPK fertilizer?",
+          "options": {"0": "No", "1": "Yes"}
+        },
+        {
+          "variable": "f34_heard_of_dap",
+          "question_text": "Have you ever heard of DAP fertilizer?",
+          "options": {"0": "No", "1": "Yes"}
+        },
+        {
+          "variable": "f39_heard_of_can",
+          "question_text": "Have you ever heard of CAN fertilizer?",
+          "options": {"0": "No", "1": "Yes"}
+        },
+        {
+          "variable": "f44_heard_of_aglime",
+          "question_text": "Have you heard of agricultural lime?",
+          "options": {"0": "No", "1": "Yes"}
+        }
+      ]
+    },
+    {
+      "id": "kalro_input_use",
+      "context": "Pre-treatment KALRO baseline questions about prior use of agricultural inputs. A respondent who had not heard of an input skipped its use question; the authors' cleaning code treats that case as not having used it.",
+      "items": [
+        {
+          "variable": "f30_used_npk",
+          "question_text": "Have you ever used NPK fertilizer on your maize or any other crop?",
+          "options": {"0": "No", "1": "Yes"},
+          "recode": {"": "0", "0": "0", "1": "1"}
+        },
+        {
+          "variable": "f35_used_dap",
+          "question_text": "Have you ever used DAP fertilizer on your maize or any other crop?",
+          "options": {"0": "No", "1": "Yes"},
+          "recode": {"": "0", "0": "0", "1": "1"}
+        },
+        {
+          "variable": "f40_used_can",
+          "question_text": "Have you ever used CAN fertilizer on your maize or any other crop?",
+          "options": {"0": "No", "1": "Yes"},
+          "recode": {"": "0", "0": "0", "1": "1"}
+        },
+        {
+          "variable": "f45_used_aglime",
+          "question_text": "Have you ever used agricultural lime on your land?",
+          "options": {"0": "No", "1": "Yes"},
+          "recode": {"": "0", "0": "0", "1": "1"}
+        }
+      ]
+    },
+    {
+      "id": "kalro_farming_practices",
+      "context": "Pre-treatment KALRO baseline questions asking which farming practices respondents had ever used or tried. The authors' cleaning code treats skipped practice-use responses as not used.",
+      "question_stem": "Have you ever used or tried the following farming practice in the past?",
+      "items": [
+        {
+          "variable": "g10a_used_composting",
+          "question_text": "Composting",
+          "options": {"0": "No", "1": "Yes"},
+          "recode": {"": "0", "0": "0", "1": "1"}
+        },
+        {
+          "variable": "g10b_used_manure",
+          "question_text": "Use of farmyard manure",
+          "options": {"0": "No", "1": "Yes"},
+          "recode": {"": "0", "0": "0", "1": "1"}
+        },
+        {
+          "variable": "g10c_used_fertilizer",
+          "question_text": "Use of inorganic or chemical fertilizers",
+          "options": {"0": "No", "1": "Yes"},
+          "recode": {"": "0", "0": "0", "1": "1"}
+        },
+        {
+          "variable": "g10d_used_intercropping",
+          "question_text": "Intercropping",
+          "options": {"0": "No", "1": "Yes"},
+          "recode": {"": "0", "0": "0", "1": "1"}
+        },
+        {
+          "variable": "g10e_used_crop_rotation",
+          "question_text": "Crop rotation",
+          "options": {"0": "No", "1": "Yes"},
+          "recode": {"": "0", "0": "0", "1": "1"}
+        },
+        {
+          "variable": "g10f_used_rhizobia",
+          "question_text": "Use of rhizobia inoculant",
+          "options": {"0": "No", "1": "Yes"},
+          "recode": {"": "0", "0": "0", "1": "1"}
+        },
+        {
+          "variable": "g10g_used_improved_maize",
+          "question_text": "Use of improved maize seed",
+          "options": {"0": "No", "1": "Yes"},
+          "recode": {"": "0", "0": "0", "1": "1"}
+        },
+        {
+          "variable": "g10h_used_improved_legume",
+          "question_text": "Use of improved legume seed",
+          "options": {"0": "No", "1": "Yes"},
+          "recode": {"": "0", "0": "0", "1": "1"}
+        },
+        {
+          "variable": "g10i_used_control_disease",
+          "question_text": "Practices to control crop diseases",
+          "options": {"0": "No", "1": "Yes"},
+          "recode": {"": "0", "0": "0", "1": "1"}
+        },
+        {
+          "variable": "g10j_used_control_striga",
+          "question_text": "Practices to control striga weed",
+          "options": {"0": "No", "1": "Yes"},
+          "recode": {"": "0", "0": "0", "1": "1"}
+        },
+        {
+          "variable": "g10k_used_grain_storage",
+          "question_text": "Improved grain-storage practices",
+          "options": {"0": "No", "1": "Yes"},
+          "recode": {"": "0", "0": "0", "1": "1"}
+        },
+        {
+          "variable": "g10l_used_test_acid",
+          "question_text": "Testing soil for acidity",
+          "options": {"0": "No", "1": "Yes"},
+          "recode": {"": "0", "0": "0", "1": "1"}
+        }
+      ]
+    }
+  ]
+}

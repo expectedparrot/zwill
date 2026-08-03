@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "design": {
+    "sample_respondents": 200,
+    "seed": 20260730,
+    "context_question_count": 8,
+    "approach_id": "battery_context",
+    "models": ["openai:gpt-5.5"],
+    "primary_metric": "nll_vs_empirical"
+  },
+  "surveys": [
+    {
+      "survey": "gss2024_confidence_in_institutions",
+      "source_id": "GSS2024_CONFIDENCE_IN_INSTITUTIONS",
+      "heldout_questions": [
+        "gss2024_confidence_in_institutions_confinan", "gss2024_confidence_in_institutions_conbus",
+        "gss2024_confidence_in_institutions_conclerg", "gss2024_confidence_in_institutions_coneduc",
+        "gss2024_confidence_in_institutions_confed", "gss2024_confidence_in_institutions_conpress",
+        "gss2024_confidence_in_institutions_conmedic", "gss2024_confidence_in_institutions_contv",
+        "gss2024_confidence_in_institutions_conjudge", "gss2024_confidence_in_institutions_consci",
+        "gss2024_confidence_in_institutions_conlegis", "gss2024_confidence_in_institutions_conarmy"
+      ]
+    },
+    {
+      "survey": "gss2024_socializing_frequency",
+      "source_id": "GSS2024_SOCIALIZING_FREQUENCY",
+      "heldout_questions": [
+        "gss2024_socializing_frequency_socrel", "gss2024_socializing_frequency_socommun",
+        "gss2024_socializing_frequency_socfrend", "gss2024_socializing_frequency_socbar"
+      ]
+    },
+    {
+      "survey": "gss2024_abortion_circumstances_standard_form",
+      "source_id": "GSS2024_ABORTION_CIRCUMSTANCES_STANDARD_FORM",
+      "heldout_questions": [
+        "gss2024_abortion_circumstances_standard_form_abdefect",
+        "gss2024_abortion_circumstances_standard_form_abnomore",
+        "gss2024_abortion_circumstances_standard_form_abhlth",
+        "gss2024_abortion_circumstances_standard_form_abpoor",
+        "gss2024_abortion_circumstances_standard_form_abrape",
+        "gss2024_abortion_circumstances_standard_form_absingle",
+        "gss2024_abortion_circumstances_standard_form_abany"
+      ]
+    },
+    {
+      "survey": "gss2024_government_responsibility",
+      "source_id": "GSS2024_GOVERNMENT_RESPONSIBILITY",
+      "heldout_questions": [
+        "gss2024_government_responsibility_helppoor", "gss2024_government_responsibility_helpnot",
+        "gss2024_government_responsibility_helpsick", "gss2024_government_responsibility_helpblk"
+      ]
+    },
+    {
+      "survey": "gss2024_national_spending_standard_form",
+      "source_id": "GSS2024_NATIONAL_SPENDING_STANDARD_FORM",
+      "heldout_questions": [
+        "gss2024_national_spending_standard_form_natspac", "gss2024_national_spending_standard_form_natenvir",
+        "gss2024_national_spending_standard_form_natheal", "gss2024_national_spending_standard_form_natcity",
+        "gss2024_national_spending_standard_form_natcrime", "gss2024_national_spending_standard_form_natdrug",
+        "gss2024_national_spending_standard_form_nateduc", "gss2024_national_spending_standard_form_natrace",
+        "gss2024_national_spending_standard_form_natarms", "gss2024_national_spending_standard_form_nataid",
+        "gss2024_national_spending_standard_form_natfare"
+      ]
+    }
+  ],
+  "result_paths": ["results/gss2024_eligible200/**/*_results.ep"]
+}

@@ -1,0 +1,11 @@
+{
+  "F_GENDER": {"name": "gender", "labels": {"1": "A man", "2": "A woman", "3": "In some other way"}},
+  "F_AGECAT": {"name": "age", "labels": {"1": "18-29", "2": "30-49", "3": "50-64", "4": "65+"}},
+  "F_EDUCCAT2": {"name": "education", "labels": {"1": "Less than high school", "2": "High school graduate", "3": "Some college, no degree", "4": "Associate's degree", "5": "Bachelor's degree", "6": "Postgraduate degree"}},
+  "F_RACETHNMOD": {"name": "race_ethnicity", "labels": {"1": "White, non-Hispanic", "2": "Black, non-Hispanic", "3": "Hispanic", "4": "Other", "5": "Asian, non-Hispanic"}},
+  "F_PARTYSUMIDEO_FINAL": {"name": "party_and_ideology", "labels": {"1": "Conservative Republican", "2": "Moderate/Liberal Republican", "3": "Conservative/Moderate Democrat", "4": "Liberal Democrat", "9": "Other / no lean"}},
+  "F_IDEO": {"name": "ideology", "labels": {"1": "Very conservative", "2": "Conservative", "3": "Moderate", "4": "Liberal", "5": "Very liberal"}},
+  "F_INC_TIER2": {"name": "income_tier", "labels": {"1": "Lower income", "2": "Middle income", "3": "Upper income"}},
+  "F_CREGION": {"name": "census_region", "labels": {"1": "Northeast", "2": "Midwest", "3": "South", "4": "West"}},
+  "F_METRO": {"name": "metro_status", "labels": {"1": "Metropolitan", "2": "Non-metropolitan"}}
+}

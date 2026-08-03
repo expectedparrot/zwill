@@ -1,0 +1,51 @@
+{
+  "run_date": "2026-07-30",
+  "survey": "pew_w158",
+  "heldout_question": "carbon_tax",
+  "respondents": 100,
+  "model": "openai:gpt-5.5",
+  "artifact_root": "docs/assets/pew-w158-real-run",
+  "one_shot": {
+    "job_id": "a4399bc71f1b07e7",
+    "observed_weighted": {"Favor": 0.6076198918992962, "Oppose": 0.3923801081007038},
+    "predicted": {"Favor": 0.72, "Oppose": 0.28},
+    "mae": 0.11238010810070376,
+    "cost_usd": 0.0145
+  },
+  "twin_run": {
+    "job_id": "1987d27fa67ff8d5",
+    "completed_interviews": 100,
+    "extracted_predictions": 100,
+    "import_issues": 0,
+    "cost_usd": 1.0067,
+    "metrics": {
+      "probability_actual": 0.6834508953777989,
+      "negative_log_likelihood": 0.5191611900044087,
+      "brier": 0.3389881290638716,
+      "top1_accuracy": 0.7310933136807538,
+      "expected_calibration_error": 0.07789999999999993
+    }
+  },
+  "conditional_baseline": {
+    "job_id": "baseline_9500a89a78e2b4",
+    "model_label": "baseline:conditional-embedding",
+    "model_type": "xgboost",
+    "embedding_model": "text-embedding-3-small",
+    "prediction_rows": 100,
+    "metrics": {
+      "probability_actual": 0.668786421554609,
+      "negative_log_likelihood": 0.7188362770108312,
+      "brier": 0.42827765123019834,
+      "top1_accuracy": 0.7642461961517897
+    }
+  },
+  "paired_twin_minus_xgboost": {
+    "bootstrap_resamples": 2000,
+    "confidence_level": 0.95,
+    "probability_actual": {"delta": 0.014664473823189583, "lo": -0.03825630229966375, "hi": 0.07220071402334251},
+    "negative_log_likelihood": {"delta": -0.19967508700642222, "lo": -0.3907907594578764, "hi": -0.03412954451412408},
+    "brier": {"delta": -0.08928952216632668, "lo": -0.18968078917154652, "hi": 0.004570218474039904},
+    "top1_correct": {"delta": -0.03315288247103565, "lo": -0.16320339636069367, "hi": 0.08994600077646701}
+  },
+  "leakage_audit": {"pair_count": 5, "flagged_count": 0}
+}

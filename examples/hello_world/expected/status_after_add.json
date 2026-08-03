@@ -1,0 +1,12 @@
+{
+  "survey": {
+    "name": "hello_world",
+    "status": "draft",
+    "raw_files": 1,
+    "questions": 1,
+    "respondents": 5,
+    "answers": 5,
+    "open_quarantine_issues": 0,
+    "committed": false
+  }
+}

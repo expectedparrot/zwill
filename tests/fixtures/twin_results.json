@@ -1,0 +1,44 @@
+{
+  "edsl_class_name": "Results",
+  "zwill": {
+    "digital_twin_job_id": "fixture-twin"
+  },
+  "data": [
+    {
+      "scenario": {
+        "respondent_id": "r1",
+        "heldout_question_name": "q1",
+        "heldout_question_text": "Pick one",
+        "heldout_options": ["yes", "no"],
+        "actual_answer": "yes",
+        "observed_answers": []
+      },
+      "model": {
+        "model": "gpt-5.5",
+        "inference_service": "openai",
+        "parameters": {}
+      },
+      "answer": {
+        "response_probabilities": "{\"probabilities\":[0.8,0.2],\"notes\":\"correct\"}"
+      }
+    },
+    {
+      "scenario": {
+        "respondent_id": "r2",
+        "heldout_question_name": "q1",
+        "heldout_question_text": "Pick one",
+        "heldout_options": ["yes", "no"],
+        "actual_answer": "no",
+        "observed_answers": []
+      },
+      "model": {
+        "model": "gpt-5.5",
+        "inference_service": "google",
+        "parameters": {}
+      },
+      "answer": {
+        "response_probabilities": "```json\n{\"probabilities\":[0.7,0.3],\"notes\":\"wrong\"}\n```"
+      }
+    }
+  ]
+}

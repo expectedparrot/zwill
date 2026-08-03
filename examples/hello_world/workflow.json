@@ -1,0 +1,49 @@
+{
+  "name": "hello-world-survey",
+  "description": "Build the hello-world survey through declarative workflow steps.",
+  "vars": {
+    "survey": "hello_world_workflow",
+    "workdir": "examples/hello_world/workdir/declarative_workflow"
+  },
+  "steps": [
+    {
+      "id": "prepare-workdir",
+      "run": "mkdir -p {{ workdir }}"
+    },
+    {
+      "id": "init",
+      "run": "zwill init",
+      "cwd": "{{ workdir }}"
+    },
+    {
+      "id": "create-survey",
+      "run": "zwill survey create --name {{ survey }}",
+      "cwd": "{{ workdir }}"
+    },
+    {
+      "id": "add-question",
+      "run": "zwill question add --survey {{ survey }} --question-name favorite_color --question-type multiple_choice --question-text \"Which color do you like best?\" --question-option red --question-option blue --question-option green",
+      "cwd": "{{ workdir }}"
+    },
+    {
+      "id": "add-respondents",
+      "run": "zwill respondent add --survey {{ survey }} --respondent-id r001 && zwill respondent add --survey {{ survey }} --respondent-id r002 && zwill respondent add --survey {{ survey }} --respondent-id r003 && zwill respondent add --survey {{ survey }} --respondent-id r004 && zwill respondent add --survey {{ survey }} --respondent-id r005",
+      "cwd": "{{ workdir }}"
+    },
+    {
+      "id": "add-answers",
+      "run": "zwill answer add --survey {{ survey }} --respondent-id r001 --question favorite_color --answer red && zwill answer add --survey {{ survey }} --respondent-id r002 --question favorite_color --answer blue && zwill answer add --survey {{ survey }} --respondent-id r003 --question favorite_color --answer green && zwill answer add --survey {{ survey }} --respondent-id r004 --question favorite_color --answer blue && zwill answer add --survey {{ survey }} --respondent-id r005 --question favorite_color --answer red",
+      "cwd": "{{ workdir }}"
+    },
+    {
+      "id": "commit",
+      "run": "zwill commit --survey {{ survey }}",
+      "cwd": "{{ workdir }}"
+    },
+    {
+      "id": "table",
+      "run": "zwill table --survey {{ survey }}",
+      "cwd": "{{ workdir }}"
+    }
+  ]
+}

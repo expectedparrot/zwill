@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "design": {
+    "sample_respondents": 200,
+    "seed": 20260730,
+    "context_question_count": 8,
+    "approach_id": "battery_context",
+    "models": ["openai:gpt-5.5"],
+    "primary_metric": "nll_vs_empirical"
+  },
+  "surveys": [
+    {
+      "survey": "kalro_input_awareness",
+      "source_id": "OPENICPSR_186241_KALRO_INPUT_AWARENESS",
+      "heldout_questions": [
+        "f29_heard_of_npk", "f34_heard_of_dap", "f39_heard_of_can", "f44_heard_of_aglime"
+      ]
+    },
+    {
+      "survey": "kalro_input_use",
+      "source_id": "OPENICPSR_186241_KALRO_INPUT_USE",
+      "heldout_questions": [
+        "f30_used_npk", "f35_used_dap", "f40_used_can", "f45_used_aglime"
+      ]
+    },
+    {
+      "survey": "kalro_farming_practices",
+      "source_id": "OPENICPSR_186241_KALRO_FARMING_PRACTICES",
+      "heldout_questions": [
+        "g10a_used_composting", "g10b_used_manure", "g10c_used_fertilizer",
+        "g10d_used_intercropping", "g10e_used_crop_rotation", "g10f_used_rhizobia",
+        "g10g_used_improved_maize", "g10h_used_improved_legume",
+        "g10i_used_control_disease", "g10j_used_control_striga",
+        "g10k_used_grain_storage", "g10l_used_test_acid"
+      ]
+    }
+  ],
+  "result_paths": ["results/openicpsr_186241/full/**/*_results.ep"]
+}

@@ -1,0 +1,100 @@
+{
+  "source": {
+    "title": "2024 General Social Survey Cross-section",
+    "publisher": "NORC at the University of Chicago",
+    "release": "3a, July 2026",
+    "url": "https://gss.norc.org/content/dam/gss/get-the-data/documents/stata/2024_stata.zip",
+    "codebook": "GSS 2024 Codebook R3a.pdf"
+  },
+  "respondent_id": "id",
+  "weight": "wtssps",
+  "stata_missing_min": 2147483620,
+  "covariates": [
+    {"variable": "age", "name": "Age", "use_value_labels": false},
+    {"variable": "sex", "name": "Sex"},
+    {"variable": "race", "name": "Race"},
+    {"variable": "degree", "name": "Highest degree"},
+    {"variable": "marital", "name": "Marital status"},
+    {"variable": "partyid", "name": "Party identification"},
+    {"variable": "polviews", "name": "Political views"},
+    {"variable": "class", "name": "Subjective social class"},
+    {"variable": "attend", "name": "Religious-service attendance"},
+    {"variable": "ballot", "name": "GSS ballot"},
+    {"variable": "form", "name": "GSS form"},
+    {"variable": "mode", "name": "Interview mode"}
+  ],
+  "batteries": [
+    {
+      "id": "GSS2024_CONFIDENCE_IN_INSTITUTIONS",
+      "context": "Confidence in the people running major American institutions. CONLABOR is excluded because 2024 used a form-specific wording experiment.",
+      "question_stem": "As far as the people running this institution are concerned, would you say you have a great deal of confidence, only some confidence, or hardly any confidence at all in them?",
+      "items": [
+        {"variable": "confinan", "question_text": "Banks and financial institutions."},
+        {"variable": "conbus", "question_text": "Confidence in the people running major companies."},
+        {"variable": "conclerg", "question_text": "Confidence in the people running organized religion."},
+        {"variable": "coneduc", "question_text": "Confidence in the people running education."},
+        {"variable": "confed", "question_text": "Confidence in the people running the executive branch of the federal government."},
+        {"variable": "conpress", "question_text": "Confidence in the people running the press."},
+        {"variable": "conmedic", "question_text": "Confidence in the people running medicine."},
+        {"variable": "contv", "question_text": "Confidence in the people running television."},
+        {"variable": "conjudge", "question_text": "Confidence in the people running the U.S. Supreme Court."},
+        {"variable": "consci", "question_text": "Confidence in the people running the scientific community."},
+        {"variable": "conlegis", "question_text": "Confidence in the people running Congress."},
+        {"variable": "conarmy", "question_text": "Confidence in the people running the military."}
+      ]
+    },
+    {
+      "id": "GSS2024_SOCIALIZING_FREQUENCY",
+      "context": "Four questions sharing a seven-category frequency scale.",
+      "question_stem": "For each of the next four questions, please select the answer that comes closest to how often you do the following things.",
+      "items": [
+        {"variable": "socrel", "question_text": "How often do you spend a social evening with relatives?"},
+        {"variable": "socommun", "question_text": "How often do you spend a social evening with someone who lives in your neighborhood?"},
+        {"variable": "socfrend", "question_text": "How often do you spend a social evening with friends who live outside the neighborhood?"},
+        {"variable": "socbar", "question_text": "How often do you go to a bar or tavern?"}
+      ]
+    },
+    {
+      "id": "GSS2024_ABORTION_CIRCUMSTANCES_STANDARD_FORM",
+      "context": "Standard, non-grid abortion items. Grid-form variants are excluded to avoid mixing experimental presentation conditions.",
+      "question_stem": "Please tell me whether or not you think it should be possible for a pregnant woman to obtain a legal abortion if...",
+      "items": [
+        {"variable": "abdefect", "question_text": "There is a strong chance of serious defect in the baby?"},
+        {"variable": "abnomore", "question_text": "She is married and does not want any more children?"},
+        {"variable": "abhlth", "question_text": "The woman's own health is seriously endangered by the pregnancy?"},
+        {"variable": "abpoor", "question_text": "The family has a very low income and cannot afford any more children?"},
+        {"variable": "abrape", "question_text": "She becomes pregnant as a result of rape?"},
+        {"variable": "absingle", "question_text": "She is not married and does not want to marry the man?"},
+        {"variable": "abany", "question_text": "The woman wants it for any reason?"}
+      ]
+    },
+    {
+      "id": "GSS2024_GOVERNMENT_RESPONSIBILITY",
+      "context": "Five-point scales contrasting government action with individual responsibility or limited government.",
+      "items": [
+        {"variable": "helppoor", "question_text": "Should the government in Washington do everything possible to improve the standard of living of all poor Americans, or should people take care of themselves?", "options": {"1": "Government should help", "2": "2 — closer to government help", "3": "Agree with both", "4": "4 — closer to individual responsibility", "5": "People should care for themselves"}},
+        {"variable": "helpnot", "question_text": "Should the government in Washington do more to solve the country's problems, or is it trying to do too many things that should be left to individuals and private businesses?", "options": {"1": "Government should do more", "2": "2 — closer to government doing more", "3": "Agree with both", "4": "4 — closer to government doing less", "5": "Government does too much"}},
+        {"variable": "helpsick", "question_text": "Should the government in Washington help people pay for doctors and hospital bills, or should people take care of these matters themselves?", "options": {"1": "Government should help", "2": "2 — closer to government help", "3": "Agree with both", "4": "4 — closer to individual responsibility", "5": "People should care for themselves"}},
+        {"variable": "helpblk", "question_text": "Does the government have a special obligation to help improve Black people's living standards because of long-standing discrimination, or should there be no special treatment?", "options": {"1": "Government should help", "2": "2 — closer to government help", "3": "Agree with both", "4": "4 — closer to no special treatment", "5": "No special treatment"}}
+      ]
+    },
+    {
+      "id": "GSS2024_NATIONAL_SPENDING_STANDARD_FORM",
+      "context": "Standard-form national spending priorities. Alternate Y-wording variables are excluded.",
+      "question_stem": "We are faced with many problems in this country, none of which can be solved easily or inexpensively. Are we spending too much, too little, or about the right amount on...",
+      "items": [
+        {"variable": "natspac", "question_text": "The space exploration program?"},
+        {"variable": "natenvir", "question_text": "Improving and protecting the environment?"},
+        {"variable": "natheal", "question_text": "Improving and protecting the nation's health?"},
+        {"variable": "natcity", "question_text": "Solving the problems of the big cities?"},
+        {"variable": "natcrime", "question_text": "Halting the rising crime rate?"},
+        {"variable": "natdrug", "question_text": "Dealing with drug addiction?"},
+        {"variable": "nateduc", "question_text": "Improving the nation's education system?"},
+        {"variable": "natrace", "question_text": "Improving the conditions of Black people?"},
+        {"variable": "natarms", "question_text": "The military, armaments, and defense?"},
+        {"variable": "nataid", "question_text": "Foreign aid?"},
+        {"variable": "natfare", "question_text": "Welfare?"}
+      ]
+    }
+  ]
+}

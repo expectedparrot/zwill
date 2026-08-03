@@ -1,0 +1,1668 @@
+{
+  "schema_version": 2,
+  "survey": "pew_w158",
+  "design": {
+    "heldout_questions": [
+      "carbon_tax"
+    ],
+    "respondent_count": 100,
+    "twin_job_ids": [
+      "1987d27fa67ff8d5"
+    ],
+    "baseline_job_id": "baseline_9500a89a78e2b4",
+    "arms": [
+      "baseline:conditional-embedding",
+      "openai:gpt-5.5"
+    ]
+  },
+  "skill_scores": {
+    "openai:gpt-5.5": {
+      "questions": {
+        "carbon_tax": {
+          "n": 100,
+          "mean_nll": 0.5191611900044087,
+          "median_nll": 0.16258813843968073,
+          "mean_brier": 0.3389881290638716,
+          "accuracy": 0.7310933136807538,
+          "nll_skill_vs_uniform": 0.25100872575862676,
+          "brier_skill_vs_uniform": 0.3220237418722568,
+          "nll_skill_vs_marginal": 0.22490215252365142,
+          "brier_skill_vs_marginal": 0.2890885177571797
+        }
+      },
+      "macro": {
+        "mean_nll": 0.5191611900044087,
+        "median_nll": 0.16258813843968073,
+        "mean_brier": 0.3389881290638716,
+        "accuracy": 0.7310933136807538,
+        "nll_skill_vs_uniform": 0.25100872575862676,
+        "nll_skill_vs_marginal": 0.22490215252365142,
+        "brier_skill_vs_uniform": 0.3220237418722568,
+        "brier_skill_vs_marginal": 0.2890885177571797,
+        "questions": 1
+      }
+    },
+    "baseline:conditional-embedding": {
+      "questions": {
+        "carbon_tax": {
+          "n": 100,
+          "mean_nll": 0.7188362770108312,
+          "median_nll": 0.059891664440301036,
+          "mean_brier": 0.42827765123019834,
+          "accuracy": 0.7642461961517897,
+          "nll_skill_vs_uniform": -0.03706153205461127,
+          "brier_skill_vs_uniform": 0.14344469753960332,
+          "nll_skill_vs_marginal": -0.07320897965095585,
+          "brier_skill_vs_marginal": 0.10183433063472658
+        }
+      },
+      "macro": {
+        "mean_nll": 0.7188362770108312,
+        "median_nll": 0.059891664440301036,
+        "mean_brier": 0.42827765123019834,
+        "accuracy": 0.7642461961517897,
+        "nll_skill_vs_uniform": -0.03706153205461127,
+        "nll_skill_vs_marginal": -0.07320897965095585,
+        "brier_skill_vs_uniform": 0.14344469753960332,
+        "brier_skill_vs_marginal": 0.10183433063472658,
+        "questions": 1
+      }
+    }
+  },
+  "bootstrap": {
+    "n_boot": 2000,
+    "ci": 0.95,
+    "seed": 42,
+    "metrics": [
+      "probability_actual",
+      "negative_log_likelihood",
+      "brier",
+      "top1_correct"
+    ],
+    "models": {
+      "baseline:conditional-embedding": {
+        "questions": {
+          "carbon_tax": {
+            "probability_actual": {
+              "mean": 0.668786421554609,
+              "lo": 0.5714977261530728,
+              "hi": 0.7559889692428899,
+              "n": 100
+            },
+            "negative_log_likelihood": {
+              "mean": 0.7188362770108309,
+              "lo": 0.44606866590076183,
+              "hi": 1.0447527724227863,
+              "n": 100
+            },
+            "brier": {
+              "mean": 0.42827765123019823,
+              "lo": 0.26927134414733045,
+              "hi": 0.6239486129884518,
+              "n": 100
+            },
+            "top1_correct": {
+              "mean": 0.7642461961517892,
+              "lo": 0.6353189582202662,
+              "hi": 0.8737742583798837,
+              "n": 100
+            }
+          }
+        },
+        "macro": {
+          "probability_actual": {
+            "mean": 0.668786421554609,
+            "lo": 0.5714977261530728,
+            "hi": 0.7559889692428899,
+            "questions": 1
+          },
+          "negative_log_likelihood": {
+            "mean": 0.7188362770108309,
+            "lo": 0.44606866590076183,
+            "hi": 1.0447527724227863,
+            "questions": 1
+          },
+          "brier": {
+            "mean": 0.42827765123019823,
+            "lo": 0.26927134414733045,
+            "hi": 0.6239486129884518,
+            "questions": 1
+          },
+          "top1_correct": {
+            "mean": 0.7642461961517892,
+            "lo": 0.6353189582202662,
+            "hi": 0.8737742583798837,
+            "questions": 1
+          }
+        }
+      },
+      "openai:gpt-5.5": {
+        "questions": {
+          "carbon_tax": {
+            "probability_actual": {
+              "mean": 0.6834508953777986,
+              "lo": 0.5965775778659793,
+              "hi": 0.7598552902441239,
+              "n": 100
+            },
+            "negative_log_likelihood": {
+              "mean": 0.5191611900044086,
+              "lo": 0.33820428949143694,
+              "hi": 0.7559050037986125,
+              "n": 100
+            },
+            "brier": {
+              "mean": 0.33898812906387155,
+              "lo": 0.1992480113701509,
+              "hi": 0.5142461709974594,
+              "n": 100
+            },
+            "top1_correct": {
+              "mean": 0.7310933136807536,
+              "lo": 0.5965711862205499,
+              "hi": 0.856913406067378,
+              "n": 100
+            }
+          }
+        },
+        "macro": {
+          "probability_actual": {
+            "mean": 0.6834508953777986,
+            "lo": 0.5965775778659793,
+            "hi": 0.7598552902441239,
+            "questions": 1
+          },
+          "negative_log_likelihood": {
+            "mean": 0.5191611900044086,
+            "lo": 0.33820428949143694,
+            "hi": 0.7559050037986125,
+            "questions": 1
+          },
+          "brier": {
+            "mean": 0.33898812906387155,
+            "lo": 0.1992480113701509,
+            "hi": 0.5142461709974594,
+            "questions": 1
+          },
+          "top1_correct": {
+            "mean": 0.7310933136807536,
+            "lo": 0.5965711862205499,
+            "hi": 0.856913406067378,
+            "questions": 1
+          }
+        }
+      }
+    },
+    "deltas_vs_baseline": {
+      "baseline_model": "baseline:conditional-embedding",
+      "models": {
+        "openai:gpt-5.5": {
+          "questions": {
+            "carbon_tax": {
+              "probability_actual": {
+                "delta": 0.014664473823189583,
+                "lo": -0.03825630229966375,
+                "hi": 0.07220071402334251,
+                "model_mean": 0.6834508953777986,
+                "baseline_mean": 0.668786421554609,
+                "n_shared": 100
+              },
+              "negative_log_likelihood": {
+                "delta": -0.19967508700642222,
+                "lo": -0.3907907594578764,
+                "hi": -0.03412954451412408,
+                "model_mean": 0.5191611900044086,
+                "baseline_mean": 0.7188362770108309,
+                "n_shared": 100
+              },
+              "brier": {
+                "delta": -0.08928952216632668,
+                "lo": -0.18968078917154652,
+                "hi": 0.004570218474039904,
+                "model_mean": 0.33898812906387155,
+                "baseline_mean": 0.42827765123019823,
+                "n_shared": 100
+              },
+              "top1_correct": {
+                "delta": -0.03315288247103565,
+                "lo": -0.16320339636069367,
+                "hi": 0.08994600077646701,
+                "model_mean": 0.7310933136807536,
+                "baseline_mean": 0.7642461961517892,
+                "n_shared": 100
+              }
+            }
+          },
+          "macro": {
+            "probability_actual": {
+              "delta": 0.014664473823189583,
+              "lo": -0.03825630229966375,
+              "hi": 0.07220071402334251,
+              "questions": 1
+            },
+            "negative_log_likelihood": {
+              "delta": -0.19967508700642222,
+              "lo": -0.3907907594578764,
+              "hi": -0.03412954451412408,
+              "questions": 1
+            },
+            "brier": {
+              "delta": -0.08928952216632668,
+              "lo": -0.18968078917154652,
+              "hi": 0.004570218474039904,
+              "questions": 1
+            },
+            "top1_correct": {
+              "delta": -0.03315288247103565,
+              "lo": -0.16320339636069367,
+              "hi": 0.08994600077646701,
+              "questions": 1
+            }
+          }
+        }
+      }
+    }
+  },
+  "leakage": {
+    "path": "zwill_work/report_out/validation/leakage_audit.json",
+    "pair_count": 5,
+    "flagged_count": 0,
+    "flagged": []
+  },
+  "baseline_diagnostics": {
+    "model": "xgboost_conditional_embedding",
+    "model_label": "baseline:conditional-embedding",
+    "embedding_model": "text-embedding-3-small",
+    "features": "question-text embedding; option-text embedding; respondent one-hot covariates; two embedding-similarity scalars from the respondent's other-answer profile (pair and option), excluding the target question; option index",
+    "training": "leave-one-question-out (each target trained only on the other questions' rows; the target question's answers and marginal never enter training)",
+    "hyperparameters": {
+      "n_estimators": 300,
+      "max_depth": 6,
+      "learning_rate": 0.1,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "reg_lambda": 1.0,
+      "tree_method": "hist",
+      "eval_metric": "logloss"
+    },
+    "training_rows_by_question": {},
+    "per_question": {
+      "carbon_tax": {
+        "nll_skill_vs_uniform": -0.03706153205461127,
+        "nll_skill_vs_marginal": -0.07320897965095585,
+        "mean_nll": 0.7188362770108312,
+        "accuracy": 0.7642461961517897
+      }
+    }
+  },
+  "marginals": [
+    {
+      "heldout_question": "carbon_tax",
+      "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+      "model_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding",
+      "job_id": "baseline_9500a89a78e2b4",
+      "respondent_count": 100,
+      "predicted_top_option": "Favor",
+      "predicted_top_probability": 0.7837802009543771,
+      "target_top_option": "Favor",
+      "target_top_probability": 0.6076198918992962,
+      "top_option_agrees": 1,
+      "l1": 0.3523206181101616,
+      "mae": 0.1761603090550808,
+      "brier": 0.06206490897276316,
+      "kl_target_to_predicted": 0.07914592228266021,
+      "kl_predicted_to_target": 0.07068100510116954,
+      "js_divergence": 0.01852248025790315
+    },
+    {
+      "heldout_question": "carbon_tax",
+      "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+      "model_label": "1987d27fa67ff8d5 / openai:gpt-5.5",
+      "job_id": "1987d27fa67ff8d5",
+      "respondent_count": 100,
+      "predicted_top_option": "Favor",
+      "predicted_top_probability": 0.6026999999999998,
+      "target_top_option": "Favor",
+      "target_top_probability": 0.6076198918992962,
+      "top_option_agrees": 1,
+      "l1": 0.00983978379859296,
+      "mae": 0.00491989189929648,
+      "brier": 4.841067260152625e-05,
+      "kl_target_to_predicted": 5.06151484641771e-05,
+      "kl_predicted_to_target": 5.0688266993254884e-05,
+      "js_divergence": 1.2662863586837764e-05
+    }
+  ],
+  "marginal_options": [
+    {
+      "heldout_question": "carbon_tax",
+      "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+      "model_label": "1987d27fa67ff8d5 / openai:gpt-5.5",
+      "job_id": "1987d27fa67ff8d5",
+      "option_label": "Favor",
+      "predicted_probability": 0.6026999999999998,
+      "target_probability": 0.6076198918992962,
+      "difference": -0.004919891899296425,
+      "abs_difference": 0.004919891899296425
+    },
+    {
+      "heldout_question": "carbon_tax",
+      "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+      "model_label": "1987d27fa67ff8d5 / openai:gpt-5.5",
+      "job_id": "1987d27fa67ff8d5",
+      "option_label": "Oppose",
+      "predicted_probability": 0.3973000000000003,
+      "target_probability": 0.3923801081007038,
+      "difference": 0.004919891899296536,
+      "abs_difference": 0.004919891899296536
+    },
+    {
+      "heldout_question": "carbon_tax",
+      "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+      "model_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding",
+      "job_id": "baseline_9500a89a78e2b4",
+      "option_label": "Favor",
+      "predicted_probability": 0.7837802009543771,
+      "target_probability": 0.6076198918992962,
+      "difference": 0.17616030905508084,
+      "abs_difference": 0.17616030905508084
+    },
+    {
+      "heldout_question": "carbon_tax",
+      "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+      "model_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding",
+      "job_id": "baseline_9500a89a78e2b4",
+      "option_label": "Oppose",
+      "predicted_probability": 0.21621979904562305,
+      "target_probability": 0.3923801081007038,
+      "difference": -0.17616030905508073,
+      "abs_difference": 0.17616030905508073
+    }
+  ],
+  "examples": {
+    "worst_misses": [
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_133700",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9840265603509614,
+          "Oppose": 0.015973439649038662
+        },
+        "raw_probabilities": [
+          0.955485999584198,
+          0.015510148368775845
+        ],
+        "raw_probability_sum": 0.9709961479529738,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.015973439649038662,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 4.136827958040579,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.9366165429522884,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.4366165429522884,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 1.340604603700546,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      },
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_136015",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9840265603509614,
+          "Oppose": 0.015973439649038662
+        },
+        "raw_probabilities": [
+          0.955485999584198,
+          0.015510148368775845
+        ],
+        "raw_probability_sum": 0.9709961479529738,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.015973439649038662,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 4.136827958040579,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.9366165429522884,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.4366165429522884,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 0.6145664660693148,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      },
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_143915",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9840265603509614,
+          "Oppose": 0.015973439649038662
+        },
+        "raw_probabilities": [
+          0.955485999584198,
+          0.015510148368775845
+        ],
+        "raw_probability_sum": 0.9709961479529738,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.015973439649038662,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 4.136827958040579,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.9366165429522884,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.4366165429522884,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 0.9064620775820762,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      },
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_157570",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9840265603509614,
+          "Oppose": 0.015973439649038662
+        },
+        "raw_probabilities": [
+          0.955485999584198,
+          0.015510148368775845
+        ],
+        "raw_probability_sum": 0.9709961479529738,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.015973439649038662,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 4.136827958040579,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.9366165429522884,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.4366165429522884,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 0.4743780194822507,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      },
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_176680",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9840265603509614,
+          "Oppose": 0.015973439649038662
+        },
+        "raw_probabilities": [
+          0.955485999584198,
+          0.015510148368775845
+        ],
+        "raw_probability_sum": 0.9709961479529738,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.015973439649038662,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 4.136827958040579,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.9366165429522884,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.4366165429522884,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 0.5649691481788185,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      },
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_114473",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9643341196728855,
+          "Oppose": 0.035665880327114464
+        },
+        "raw_probabilities": [
+          0.955485999584198,
+          0.0353386327624321
+        ],
+        "raw_probability_sum": 0.9908246323466301,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.035665880327114464,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 3.33356078033471,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.859880588730558,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.359880588730558,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 0.5570690220066044,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      },
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_112238",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9418665656988525,
+          "Oppose": 0.05813343430114753
+        },
+        "raw_probabilities": [
+          0.9552708864212036,
+          0.058960769325494766
+        ],
+        "raw_probability_sum": 1.0142316557466984,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.05813343430114753,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 2.8450143193452098,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.7742252551627018,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.2742252551627018,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 0.5674648283552718,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      },
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_113274",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9418665656988525,
+          "Oppose": 0.05813343430114753
+        },
+        "raw_probabilities": [
+          0.9552708864212036,
+          0.058960769325494766
+        ],
+        "raw_probability_sum": 1.0142316557466984,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.05813343430114753,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 2.8450143193452098,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.7742252551627018,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.2742252551627018,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 4.621841587757342,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      },
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_172231",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9418665656988525,
+          "Oppose": 0.05813343430114753
+        },
+        "raw_probabilities": [
+          0.9552708864212036,
+          0.058960769325494766
+        ],
+        "raw_probability_sum": 1.0142316557466984,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.05813343430114753,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 2.8450143193452098,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.7742252551627018,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.2742252551627018,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 0.6620161702025388,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      },
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_196610",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9418665656988525,
+          "Oppose": 0.05813343430114753
+        },
+        "raw_probabilities": [
+          0.9552708864212036,
+          0.058960769325494766
+        ],
+        "raw_probability_sum": 1.0142316557466984,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.05813343430114753,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 2.8450143193452098,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.7742252551627018,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.2742252551627018,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 0.4590153784970901,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      }
+    ],
+    "overconfident_misses": [
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_133700",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9840265603509614,
+          "Oppose": 0.015973439649038662
+        },
+        "raw_probabilities": [
+          0.955485999584198,
+          0.015510148368775845
+        ],
+        "raw_probability_sum": 0.9709961479529738,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.015973439649038662,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 4.136827958040579,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.9366165429522884,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.4366165429522884,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 1.340604603700546,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      },
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_136015",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9840265603509614,
+          "Oppose": 0.015973439649038662
+        },
+        "raw_probabilities": [
+          0.955485999584198,
+          0.015510148368775845
+        ],
+        "raw_probability_sum": 0.9709961479529738,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.015973439649038662,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 4.136827958040579,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.9366165429522884,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.4366165429522884,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 0.6145664660693148,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      },
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_143915",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9840265603509614,
+          "Oppose": 0.015973439649038662
+        },
+        "raw_probabilities": [
+          0.955485999584198,
+          0.015510148368775845
+        ],
+        "raw_probability_sum": 0.9709961479529738,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.015973439649038662,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 4.136827958040579,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.9366165429522884,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.4366165429522884,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 0.9064620775820762,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      },
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_157570",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9840265603509614,
+          "Oppose": 0.015973439649038662
+        },
+        "raw_probabilities": [
+          0.955485999584198,
+          0.015510148368775845
+        ],
+        "raw_probability_sum": 0.9709961479529738,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.015973439649038662,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 4.136827958040579,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.9366165429522884,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.4366165429522884,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 0.4743780194822507,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      },
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_176680",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9840265603509614,
+          "Oppose": 0.015973439649038662
+        },
+        "raw_probabilities": [
+          0.955485999584198,
+          0.015510148368775845
+        ],
+        "raw_probability_sum": 0.9709961479529738,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.015973439649038662,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 4.136827958040579,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.9366165429522884,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.4366165429522884,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 0.5649691481788185,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      },
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_114473",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9643341196728855,
+          "Oppose": 0.035665880327114464
+        },
+        "raw_probabilities": [
+          0.955485999584198,
+          0.0353386327624321
+        ],
+        "raw_probability_sum": 0.9908246323466301,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.035665880327114464,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 3.33356078033471,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.859880588730558,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.359880588730558,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 0.5570690220066044,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      },
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_112238",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9418665656988525,
+          "Oppose": 0.05813343430114753
+        },
+        "raw_probabilities": [
+          0.9552708864212036,
+          0.058960769325494766
+        ],
+        "raw_probability_sum": 1.0142316557466984,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.05813343430114753,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 2.8450143193452098,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.7742252551627018,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.2742252551627018,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 0.5674648283552718,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      },
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_113274",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9418665656988525,
+          "Oppose": 0.05813343430114753
+        },
+        "raw_probabilities": [
+          0.9552708864212036,
+          0.058960769325494766
+        ],
+        "raw_probability_sum": 1.0142316557466984,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.05813343430114753,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 2.8450143193452098,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.7742252551627018,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.2742252551627018,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 4.621841587757342,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      },
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_172231",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9418665656988525,
+          "Oppose": 0.05813343430114753
+        },
+        "raw_probabilities": [
+          0.9552708864212036,
+          0.058960769325494766
+        ],
+        "raw_probability_sum": 1.0142316557466984,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.05813343430114753,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 2.8450143193452098,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.7742252551627018,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.2742252551627018,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 0.6620161702025388,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      },
+      {
+        "job_id": "baseline_9500a89a78e2b4",
+        "survey": "pew_w158",
+        "respondent_id": "w158_ccpolicy_196610",
+        "heldout_question": "carbon_tax",
+        "heldout_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+        "actual_answer": "Oppose",
+        "model": "conditional-embedding",
+        "service": "baseline",
+        "model_label": "baseline:conditional-embedding",
+        "model_parameters": {
+          "embedding_model": "text-embedding-3-small",
+          "feature_version": "v2-xgboost"
+        },
+        "option_labels": [
+          "Favor",
+          "Oppose"
+        ],
+        "probabilities": {
+          "Favor": 0.9418665656988525,
+          "Oppose": 0.05813343430114753
+        },
+        "raw_probabilities": [
+          0.9552708864212036,
+          0.058960769325494766
+        ],
+        "raw_probability_sum": 1.0142316557466984,
+        "notes": "Conditional baseline (v2-xgboost): XGBoost over question/option embeddings + respondent covariates, leave-one-question-out.",
+        "probability_actual": 0.05813343430114753,
+        "uniform_probability_actual": 0.5,
+        "negative_log_likelihood": 2.8450143193452098,
+        "uniform_negative_log_likelihood": 0.6931471805599453,
+        "brier": 1.7742252551627018,
+        "uniform_brier": 0.5,
+        "brier_improvement": -1.2742252551627018,
+        "top1_correct": 0,
+        "actual_rank": 2,
+        "empirical_marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "empirical_marginal_probability_actual": 0.3923801081007038,
+        "empirical_marginal_negative_log_likelihood": 0.9355242454894571,
+        "empirical_marginal_brier": 0.7384038660634248,
+        "empirical_marginal_top1_correct": 0,
+        "marginal_probabilities": {
+          "Favor": 0.6076198918992962,
+          "Oppose": 0.3923801081007038
+        },
+        "marginal_probability_actual": 0.3923801081007038,
+        "marginal_negative_log_likelihood": 0.9355242454894571,
+        "marginal_brier": 0.7384038660634248,
+        "marginal_top1_correct": 0,
+        "imported_at": "2026-07-30T20:37:26Z",
+        "weight": 0.4590153784970901,
+        "twin_set_label": "baseline_9500a89a78e2b4 / baseline:conditional-embedding"
+      }
+    ],
+    "confident_hits": [
+      {
+        "respondent_id": "w158_ccpolicy_136411",
+        "heldout_question": "carbon_tax",
+        "actual_answer": "Oppose",
+        "probability_actual": 0.98,
+        "job_id": "1987d27fa67ff8d5",
+        "model_label": "openai:gpt-5.5"
+      },
+      {
+        "respondent_id": "w158_ccpolicy_100803",
+        "heldout_question": "carbon_tax",
+        "actual_answer": "Oppose",
+        "probability_actual": 0.96,
+        "job_id": "1987d27fa67ff8d5",
+        "model_label": "openai:gpt-5.5"
+      },
+      {
+        "respondent_id": "w158_ccpolicy_192798",
+        "heldout_question": "carbon_tax",
+        "actual_answer": "Oppose",
+        "probability_actual": 0.96,
+        "job_id": "1987d27fa67ff8d5",
+        "model_label": "openai:gpt-5.5"
+      },
+      {
+        "respondent_id": "w158_ccpolicy_129046",
+        "heldout_question": "carbon_tax",
+        "actual_answer": "Oppose",
+        "probability_actual": 0.94,
+        "job_id": "1987d27fa67ff8d5",
+        "model_label": "openai:gpt-5.5"
+      },
+      {
+        "respondent_id": "w158_ccpolicy_101437",
+        "heldout_question": "carbon_tax",
+        "actual_answer": "Oppose",
+        "probability_actual": 0.93,
+        "job_id": "1987d27fa67ff8d5",
+        "model_label": "openai:gpt-5.5"
+      }
+    ]
+  },
+  "per_question": {
+    "carbon_tax": {
+      "1987d27fa67ff8d5 / openai:gpt-5.5": {
+        "rows": 100,
+        "mean_probability_actual": 0.6834508953777989,
+        "mean_uniform_probability_actual": 0.5,
+        "mean_negative_log_likelihood": 0.5191611900044087,
+        "negative_log_likelihood_p50": 0.16258813843968073,
+        "negative_log_likelihood_p90": 1.0498221244986778,
+        "negative_log_likelihood_p95": 1.5742444340388497,
+        "negative_log_likelihood_max": 2.4079456086518722,
+        "mean_top_confidence": 0.7968609019979891,
+        "mean_uniform_negative_log_likelihood": 0.6931471805599454,
+        "mean_brier": 0.3389881290638716,
+        "mean_uniform_brier": 0.5,
+        "mean_brier_improvement": 0.16101187093612868,
+        "top1_accuracy": 0.7310933136807538,
+        "mean_empirical_marginal_probability_actual": 0.5231640822647287,
+        "mean_empirical_marginal_negative_log_likelihood": 0.6698008408806095,
+        "mean_empirical_marginal_brier": 0.47683591773537587,
+        "empirical_marginal_top1_accuracy": 0.6076198918988133,
+        "mean_marginal_probability_actual": 0.5231640822647287,
+        "mean_marginal_negative_log_likelihood": 0.6698008408806095,
+        "mean_marginal_brier": 0.47683591773537587,
+        "marginal_top1_accuracy": 0.6076198918988133
+      },
+      "baseline_9500a89a78e2b4 / baseline:conditional-embedding": {
+        "rows": 100,
+        "mean_probability_actual": 0.6687864215546094,
+        "mean_uniform_probability_actual": 0.5,
+        "mean_negative_log_likelihood": 0.7188362770108312,
+        "negative_log_likelihood_p50": 0.059891664440301036,
+        "negative_log_likelihood_p90": 1.2189653612543068,
+        "negative_log_likelihood_p95": 3.373724139220001,
+        "negative_log_likelihood_max": 4.136827958040579,
+        "mean_top_confidence": 0.8091877562866693,
+        "mean_uniform_negative_log_likelihood": 0.6931471805599454,
+        "mean_brier": 0.42827765123019834,
+        "mean_uniform_brier": 0.5,
+        "mean_brier_improvement": 0.07172234876980194,
+        "top1_accuracy": 0.7642461961517897,
+        "mean_empirical_marginal_probability_actual": 0.5231640822647287,
+        "mean_empirical_marginal_negative_log_likelihood": 0.6698008408806095,
+        "mean_empirical_marginal_brier": 0.47683591773537587,
+        "empirical_marginal_top1_accuracy": 0.6076198918988133,
+        "mean_marginal_probability_actual": 0.5231640822647287,
+        "mean_marginal_negative_log_likelihood": 0.6698008408806095,
+        "mean_marginal_brier": 0.47683591773537587,
+        "marginal_top1_accuracy": 0.6076198918988133
+      }
+    }
+  },
+  "rank_correlation": {
+    "openai:gpt-5.5": {
+      "per_question": {
+        "carbon_tax": 1.0
+      },
+      "mean_spearman": 1.0
+    },
+    "baseline:conditional-embedding": {
+      "per_question": {
+        "carbon_tax": 1.0
+      },
+      "mean_spearman": 1.0
+    }
+  },
+  "calibration": {
+    "expected_calibration_error": {
+      "1987d27fa67ff8d5 / openai:gpt-5.5": 0.07789999999999993,
+      "baseline_9500a89a78e2b4 / baseline:conditional-embedding": 0.17395490182019807
+    }
+  },
+  "attenuation": {
+    "models": {},
+    "overall": {
+      "pairs": 0,
+      "mean_cramers_v_gap": null,
+      "share_attenuated": null,
+      "verdict": "insufficient_pairs"
+    },
+    "note": "twin Cramer's V minus empirical Cramer's V, averaged over question pairs. Negative = the twin under-models cross-question correlation (over-shrinkage toward a common distribution)."
+  },
+  "survey_instrument": [
+    {
+      "question": "carbon_tax",
+      "question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+      "options": [
+        {
+          "option": "Favor",
+          "real_share": 0.6076
+        },
+        {
+          "option": "Oppose",
+          "real_share": 0.3924
+        }
+      ]
+    }
+  ]
+}

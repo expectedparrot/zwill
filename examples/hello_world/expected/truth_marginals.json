@@ -1,0 +1,13 @@
+{
+  "survey": "hello_world",
+  "respondent_count": 5,
+  "question_count": 1,
+  "answer_count": 5,
+  "marginals": {
+    "favorite_color": {
+      "red": {"count": 2, "weighted_count": 2.0},
+      "blue": {"count": 2, "weighted_count": 2.0},
+      "green": {"count": 1, "weighted_count": 1.0}
+    }
+  }
+}

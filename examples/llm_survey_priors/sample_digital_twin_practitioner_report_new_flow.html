@@ -1,0 +1,939 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cross-Survey Digital Twin Evaluation</title>
+  <style>
+    :root { --bg:#fafafa; --panel:#fff; --ink:#202124; --muted:#5f6872; --line:#dfe3e6; --accent:#2f6f4f; --accent-2:#34679a; --accent-soft:#edf3f0; --warn:#b36b18; --warn-soft:#f7eddf; --bad:#aa3a3a; --bad-soft:#f5e6e6; --soft:#f4f7f8; --mono:"SFMono-Regular",Consolas,Menlo,monospace; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.56 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+    main { max-width:1180px; margin:0 auto; padding:34px 22px 80px; }
+    header { margin-bottom:24px; }
+    .header-row { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+    .brand { display:flex; align-items:center; gap:10px; color:var(--accent); font-weight:760; letter-spacing:.01em; margin-bottom:18px; }
+    .brand-mark { min-width:58px; height:34px; border-radius:9px; border:1px solid #c8ddd2; background:linear-gradient(135deg,#e3f0e8,#fff); display:grid; place-items:center; color:var(--accent); font-weight:800; padding:0 8px; }
+    .brand-kicker { display:block; color:var(--muted); font-size:12px; font-weight:650; text-transform:uppercase; letter-spacing:.08em; }
+    h1 { margin:0 0 10px; font-size:34px; line-height:1.12; letter-spacing:0; }
+    h2 { margin:0 0 14px; font-size:13px; line-height:1.25; text-transform:uppercase; letter-spacing:.08em; color:var(--accent); }
+    h3 { margin:0 0 10px; font-size:20px; line-height:1.25; letter-spacing:0; }
+    p { margin:8px 0; }
+    code { background:var(--accent-soft); border-radius:4px; padding:1px 5px; font-family:var(--mono); font-size:13px; }
+    .subtle { color:var(--muted); max-width:900px; font-size:17px; }
+    .detail { color:var(--muted); font-size:12.5px; margin-top:8px; }
+    .section { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:18px 20px; margin:18px 0; }
+    .explainer { background:#fff; }
+    .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:16px 0 4px; }
+    .metric { border:1px solid var(--line); border-radius:8px; padding:14px; background:#fff; }
+    .metric .label { color:var(--muted); font-size:12.5px; margin-bottom:4px; }
+    .metric .value { font-size:31px; line-height:1; font-weight:760; color:var(--accent); }
+    .callout { border-radius:7px; padding:14px 16px; margin:14px 0; border:1px solid var(--line); }
+    .callout.good { background:var(--accent-soft); border-color:#c8ddd2; }
+    .callout.warn { background:var(--warn-soft); border-color:#ead4b6; }
+    .callout.bad { background:var(--bad-soft); border-color:#e0bbbb; }
+    table { width:100%; border-collapse:collapse; margin:10px 0; font-size:13.2px; }
+    th, td { border:1px solid var(--line); padding:7px 8px; text-align:left; vertical-align:top; }
+    th { color:var(--ink); font-weight:700; background:#f0f3f4; }
+    .table-wrap { overflow-x:auto; }
+    .num { text-align:right; font-family:var(--mono); font-variant-numeric:tabular-nums; }
+    ul, ol { margin:8px 0 0 22px; padding:0; }
+    li { margin:6px 0; }
+    .two-col { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+    .copy-control { display:flex; align-items:center; flex:0 0 auto; gap:10px; margin-top:2px; }
+    button { appearance:none; background:var(--accent); border:1px solid #245d42; border-radius:6px; color:#fff; cursor:pointer; font:inherit; font-size:14px; font-weight:700; padding:8px 12px; }
+    button:focus { outline:3px solid #c8ddd2; outline-offset:2px; }
+    button:hover { background:#285f45; }
+    .copy-status { color:var(--muted); font-size:13px; min-width:56px; }
+    @media (max-width:850px) { main { padding:24px 14px 48px; } .grid,.two-col { grid-template-columns:1fr; } .header-row { display:block; } .copy-control { margin-top:14px; } table { display:block; overflow-x:auto; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="brand" aria-label="Expected Parrot">
+        <div class="brand-mark" aria-hidden="true">E[🦜]</div>
+        <div><span class="brand-kicker">Expected Parrot</span>Survey Digital Twin Report</div>
+      </div>
+      <div class="header-row">
+        <div>
+          <h1>Cross-Survey Digital Twin Evaluation</h1>
+          <p class="subtle">Generated from recorded survey benchmark data. The report focuses on what a practitioner can do, how much validation is warranted, and where confidence scores need extra scrutiny.</p>
+          <p class="detail">Benchmark ID: <code>cross_survey_twin_benchmark_seed789</code></p>
+        </div>
+        <div class="copy-control"><button type="button" id="copy-markdown">Copy Markdown</button><span class="copy-status" id="copy-status" aria-live="polite"></span></div>
+      </div>
+    </header>
+    <section class="section explainer">
+      <h2>What This Report Means by Digital Twins</h2>
+<p>In this report, a <em>digital twin</em> is an AI simulation of an individual survey respondent: the model sees some of that respondent&#x27;s prior survey answers, then predicts how the same respondent would answer a held-out or new question. One practical analogy is persona-based reasoning in product design and user research: practitioners have long used personas to make abstract customer data easier to reason with and to ask &quot;what would this kind of person need, object to, or choose?&quot; Digital twins are not the same as traditional personas, but they extend a related idea: they use many respondent-specific records, apply the persona-like reasoning at scale, and ask a model to project each respondent into a new decision setting.</p>
+<p>This approach builds on a growing literature using language models to simulate human samples and behavior, including Argyle et al.&#x27;s work on &quot;silicon samples&quot; and algorithmic fidelity, Aher, Arriaga, and Kalai&#x27;s &quot;Turing Experiments&quot; for replicating human-subject studies, Horton&#x27;s framing of LLMs as simulated economic agents, and Park et al.&#x27;s generative-agent simulations of 1,000 real people. Expected Parrot is the company and open-source tooling provider behind EDSL, the system used here to build surveys, run language-model jobs remotely, store results, and generate this report.</p>
+<p>References: <a href="https://en.wikipedia.org/wiki/Alan_Cooper_%28software_designer%29">Cooper, <em>The Inmates Are Running the Asylum</em></a>; <a href="https://en.wikipedia.org/wiki/Persona_%28user_experience%29">Pruitt &amp;amp; Grudin, <em>Personas</em></a>; <a href="https://arxiv.org/abs/2209.06899">Argyle et al., <em>Out of One, Many</em></a>; <a href="https://arxiv.org/abs/2208.10264">Aher, Arriaga &amp;amp; Kalai, <em>Using Large Language Models to Simulate Multiple Humans</em></a>; <a href="https://arxiv.org/abs/2301.07543">Horton, <em>Large Language Models as Simulated Economic Agents</em></a>; <a href="https://arxiv.org/abs/2411.10109">Park et al., <em>Generative Agent Simulations of 1,000 People</em></a>; <a href="https://docs.expectedparrot.com/en/latest">Expected Parrot EDSL documentation</a>.</p>
+    </section>
+    <section class="section explainer">
+      <h2>Why This Report Uses Held-Out Questions</h2>
+<p>The held-out question is a proxy for the kind of new question a practitioner might later ask an instantiated digital twin. In a deployed use case, the model would see what is already known about a respondent and then project that respondent into a new decision setting. The benchmark recreates that situation by hiding one real survey question, giving the twin other answers from the same respondent, and scoring whether the twin can recover the answer the respondent actually gave.</p>
+<p>This is intentionally a demanding test. Survey designers usually avoid asking many highly correlated questions when they can, because redundant questions waste respondent attention. That means a held-out item is often not just a near-duplicate of the context questions. If a twin performs well under that condition, it is evidence that it learned something useful about the respondent or question family, not merely that it copied an obvious neighboring item.</p>
+<p>The hold-out design is still only a proxy. It tests generalization to questions from the same survey environment, with known response options and a real answer for scoring. A truly new question may use different wording, a different scale, or a different decision context. Treat strong hold-out performance as evidence of promise, then adjust confidence based on how similar the new question is to the tested held-out questions.</p>
+    </section>
+    <section class="section explainer">
+      <h2>How to Use This Report</h2>
+<h3>Match Validation to Decision Stakes</h3>
+<p>Treat twin results as decision support. The amount of validation should scale with the cost of being wrong:</p>
+<ul><li><strong>Low-stakes, reversible, internal, or time-sensitive decisions:</strong> use the twin output when the new question resembles cases where the benchmark worked, scan for obvious failures, and move.</li><li><strong>Medium-stakes decisions:</strong> use twins for direction and prioritization, then review failure patterns or run a small validation sample when the question has many options, rare answers, sensitive wording, or model disagreement.</li><li><strong>High-stakes, public, publishable, expensive-to-reverse, or policy-critical decisions:</strong> treat twin output as one input, not final evidence. Field data or a stronger validation study is usually worth the cost.</li><li><strong>Probability-sensitive decisions:</strong> inspect confidence failures before using rankings, thresholds, or &quot;most likely&quot; targeting. Calibration means that when a twin says it is 70% sure, it should be right about 70% of the time.</li></ul>
+<h3>When Direct Survey Research Is Infeasible</h3>
+<p>Sometimes survey research is infeasible rather than merely expensive. Competitors, regulators, voters in a future election, executives, or other strategically important audiences may not answer a survey at all, may not answer quickly enough, or may not answer candidly. In those cases, the right comparison is not always &quot;twin output versus a perfect survey&quot;; it may be &quot;twin output versus no direct measurement.&quot; Twins can be useful in that setting even when they are not precise enough to publish as population estimates.</p>
+<h3>Use Twins for Ranking and Exploration</h3>
+<p>Distinguish rank ordering from exact levels. Twins may be more reliable at identifying which option, message, segment, or question is relatively stronger than at estimating the exact percentage that would choose it.</p>
+<p>They can also surface considerations, objections, and patterns to investigate, not just point-estimate predictions. For example, a twin study might suggest that a proposal is likely to worry respondents less because of its cost than because it feels unfair to a subgroup, or it might reveal an objection the research team had not thought to test directly. Treat those outputs as hypotheses and prompts for better thinking, not just as percentages.</p>
+    </section>
+    <section class="section">
+      <h1>Practitioner report: cross-survey digital twin benchmark, seed 789</h1>
+<h2>1. Executive summary</h2>
+<p>Use these twins most confidently for <strong>low-stakes, directional work on binary public-policy questions similar to the climate-policy battery</strong>. In that setting, <code>openai:gpt-5.5</code> produced a strong result: it picked the respondent’s actual favor/oppose answer <strong>83.8%</strong> of the time across 600 respondent-question cases, beating both random guessing and guessing from the whole group’s answer distribution. That is good enough to support internal prioritization, message triage, and early ranking of similar proposals, especially when the cost of being wrong is modest.</p>
+<p>Use the twins more cautiously for <strong>multi-option attitude questions</strong>. The results on interpersonal skills, AI medical diagnosis, and social media were promising but based on only <strong>20 respondents per question</strong>. They beat random guessing and usually beat the group-average benchmark, but the evidence is too thin for exact estimates or public claims without additional validation.</p>
+<p>Do <strong>not</strong> rely on these twins for the tested seven-point vignette blame item without more work. On the local-government service-failure vignette question, the twins did not beat guessing from the group’s observed answer pattern in confidence quality, and the downloaded replication package supplied only summarized condition labels, not the full vignette prose. That is a poor fit for a question where precise stimulus wording likely matters.</p>
+<p>Prefer <code>openai:gpt-5.5</code> over <code>google:gemini-2.5-pro</code> when probability values matter. Gemini sometimes had similar or slightly higher top-choice accuracy on small samples, but it produced more very confident wrong answers, including cases where it assigned essentially zero probability to the answer the respondent actually gave. Those failures would make probability cutoffs, rankings by confidence, or targeting rules risky.</p>
+<p>The main caveat is not that the twins never work; the main caveat is <strong>where they are overconfident and where majority answers hide minority respondents</strong>. In the climate battery, high favor rates made several questions easy at the aggregate level, but the models often missed respondents who opposed broadly popular climate proposals.</p>
+<h2>2. Study setup</h2>
+<h3>Benchmark and models</h3>
+<p>This report uses the recorded benchmark <code>cross_survey_twin_benchmark_seed789</code>.</p>
+<p>Two models were tested:</p>
+<ul><li><code>openai:gpt-5.5</code></li><li><code>google:gemini-2.5-pro</code></li></ul>
+<p>Accuracy means the share of cases where the twin’s highest-probability answer matched the real respondent’s answer.</p>
+<p>The two baselines were:</p>
+<ul><li><strong>Random guessing</strong>: choosing among the listed answer options with no respondent information.</li><li><strong>Group-average guessing</strong>: guessing based on how the whole observed sample answered the held-out question. This is a useful benchmark for held-out questions because it asks whether the twin used respondent-specific information rather than only reproducing the overall distribution. It is not available for genuinely new questions whose real answer distribution has not been observed.</li></ul>
+<h3>Surveys and held-out questions</h3>
+<p>The benchmark covered five survey contexts.</p>
+<h3># <code>w158_ccpolicy</code>: climate-change policy proposals</h3>
+<p>Context: a nationally representative Pew Research Center American Trends Panel survey of U.S. adults, fielded in October 2024.</p>
+<p>Survey artifact summary:</p>
+<ul><li>Respondents in source survey: 9,214</li><li>Questions in survey artifact: 6</li><li>Held-out questions: 6 binary favor/oppose items</li><li>Results imported: 1,200 model-result rows</li><li>Benchmark rows used: 600 per model, with 100 respondent-question cases per held-out question per model</li><li>The recorded imported manifest did not include the exact context-question count or complete-case rule for this job.</li></ul>
+<p>Held-out questions and answer options were:</p>
+<ol><li>“Do you favor or oppose the following proposals to reduce the effects of global climate change? Planting about a trillion trees around the world to absorb carbon emissions in the atmosphere”</li></ol>
+<p>   - Favor - Oppose</p>
+<ol><li>“Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce”</li></ol>
+<p>   - Favor - Oppose</p>
+<ol><li>“Do you favor or oppose the following proposals to reduce the effects of global climate Providing a tax credit to encourage businesses to develop technology which captures and stores carbon emissions so they do not enter the atmosphere”</li></ol>
+<p>   - Favor - Oppose</p>
+<ol><li>“Do you favor or oppose the following proposals to reduce the effects of global climate change? CCPOLICY_d_W158. Requiring power plants to eliminate all carbon emissions by 2040”</li></ol>
+<p>   - Favor - Oppose</p>
+<ol><li>“Do you favor or oppose the following proposals to reduce the effects of global climate change? Requiring oil and gas companies to seal methane gas leaks from oil wells”</li></ol>
+<p>   - Favor - Oppose</p>
+<ol><li>“Do you favor or oppose below proposals to reduce effects of global climate change? Providing a tax credit to Americans who improve their home energy efficiency, such as by installing heat pumps or adding insulation”</li></ol>
+<p>   - Favor - Oppose</p>
+<p>The fourth question appears to include the code label <code>CCPOLICY_d_W158</code> in the question text in the recorded artifact. Treat that as a wording artifact to check before using results for production survey design.</p>
+<h3># <code>w157_skillimp</code>: interpersonal skills and worker success</h3>
+<p>Context: a nationally representative Pew Research Center American Trends Panel survey of U.S. adults, fielded in October 2024.</p>
+<p>Survey artifact summary:</p>
+<ul><li>Respondents in source survey: 5,333</li><li>Questions in survey artifact: 9</li><li>Held-out question: 1 five-option importance item</li><li>Context question count in run: 5</li><li>Sample respondents in run: 20</li><li>Seed: 789</li><li>Complete cases: true</li><li>Stratified by actual answer: true</li><li>Balance actual answers: false</li></ul>
+<p>Held-out question:</p>
+<p>“Now thinking about workers in general, how important do you think each of the following is for a worker to be successful in today&#x27;s economy? Interpersonal skills, such as getting along with people and resolving conflicts”</p>
+<p>Options:</p>
+<ul><li>Extremely important</li><li>Very important</li><li>Somewhat important</li><li>Not too important</li><li>Not at all important</li></ul>
+<h3># <code>w152_humanvai</code>: AI versus people on medical diagnosis</h3>
+<p>Context: Pew Research Center American Trends Panel W152.</p>
+<p>Survey artifact summary:</p>
+<ul><li>Respondents in source survey: 5,318</li><li>Questions in survey artifact: 8</li><li>Held-out question: 1 four-option item</li><li>Context question count in run: 5</li><li>Sample respondents in run: 20</li><li>Seed: 789</li><li>Complete cases: true</li><li>Stratified by actual answer: true</li><li>Balance actual answers: false</li></ul>
+<p>Held-out question:</p>
+<p>“Thinking about artificial intelligence (AI) today, do you think AI would do better, worse or about the same as people whose job it is to... Make a medical diagnosis”</p>
+<p>Options:</p>
+<ul><li>AI would do this better</li><li>AI would do this worse</li><li>AI would do this about the same</li><li>Not sure</li></ul>
+<h3># <code>w163_sm9</code>: social media and underrepresented groups</h3>
+<p>Context: a nationally representative Pew Research Center American Trends Panel survey of U.S. adults, fielded in February 2025.</p>
+<p>Survey artifact summary:</p>
+<ul><li>Respondents in source survey: 5,020</li><li>Questions in survey artifact: 5</li><li>Held-out question: 1 four-option item</li><li>Context question count in run: 4</li><li>Sample respondents in run: 20</li><li>Seed: 789</li><li>Complete cases: true</li><li>Stratified by actual answer: true</li><li>Balance actual answers: false</li></ul>
+<p>Held-out question:</p>
+<p>“How well do you think each of the following statements describes social media? Social media... Helps give a voice to underrepresented groups”</p>
+<p>Options:</p>
+<ul><li>Very well</li><li>Somewhat well</li><li>Not too well</li><li>Not at all well</li></ul>
+<h3># <code>dataverse_dnzt11_dnzt11_vignette_outcomes</code>: local-government service failure vignette</h3>
+<p>Context: U.S. online respondent survey experiment about local-government service failures and government downsizing. Respondents read two vignettes: one about trash/recycling not being picked up after Department of Public Works downsizing, and one about termination of vacuum leaf collection service in Clark County. The arms varied downsizing information and whether a DPW employee or the DPW was identified as responsible.</p>
+<p>Important caveat: the recorded survey context says the downloaded replication package provides summarized condition labels, not the full vignette prose. That matters because the held-out item asks respondents to assign blame based on Vignette 1.</p>
+<p>Survey artifact summary:</p>
+<ul><li>Respondents in source survey: 1,199</li><li>Questions in survey artifact: 6</li><li>Held-out question: 1 seven-option agreement item</li><li>Context question count in run: 5</li><li>Sample respondents in run: 20</li><li>Seed: 789</li><li>Complete cases: true</li><li>Stratified by actual answer: true</li><li>Balance actual answers: false</li></ul>
+<p>Held-out question:</p>
+<p>“Based on Vignette 1, city leaders (Mayor and City Council) are to blame for the trash and recycling bins not being picked up.”</p>
+<p>Options:</p>
+<ul><li>Strongly disagree</li><li>Disagree</li><li>Somewhat disagree</li><li>Neither agree nor disagree</li><li>Somewhat agree</li><li>Agree</li><li>Strongly agree</li></ul>
+<h3>Data quality checks</h3>
+<p>The imported artifacts are clean on the recorded checks:</p>
+<ul><li>All five surveys had <code>open_quarantine_issues: 0</code>.</li><li>All imported twin-result jobs had <code>issue_count: 0</code>.</li><li>Extracted result counts matched imported result counts in the recorded jobs.</li><li>Question options are recorded as human-readable labels rather than opaque numeric codes.</li><li>No malformed model-response issues were recorded in the provided import metadata.</li></ul>
+<p>Weighting status for the benchmark calculations was not recorded in the provided artifacts. The Pew source surveys are described as nationally representative, but this benchmark should be interpreted as a twin-performance test on the sampled held-out cases, not as a weighted public-opinion estimate.</p>
+<h2>3. Overall performance</h2>
+<p>The practical reading is: <strong>performance varies sharply by question type, and the binary climate-policy battery is the strongest evidence in this benchmark</strong>.</p>
+<p>A single global score would be misleading because the benchmark mixes binary, four-option, five-option, and seven-option questions, and because the climate-policy job contributes far more rows than the other studies. The useful conclusions come from the per-survey and per-question results.</p>
+<div class="table-wrap"><table><thead><tr><th>Survey / question family</th><th>Test size</th><th>Best practical read</th></tr></thead><tbody><tr><td>Climate policy favor/oppose, <code>w158_ccpolicy</code></td><td>600 cases per model</td><td>Strong for <code>openai:gpt-5.5</code>. It chose the real answer 83.8% of the time, above random guessing at 50% and above group-average guessing at 79.5%.</td></tr><tr><td>Interpersonal skills importance, <code>w157_skillimp</code></td><td>20 cases per model</td><td>Promising but small. Gemini chose the real answer 70% of the time and GPT-5.5 65%, versus 20% random and 45% group-average. GPT-5.5 had safer confidence behavior.</td></tr><tr><td>AI medical diagnosis, <code>w152_humanvai</code></td><td>20 cases per model</td><td>Moderately useful for exploratory direction. GPT-5.5 reached 60% accuracy versus 25% random and 30% group-average. Gemini reached 50% but was much more overconfident.</td></tr><tr><td>Social media giving voice to underrepresented groups, <code>w163_sm9</code></td><td>20 cases per model</td><td>Modest but usable for rough direction. GPT-5.5 reached 60% and Gemini 55%, versus 25% random and 50% group-average.</td></tr><tr><td>Local-government vignette blame, <code>dataverse_dnzt11...</code></td><td>20 cases per model</td><td>Not reliable for use without validation. Accuracy was 30% for GPT-5.5 and 40% for Gemini, but confidence quality was worse than group-average guessing, and full vignette prose was unavailable.</td></tr></tbody></table></div>
+<p>Across the five surveys, <code>openai:gpt-5.5</code> had slightly higher average accuracy than Gemini in the unweighted survey-level summary, but the more important difference is confidence behavior. GPT-5.5 more often assigned reasonable probability to the respondent’s actual answer. Gemini produced several severe misses where the actual answer received 0% or near-0% probability.</p>
+<p>The benchmark also shows why group-average guessing matters. On the climate-policy battery, many respondents favored several proposals. For some high-consensus items, simply guessing from the overall distribution was already hard to beat. The twin is most valuable where it improves beyond that—especially on more contested items such as taxing corporations based on carbon emissions and requiring power plants to eliminate carbon emissions by 2040.</p>
+<h2>4. Where twins worked well</h2>
+<h3>A. Binary climate-policy proposals: useful for low-stakes ranking and internal prioritization</h3>
+<p>The strongest result is <code>openai:gpt-5.5</code> on the six Pew climate-policy favor/oppose items.</p>
+<p>Overall, GPT-5.5:</p>
+<ul><li>Picked the real answer <strong>83.8%</strong> of the time.</li><li>Assigned an average probability of <strong>79.1%</strong> to the respondent’s actual answer.</li><li>Beat random guessing by a wide margin.</li><li>Beat group-average guessing overall on confidence quality, meaning it used respondent-specific information rather than only reproducing the overall favor/oppose split.</li></ul>
+<p>This is practically useful. If a practitioner wants to screen a set of similar binary climate or policy proposals, identify which proposals are likely to be broadly acceptable, or rank alternatives before deciding what to field, the GPT-5.5 twin output is credible enough for low-stakes internal use, with a quick sanity check.</p>
+<p>The evidence is strongest on the more contested proposals:</p>
+<ul><li>“Taxing corporations based on the amount of carbon emissions they produce”</li></ul>
+<p>  - GPT-5.5 accuracy: <strong>79%</strong> - Group-average accuracy: <strong>70%</strong> - Interpretation: the twin added respondent-specific signal beyond a simple group-average guess.</p>
+<ul><li>“Requiring power plants to eliminate all carbon emissions by 2040”</li></ul>
+<p>  - GPT-5.5 accuracy: <strong>79%</strong> - Gemini accuracy: <strong>80%</strong> - Group-average accuracy: <strong>62%</strong> - Interpretation: this is one of the clearest cases where respondent context mattered. A practitioner could use this kind of twin output to explore segment differences or rank policy variants, though the wording artifact in the recorded question text should be cleaned before production use.</p>
+<p>GPT-5.5 also performed well on incentives and regulatory proposals:</p>
+<ul><li>Business tax credit for carbon capture and storage: <strong>85%</strong> accuracy for GPT-5.5.</li><li>Requiring oil and gas companies to seal methane gas leaks: <strong>83%</strong> accuracy for GPT-5.5.</li><li>Home energy-efficiency tax credit: <strong>88%</strong> accuracy for GPT-5.5.</li></ul>
+<p>However, some of those items had high overall favor rates, so high accuracy partly reflects broad support. For example, on planting about a trillion trees, the group-average benchmark reached <strong>91%</strong> accuracy while GPT-5.5 reached <strong>89%</strong>. That still indicates the model captured the dominant answer, but it is weaker evidence of respondent-specific prediction.</p>
+<p>The practical conclusion for climate-policy use is:</p>
+<ul><li>Use GPT-5.5 output to rank binary proposals and detect broad favor/oppose direction.</li><li>Put more trust in results for contested items where the model beats group-average guessing.</li><li>Be careful using the twin to identify minority opposition, because the model often predicted “Favor” for actual “Oppose” respondents on high-consensus items.</li></ul>
+<h3>B. Interpersonal skills importance: promising, but mainly for broad importance judgments</h3>
+<p>The interpersonal-skills item had five ordered response options from “Extremely important” to “Not at all important.” With only 20 tested respondents, the sample is small, but the result is encouraging.</p>
+<p>Accuracy:</p>
+<ul><li>GPT-5.5: <strong>65%</strong></li><li>Gemini: <strong>70%</strong></li><li>Random guessing: <strong>20%</strong></li><li>Group-average guessing: <strong>45%</strong></li></ul>
+<p>On top-choice accuracy alone, both models beat the baselines. But GPT-5.5 is the safer model to use because Gemini had severe confidence failures. Gemini assigned 0% probability to the actual answer in two cases:</p>
+<ul><li>Actual: “Not too important”; predicted: “Very important”</li><li>Actual: “Somewhat important”; predicted: “Extremely important”</li></ul>
+<p>The error pattern is informative. The twins were better at recognizing the general high-importance consensus than at distinguishing exact intensity. They often confused “Extremely important” and “Very important,” and they struggled with less common lower-importance responses.</p>
+<p>For practice, this is useful if the decision is about broad salience—whether interpersonal skills are seen as important. It is not strong enough, by itself, to estimate exact shares across all five categories.</p>
+<h3>C. AI medical diagnosis: useful for exploratory direction, not precise category shares</h3>
+<p>On the AI medical-diagnosis question, GPT-5.5 performed better than Gemini for practical purposes.</p>
+<p>Accuracy:</p>
+<ul><li>GPT-5.5: <strong>60%</strong></li><li>Gemini: <strong>50%</strong></li><li>Random guessing: <strong>25%</strong></li><li>Group-average guessing: <strong>30%</strong></li></ul>
+<p>GPT-5.5’s average top confidence was about <strong>57%</strong>, close to its 60% accuracy. That is a healthier pattern than Gemini, whose average top confidence was about <strong>78%</strong> while its accuracy was only 50%.</p>
+<p>The model captured more than the group average, but the confusion pattern shows that exact categories are fragile. The models sometimes confused:</p>
+<ul><li>“AI would do this better” with “AI would do this worse”</li><li>“AI would do this about the same” with “AI would do this better”</li><li>“Not sure” with substantive better/worse answers</li></ul>
+<p>For practitioners, the twin can help explore likely reactions to AI capability questions and flag that uncertainty is a meaningful response category. It should not be used alone to estimate the exact share saying AI is better, worse, about the same, or “Not sure.”</p>
+<h3>D. Social media giving a voice to underrepresented groups: modest signal, mostly about broad direction</h3>
+<p>On the social-media item, the twins were modestly better than baselines.</p>
+<p>Accuracy:</p>
+<ul><li>GPT-5.5: <strong>60%</strong></li><li>Gemini: <strong>55%</strong></li><li>Random guessing: <strong>25%</strong></li><li>Group-average guessing: <strong>50%</strong></li></ul>
+<p>Both models beat group-average guessing in confidence quality, but not by a large margin. GPT-5.5 again had more restrained confidence than Gemini.</p>
+<p>The most useful signal is likely broad direction. The models often distinguished generally positive from generally less positive views, but they confused intensity levels. For example, “Very well” and “Somewhat well” were often mixed, and “Not too well” could be confused with “Somewhat well.”</p>
+<p>A practitioner could use these twins to prototype broad response patterns to similar social-media perception questions, but should validate before making claims about the exact distribution across all four intensity levels.</p>
+<h2>5. Where twins failed or need caution</h2>
+<h3>A. The seven-point local-government vignette blame item is not ready for decision use</h3>
+<p>The weakest result is the Dataverse vignette outcome:</p>
+<p>“Based on Vignette 1, city leaders (Mayor and City Council) are to blame for the trash and recycling bins not being picked up.”</p>
+<p>This item has seven ordered agreement options. It also depends on a vignette, but the recorded survey context says the available replication package provided summarized condition labels rather than full vignette prose.</p>
+<p>That combination caused problems.</p>
+<p>Accuracy:</p>
+<ul><li>GPT-5.5: <strong>30%</strong></li><li>Gemini: <strong>40%</strong></li><li>Random guessing: about <strong>14%</strong></li><li>Group-average guessing: <strong>30%</strong></li></ul>
+<p>Gemini’s 40% top-choice accuracy looks somewhat better than the baselines, but its probability behavior was poor. It produced very confident wrong answers, including:</p>
+<ul><li>Actual: “Strongly agree”; predicted: “Strongly disagree”; probability assigned to actual answer: <strong>0%</strong></li><li>Actual: “Neither agree nor disagree”; predicted: “Disagree”; probability assigned to actual answer: <strong>0%</strong></li><li>Actual: “Strongly disagree”; predicted: “Somewhat agree”; probability assigned to actual answer: <strong>1%</strong></li></ul>
+<p>GPT-5.5 was less extreme but still failed to beat the group-average benchmark on confidence quality. It also made severe misses, such as assigning <strong>2%</strong> probability to “Agree” when the predicted answer was “Disagree.”</p>
+<p>The practical conclusion is straightforward: do not use these twin outputs to estimate blame attribution from this vignette. The model likely needed the full stimulus text, and the seven-point scale created many opportunities for adjacent and non-adjacent category errors.</p>
+<h3>B. Minority “Oppose” responses in the climate battery were often missed</h3>
+<p>The climate-policy results are strong overall, but they hide an important failure mode: the models often predicted “Favor” for respondents who actually answered “Oppose,” especially on broadly popular proposals.</p>
+<p>Examples from GPT-5.5:</p>
+<ul><li>Tree planting:</li></ul>
+<p>  - Actual “Oppose” cases: 9 - Predicted “Favor” for all 9 actual “Oppose” cases in the 100-case test - Some misses were very confident, assigning only <strong>1%</strong> or <strong>2%</strong> probability to the actual “Oppose” answer.</p>
+<ul><li>Home energy-efficiency tax credit:</li></ul>
+<p>  - Actual “Oppose” cases: 14 - Predicted “Favor” for 11 of those 14 actual “Oppose” cases - Some very confident misses assigned only <strong>2%</strong> probability to the actual “Oppose” answer.</p>
+<ul><li>Requiring oil and gas companies to seal methane gas leaks:</li></ul>
+<p>  - Actual “Oppose” cases: 13 - GPT-5.5 correctly predicted 8 and predicted “Favor” for 5 - One recorded very confident miss assigned <strong>3%</strong> probability to the actual “Oppose” answer.</p>
+<p>This matters if the user’s decision involves minority segments, persuasion targets, opposition risk, or backlash. The twin is better at detecting broad support than at reliably identifying every pocket of opposition.</p>
+<h3>C. Ordered response scales caused adjacent-category and intensity errors</h3>
+<p>The five-point and four-point attitude questions show a recurring pattern: the twins often understood the broad direction but missed exact intensity.</p>
+<p>Examples:</p>
+<ul><li>Interpersonal skills:</li></ul>
+<p>  - “Very important” was sometimes predicted as “Extremely important.” - Lower-importance responses such as “Not too important” and “Not at all important” were rare and harder for the models.</p>
+<ul><li>Social media:</li></ul>
+<p>  - “Very well” and “Somewhat well” were frequently confused. - “Not too well” could be predicted as “Somewhat well.”</p>
+<ul><li>AI medical diagnosis:</li></ul>
+<p>  - “Not sure” and “AI would do this about the same” were not always treated as stable middle or uncertainty categories. - Some respondents saying AI would do better were predicted as saying worse, and vice versa.</p>
+<p>If the practical decision only needs a broad positive/negative or high/low read, these outputs may still be useful. If the decision depends on exact intensity, validation is worth the cost.</p>
+<h3>D. Gemini was often too confident when wrong</h3>
+<p>Gemini’s top-choice accuracy was not uniformly bad, and on two small samples it had the highest accuracy. But its probability outputs are risky.</p>
+<p>Examples:</p>
+<ul><li>Interpersonal skills:</li></ul>
+<p>  - Actual “Not too important”; predicted “Very important”; actual answer given <strong>0%</strong> probability. - Actual “Somewhat important”; predicted “Extremely important”; actual answer given <strong>0%</strong> probability.</p>
+<ul><li>Local-government blame:</li></ul>
+<p>  - Actual “Strongly agree”; predicted “Strongly disagree”; actual answer given <strong>0%</strong> probability. - Actual “Neither agree nor disagree”; predicted “Disagree”; actual answer given <strong>0%</strong> probability.</p>
+<ul><li>AI medical diagnosis:</li></ul>
+<p>  - Actual “AI would do this about the same”; predicted “AI would do this better”; actual answer given <strong>2%</strong> probability.</p>
+<p>For any workflow that ranks individuals, messages, options, or segments using probability scores, this is a serious failure mode. If Gemini is used at all, treat it as a sensitivity check against GPT-5.5 rather than as the primary source of calibrated probabilities.</p>
+<h2>6. Practical use recommendations</h2>
+<h3>Use GPT-5.5 for low-stakes screening of similar binary policy questions</h3>
+<p>For new questions that closely resemble the <code>w158_ccpolicy</code> battery—binary favor/oppose items about public policy proposals—GPT-5.5 is the best-supported model in this benchmark.</p>
+<p>Appropriate uses include:</p>
+<ul><li>Early ranking of policy proposals before deciding which to field.</li><li>Internal message or proposal triage.</li><li>Identifying which binary alternatives are likely to be broadly favored or divisive.</li><li>Generating a short list of items for a real survey.</li></ul>
+<p>The strongest evidence is for direction and ranking, not exact population shares. The benchmark did not record weighted estimation, and the group-average baseline is only available because these questions were already observed.</p>
+<p>For climate-policy-like questions, the practical takeaway is nuanced:</p>
+<ul><li>High-consensus proposals such as tree planting and home energy-efficiency tax credits are likely to look favorable, but the twin may under-detect opposition.</li><li>More contested proposals, such as taxing corporations based on emissions or requiring power plants to eliminate carbon emissions by 2040, are where respondent-specific information appears especially valuable.</li><li>If the decision depends on opponents, persuadable segments, or backlash risk, validate those groups rather than relying on the top-line twin output.</li></ul>
+<h3>Use multi-option attitude outputs for broad direction, not exact category shares</h3>
+<p>For questions like the interpersonal-skills, AI diagnosis, and social-media items, use the twin output to understand broad patterns:</p>
+<ul><li>Is the attitude generally positive or negative?</li><li>Is the item likely to produce high importance ratings?</li><li>Are respondents likely to split across “better,” “worse,” “same,” and “not sure”?</li><li>Which response categories seem unstable or easily confused?</li></ul>
+<p>Do not treat the exact shares across four or five answer options as validated. The evidence comes from only 20 respondents per question, and the models often confused adjacent categories.</p>
+<p>A practical approach is to analyze both the full answer scale and a collapsed version, but only if that collapsed version matches the decision. For example:</p>
+<ul><li>“Very well” plus “Somewhat well” may be more decision-relevant than the exact split between the two.</li><li>“Extremely important” plus “Very important” may be more stable than the exact intensity distinction.</li><li>“Not sure” on AI should not automatically be merged with “about the same,” because the recorded errors suggest uncertainty is a distinct source of confusion.</li></ul>
+<h3>Do not use the local-government vignette result for substantive inference without rerunning the study</h3>
+<p>For <code>q13</code>, the twin evidence is too weak for decision use. The main reasons are:</p>
+<ul><li>The question depends on a vignette, but full vignette prose was not available in the recorded context.</li><li>The seven-point scale created many severe misses.</li><li>Group-average guessing beat or matched the twins in the most important confidence-quality comparisons.</li><li>Gemini produced very confident wrong answers across opposite ends of the agreement scale.</li></ul>
+<p>If the goal is to understand blame attribution in local-government service failures, rerun the twin study only after providing the full vignette text and validating on more held-out cases. Until then, the current outputs can at most be used to flag that this is a difficult item for twins, not to estimate respondent opinions.</p>
+<h3>Use model disagreement and confidence failures as review triggers</h3>
+<p>For this benchmark, GPT-5.5 is the default choice. Gemini is useful mainly as a warning system:</p>
+<ul><li>If GPT-5.5 and Gemini agree on a broad directional result, confidence in low-stakes use increases.</li><li>If Gemini is very confident and GPT-5.5 is uncertain or disagrees, inspect the item manually.</li><li>If either model assigns near-zero probability to plausible answer options, do not use the raw probabilities for cutoffs or targeting.</li></ul>
+<p>This is especially important for:</p>
+<ul><li>Minority “Oppose” responses in the climate-policy battery.</li><li>Lower-frequency Likert responses such as “Not too important” or “Not at all important.”</li><li>Middle and uncertainty options such as “Neither agree nor disagree,” “about the same,” and “Not sure.”</li><li>Seven-point agreement scales.</li></ul>
+<h3>Specific considerations surfaced by the benchmark</h3>
+<p>The recorded outputs support several practical considerations for future survey design and decision use:</p>
+<ul><li><strong>Broad climate-policy support can mask opposition.</strong> Even proposals that look easy to classify, such as tree planting or home energy-efficiency tax credits, had actual “Oppose” respondents whom the twin often missed. If opposition matters, measure it directly or oversample likely opponents.</li></ul>
+<ul><li><strong>Contested climate policies benefit more from respondent-specific modeling.</strong> Taxing corporations based on carbon emissions and requiring power plants to eliminate emissions by 2040 showed clearer gains over group-average guessing. Those are better candidates for twin-assisted segmentation or message testing.</li></ul>
+<ul><li><strong>Importance intensity is fragile.</strong> On interpersonal skills, the model often leaned toward “Extremely important” or “Very important.” Use the output to detect broad importance, not to claim exact intensity levels without validation.</li></ul>
+<ul><li><strong>Uncertainty about AI is not noise.</strong> The AI diagnosis question showed confusion involving “Not sure” and “about the same.” If the practical decision involves public confidence in AI, keep uncertainty categories visible rather than forcing a better/worse interpretation.</li></ul>
+<ul><li><strong>Social-media benefit perceptions are easier in broad direction than exact strength.</strong> The model could often capture whether the statement describes social media at least somewhat well, but “Very well” versus “Somewhat well” was less stable.</li></ul>
+<ul><li><strong>Vignette wording is essential.</strong> The local-government blame item demonstrates that summarized condition labels are not a substitute for full stimulus text when the outcome asks respondents to react to a specific vignette.</li></ul>
+<h2>7. Next study recommendations</h2>
+<h3>Quick sanity checks for low- or medium-stakes use</h3>
+<p>For a near-term application similar to the successful climate-policy battery:</p>
+<ol><li>Use <code>openai:gpt-5.5</code> as the primary model.</li><li>Include at least one known benchmark-style item where real responses are available, so the new run has an internal calibration check.</li><li>Inspect errors or uncertainty specifically for minority options, not just overall accuracy.</li><li>Compare GPT-5.5 with Gemini only as a sensitivity check; do not average Gemini probabilities without reviewing overconfident misses.</li><li>If using multi-option scales, review both exact-category predictions and broader collapsed categories that match the decision.</li></ol>
+<p>For a new binary policy battery, a small validation sample is most valuable if:</p>
+<ul><li>The decision is moderately costly.</li><li>The expected differences between options are small.</li><li>The user needs to identify minority opposition.</li><li>The output will be shared outside the organization.</li></ul>
+<h3>Validation worth doing before high-stakes use</h3>
+<p>For expensive, public, publishable, or policy-critical decisions, run a fuller validation before relying on these twins.</p>
+<p>The most useful additions would be:</p>
+<ul><li>More held-out respondents per question, especially for the four-, five-, and seven-option items currently tested on only 20 respondents.</li><li>More held-out questions within each question family, so performance is not inferred from a single item.</li><li>Subgroup checks for groups where minority answers are especially important.</li><li>Calibration checks focused on very confident wrong answers.</li><li>Aggregate-share comparisons, ideally with survey weights when the goal is public-opinion estimation.</li><li>Prompt and model comparisons recorded with the exact same survey context and codebook labels.</li></ul>
+<h3>Recommended follow-up by question family</h3>
+<p>For climate-policy favor/oppose questions:</p>
+<ul><li>Expand the held-out test to more binary policy items.</li><li>Check whether the model continues to beat group-average guessing on contested items.</li><li>Specifically evaluate actual “Oppose” respondents, since broad favorability can hide false confidence.</li><li>Record weighting and context-question details in the run artifacts.</li></ul>
+<p>For interpersonal-skills and similar importance batteries:</p>
+<ul><li>Test more items from the same battery, not just interpersonal skills.</li><li>Decide in advance whether the decision needs exact five-category shares or only high-versus-low importance.</li><li>Inspect lower-frequency response options, because they produced the most concerning misses.</li></ul>
+<p>For AI and technology-comparison questions:</p>
+<ul><li>Add more AI task domains, not only medical diagnosis.</li><li>Keep “Not sure” as a separate category in evaluation.</li><li>Review whether twins are systematically optimistic or pessimistic about AI capability before using them for message or risk assessment.</li></ul>
+<p>For social-media perception questions:</p>
+<ul><li>Test more statements from the same survey family.</li><li>Evaluate broad positive/negative classification separately from exact intensity.</li><li>Look for subgroup differences if the decision concerns underrepresented groups specifically.</li></ul>
+<p>For vignette and experimental-treatment questions:</p>
+<ul><li>Rerun only with full vignette prose included.</li><li>Increase the held-out sample substantially beyond 20 respondents.</li><li>Consider evaluating collapsed agree/disagree direction in addition to the full seven-point scale, while preserving the full scale for final validation.</li><li>Do not use the current <code>q13</code> result for substantive inference; treat it as a warning that this setup is under-specified for twin prediction.</li></ul>
+    </section>
+    <section class="section">
+      <h2>Generated From Recorded Study Data</h2>
+      <div class="grid">
+        <div class="metric"><div class="label">Strongest result</div><div class="value">84%</div><div class="subtle">w158_ccpolicy</div></div>
+        <div class="metric"><div class="label">Best confidence default</div><div class="value">openai:gpt-5.5</div><div class="subtle">Based on benchmark confidence quality</div></div>
+        <div class="metric"><div class="label">Main risk</div><div class="value">Confidence</div><div class="subtle">Very confident wrong guesses</div></div>
+      </div>
+    </section>
+  </main>
+  <script type="application/json" id="twin-practitioner-data">{"benchmark":"cross_survey_twin_benchmark_seed789","rows":[{"benchmark":"cross_survey_twin_benchmark_seed789","survey":"w158_ccpolicy","job_id":"6d43ea20483a39c8","heldout_questions":"a,b,c,d,e,f","option_count":2,"model":"openai:gpt-5.5","rows":600,"accuracy":0.8383333333333334,"p_actual":0.7909333333333334,"nll":0.3688120391261153,"nll_p95":1.9661128563728327,"brier":0.22784733333333335,"ece":0.034599999999999936,"nll_vs_empirical":0.107631231873897,"brier_vs_empirical":0.07741632957807959},{"benchmark":"cross_survey_twin_benchmark_seed789","survey":"w158_ccpolicy","job_id":"6d43ea20483a39c8","heldout_questions":"a,b,c,d,e,f","option_count":2,"model":"google:gemini-2.5-pro","rows":600,"accuracy":0.7883333333333333,"p_actual":0.73835,"nll":0.48659666583620614,"nll_p95":1.7719568419318752,"brier":0.32346766666666665,"ece":0.09634999999999999,"nll_vs_empirical":-0.010153394836193819,"brier_vs_empirical":-0.018204003755253717},{"benchmark":"cross_survey_twin_benchmark_seed789","survey":"w157_skillimp","job_id":"a43f33531b85174d","heldout_questions":"a","option_count":5,"model":"openai:gpt-5.5","rows":20,"accuracy":0.65,"p_actual":0.47800000000000004,"nll":1.0059213591754808,"nll_p95":3.0762041691756967,"brier":0.5218379750000001,"ece":0.12400000000000004,"nll_vs_empirical":0.31014309822436714,"brier_vs_empirical":0.14208866984398993},{"benchmark":"cross_survey_twin_benchmark_seed789","survey":"w157_skillimp","job_id":"a43f33531b85174d","heldout_questions":"a","option_count":5,"model":"google:gemini-2.5-pro","rows":20,"accuracy":0.7,"p_actual":0.6094999999999999,"nll":3.2517623935467457,"nll_p95":27.631021115928547,"brier":0.48945,"ece":0.18050000000000005,"nll_vs_empirical":-1.9356979361468978,"brier_vs_empirical":0.17447664484399},{"benchmark":"cross_survey_twin_benchmark_seed789","survey":"w152_humanvai","job_id":"22bd551fe8d4f2d9","heldout_questions":"humanvai_a_w152","option_count":4,"model":"openai:gpt-5.5","rows":20,"accuracy":0.6,"p_actual":0.4665,"nll":0.9230477203991494,"nll_p95":1.7394222523468168,"brier":0.51578,"ece":0.138,"nll_vs_empirical":0.4342454172072878,"brier_vs_empirical":0.22140579065843335},{"benchmark":"cross_survey_twin_benchmark_seed789","survey":"w152_humanvai","job_id":"22bd551fe8d4f2d9","heldout_questions":"humanvai_a_w152","option_count":4,"model":"google:gemini-2.5-pro","rows":20,"accuracy":0.5,"p_actual":0.47400000000000003,"nll":1.2219400060703087,"nll_p95":3.041546810147699,"brier":0.71201,"ece":0.33649999999999997,"nll_vs_empirical":0.1353531315361285,"brier_vs_empirical":0.02517579065843334},{"benchmark":"cross_survey_twin_benchmark_seed789","survey":"w163_sm9","job_id":"6dd602a142835c4f","heldout_questions":"a","option_count":4,"model":"openai:gpt-5.5","rows":20,"accuracy":0.6,"p_actual":0.441,"nll":0.9369107313488747,"nll_p95":1.7494557871199243,"brier":0.5316400000000001,"ece":0.13,"nll_vs_empirical":0.2886348668078176,"brier_vs_empirical":0.13007316220801546},{"benchmark":"cross_survey_twin_benchmark_seed789","survey":"w163_sm9","job_id":"6dd602a142835c4f","heldout_questions":"a","option_count":4,"model":"google:gemini-2.5-pro","rows":20,"accuracy":0.55,"p_actual":0.508,"nll":1.0316382600487557,"nll_p95":2.995732273553991,"brier":0.6115299999999999,"ece":0.2395,"nll_vs_empirical":0.1939073381079366,"brier_vs_empirical":0.050183162208015664},{"benchmark":"cross_survey_twin_benchmark_seed789","survey":"dataverse_dnzt11_dnzt11_vignette_outcomes","job_id":"eeac73cbdcb8a507","heldout_questions":"q13","option_count":7,"model":"openai:gpt-5.5","rows":20,"accuracy":0.3,"p_actual":0.20049999999999998,"nll":1.980173672012148,"nll_p95":3.912023005428146,"brier":0.82857,"ece":0.09300000000000003,"nll_vs_empirical":-0.2574381529991747,"brier_vs_empirical":-0.045604629219094917},{"benchmark":"cross_survey_twin_benchmark_seed789","survey":"dataverse_dnzt11_dnzt11_vignette_outcomes","job_id":"eeac73cbdcb8a507","heldout_questions":"q13","option_count":7,"model":"google:gemini-2.5-pro","rows":20,"accuracy":0.4,"p_actual":0.26749999999999996,"nll":4.535104302847166,"nll_p95":27.631021115928547,"brier":0.8890100000000001,"ece":0.24000000000000005,"nll_vs_empirical":-2.8123687838341924,"brier_vs_empirical":-0.10604462921909497}],"summary":{"openai:gpt-5.5":{"survey_count":5,"mean_accuracy":0.5976666666666667,"mean_nll":1.0429731044123536,"mean_brier":0.5251350616666668,"mean_ece":0.10392000000000001,"mean_nll_vs_empirical":0.17664329222283898},"google:gemini-2.5-pro":{"survey_count":5,"mean_accuracy":0.5876666666666667,"mean_nll":2.105408325669836,"mean_brier":0.6050935333333334,"mean_ece":0.21857000000000001,"mean_nll_vs_empirical":-0.8857919290346438}},"config":{"name":"cross_survey_twin_benchmark_seed789","studies":[{"survey":"w158_ccpolicy","heldout_questions":"a,b,c,d,e,f","job_id":"6d43ea20483a39c8"},{"survey":"w157_skillimp","heldout_question":"a","job_id":"a43f33531b85174d"},{"survey":"w152_humanvai","heldout_question":"humanvai_a_w152","job_id":"22bd551fe8d4f2d9"},{"survey":"w163_sm9","heldout_question":"a","job_id":"6dd602a142835c4f"},{"survey":"dataverse_dnzt11_dnzt11_vignette_outcomes","heldout_question":"q13","job_id":"eeac73cbdcb8a507"}]}}</script>
+  <script type="application/json" id="twin-practitioner-generation">{"mode":"imported_results","report_id":"6c4c0d07d5c6701d","model":"openai:gpt-5.5","models":["openai:gpt-5.5"],"context_path":".zwill/practitioner_reports/6c4c0d07d5c6701d/context.json","markdown_path":".zwill/practitioner_reports/6c4c0d07d5c6701d/report.md","import_path":".zwill/practitioner_reports/6c4c0d07d5c6701d/import.json"}</script>
+  <script type="text/plain" id="markdown-report">## What This Report Means by Digital Twins
+
+In this report, a *digital twin* is an AI simulation of an individual survey respondent: the model sees some of that respondent's prior survey answers, then predicts how the same respondent would answer a held-out or new question. One practical analogy is persona-based reasoning in product design and user research: practitioners have long used personas to make abstract customer data easier to reason with and to ask "what would this kind of person need, object to, or choose?" Digital twins are not the same as traditional personas, but they extend a related idea: they use many respondent-specific records, apply the persona-like reasoning at scale, and ask a model to project each respondent into a new decision setting.
+
+This approach builds on a growing literature using language models to simulate human samples and behavior, including Argyle et al.'s work on "silicon samples" and algorithmic fidelity, Aher, Arriaga, and Kalai's "Turing Experiments" for replicating human-subject studies, Horton's framing of LLMs as simulated economic agents, and Park et al.'s generative-agent simulations of 1,000 real people. Expected Parrot is the company and open-source tooling provider behind EDSL, the system used here to build surveys, run language-model jobs remotely, store results, and generate this report.
+
+References: [Cooper, *The Inmates Are Running the Asylum*](https://en.wikipedia.org/wiki/Alan_Cooper_%28software_designer%29); [Pruitt & Grudin, *Personas*](https://en.wikipedia.org/wiki/Persona_%28user_experience%29); [Argyle et al., *Out of One, Many*](https://arxiv.org/abs/2209.06899); [Aher, Arriaga & Kalai, *Using Large Language Models to Simulate Multiple Humans*](https://arxiv.org/abs/2208.10264); [Horton, *Large Language Models as Simulated Economic Agents*](https://arxiv.org/abs/2301.07543); [Park et al., *Generative Agent Simulations of 1,000 People*](https://arxiv.org/abs/2411.10109); [Expected Parrot EDSL documentation](https://docs.expectedparrot.com/en/latest).
+
+---
+
+## Why This Report Uses Held-Out Questions
+
+The held-out question is a proxy for the kind of new question a practitioner might later ask an instantiated digital twin. In a deployed use case, the model would see what is already known about a respondent and then project that respondent into a new decision setting. The benchmark recreates that situation by hiding one real survey question, giving the twin other answers from the same respondent, and scoring whether the twin can recover the answer the respondent actually gave.
+
+This is intentionally a demanding test. Survey designers usually avoid asking many highly correlated questions when they can, because redundant questions waste respondent attention. That means a held-out item is often not just a near-duplicate of the context questions. If a twin performs well under that condition, it is evidence that it learned something useful about the respondent or question family, not merely that it copied an obvious neighboring item.
+
+The hold-out design is still only a proxy. It tests generalization to questions from the same survey environment, with known response options and a real answer for scoring. A truly new question may use different wording, a different scale, or a different decision context. Treat strong hold-out performance as evidence of promise, then adjust confidence based on how similar the new question is to the tested held-out questions.
+
+---
+
+## How to Use This Report
+
+### Match Validation to Decision Stakes
+
+Treat twin results as decision support. The amount of validation should scale with the cost of being wrong:
+
+- **Low-stakes, reversible, internal, or time-sensitive decisions:** use the twin output when the new question resembles cases where the benchmark worked, scan for obvious failures, and move.
+- **Medium-stakes decisions:** use twins for direction and prioritization, then review failure patterns or run a small validation sample when the question has many options, rare answers, sensitive wording, or model disagreement.
+- **High-stakes, public, publishable, expensive-to-reverse, or policy-critical decisions:** treat twin output as one input, not final evidence. Field data or a stronger validation study is usually worth the cost.
+- **Probability-sensitive decisions:** inspect confidence failures before using rankings, thresholds, or "most likely" targeting. Calibration means that when a twin says it is 70% sure, it should be right about 70% of the time.
+
+### When Direct Survey Research Is Infeasible
+
+Sometimes survey research is infeasible rather than merely expensive. Competitors, regulators, voters in a future election, executives, or other strategically important audiences may not answer a survey at all, may not answer quickly enough, or may not answer candidly. In those cases, the right comparison is not always "twin output versus a perfect survey"; it may be "twin output versus no direct measurement." Twins can be useful in that setting even when they are not precise enough to publish as population estimates.
+
+### Use Twins for Ranking and Exploration
+
+Distinguish rank ordering from exact levels. Twins may be more reliable at identifying which option, message, segment, or question is relatively stronger than at estimating the exact percentage that would choose it.
+
+They can also surface considerations, objections, and patterns to investigate, not just point-estimate predictions. For example, a twin study might suggest that a proposal is likely to worry respondents less because of its cost than because it feels unfair to a subgroup, or it might reveal an objection the research team had not thought to test directly. Treat those outputs as hypotheses and prompts for better thinking, not just as percentages.
+
+---
+
+# Practitioner report: cross-survey digital twin benchmark, seed 789
+
+## 1. Executive summary
+
+Use these twins most confidently for **low-stakes, directional work on binary public-policy questions similar to the climate-policy battery**. In that setting, `openai:gpt-5.5` produced a strong result: it picked the respondent’s actual favor/oppose answer **83.8%** of the time across 600 respondent-question cases, beating both random guessing and guessing from the whole group’s answer distribution. That is good enough to support internal prioritization, message triage, and early ranking of similar proposals, especially when the cost of being wrong is modest.
+
+Use the twins more cautiously for **multi-option attitude questions**. The results on interpersonal skills, AI medical diagnosis, and social media were promising but based on only **20 respondents per question**. They beat random guessing and usually beat the group-average benchmark, but the evidence is too thin for exact estimates or public claims without additional validation.
+
+Do **not** rely on these twins for the tested seven-point vignette blame item without more work. On the local-government service-failure vignette question, the twins did not beat guessing from the group’s observed answer pattern in confidence quality, and the downloaded replication package supplied only summarized condition labels, not the full vignette prose. That is a poor fit for a question where precise stimulus wording likely matters.
+
+Prefer `openai:gpt-5.5` over `google:gemini-2.5-pro` when probability values matter. Gemini sometimes had similar or slightly higher top-choice accuracy on small samples, but it produced more very confident wrong answers, including cases where it assigned essentially zero probability to the answer the respondent actually gave. Those failures would make probability cutoffs, rankings by confidence, or targeting rules risky.
+
+The main caveat is not that the twins never work; the main caveat is **where they are overconfident and where majority answers hide minority respondents**. In the climate battery, high favor rates made several questions easy at the aggregate level, but the models often missed respondents who opposed broadly popular climate proposals.
+
+## 2. Study setup
+
+### Benchmark and models
+
+This report uses the recorded benchmark `cross_survey_twin_benchmark_seed789`.
+
+Two models were tested:
+
+- `openai:gpt-5.5`
+- `google:gemini-2.5-pro`
+
+Accuracy means the share of cases where the twin’s highest-probability answer matched the real respondent’s answer.
+
+The two baselines were:
+
+- **Random guessing**: choosing among the listed answer options with no respondent information.
+- **Group-average guessing**: guessing based on how the whole observed sample answered the held-out question. This is a useful benchmark for held-out questions because it asks whether the twin used respondent-specific information rather than only reproducing the overall distribution. It is not available for genuinely new questions whose real answer distribution has not been observed.
+
+### Surveys and held-out questions
+
+The benchmark covered five survey contexts.
+
+#### `w158_ccpolicy`: climate-change policy proposals
+
+Context: a nationally representative Pew Research Center American Trends Panel survey of U.S. adults, fielded in October 2024.
+
+Survey artifact summary:
+
+- Respondents in source survey: 9,214
+- Questions in survey artifact: 6
+- Held-out questions: 6 binary favor/oppose items
+- Results imported: 1,200 model-result rows
+- Benchmark rows used: 600 per model, with 100 respondent-question cases per held-out question per model
+- The recorded imported manifest did not include the exact context-question count or complete-case rule for this job.
+
+Held-out questions and answer options were:
+
+1. “Do you favor or oppose the following proposals to reduce the effects of global climate change? Planting about a trillion trees around the world to absorb carbon emissions in the atmosphere”
+   - Favor
+   - Oppose
+
+2. “Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce”
+   - Favor
+   - Oppose
+
+3. “Do you favor or oppose the following proposals to reduce the effects of global climate Providing a tax credit to encourage businesses to develop technology which captures and stores carbon emissions so they do not enter the atmosphere”
+   - Favor
+   - Oppose
+
+4. “Do you favor or oppose the following proposals to reduce the effects of global climate change? CCPOLICY_d_W158. Requiring power plants to eliminate all carbon emissions by 2040”
+   - Favor
+   - Oppose
+
+5. “Do you favor or oppose the following proposals to reduce the effects of global climate change? Requiring oil and gas companies to seal methane gas leaks from oil wells”
+   - Favor
+   - Oppose
+
+6. “Do you favor or oppose below proposals to reduce effects of global climate change? Providing a tax credit to Americans who improve their home energy efficiency, such as by installing heat pumps or adding insulation”
+   - Favor
+   - Oppose
+
+The fourth question appears to include the code label `CCPOLICY_d_W158` in the question text in the recorded artifact. Treat that as a wording artifact to check before using results for production survey design.
+
+#### `w157_skillimp`: interpersonal skills and worker success
+
+Context: a nationally representative Pew Research Center American Trends Panel survey of U.S. adults, fielded in October 2024.
+
+Survey artifact summary:
+
+- Respondents in source survey: 5,333
+- Questions in survey artifact: 9
+- Held-out question: 1 five-option importance item
+- Context question count in run: 5
+- Sample respondents in run: 20
+- Seed: 789
+- Complete cases: true
+- Stratified by actual answer: true
+- Balance actual answers: false
+
+Held-out question:
+
+“Now thinking about workers in general, how important do you think each of the following is for a worker to be successful in today's economy? Interpersonal skills, such as getting along with people and resolving conflicts”
+
+Options:
+
+- Extremely important
+- Very important
+- Somewhat important
+- Not too important
+- Not at all important
+
+#### `w152_humanvai`: AI versus people on medical diagnosis
+
+Context: Pew Research Center American Trends Panel W152.
+
+Survey artifact summary:
+
+- Respondents in source survey: 5,318
+- Questions in survey artifact: 8
+- Held-out question: 1 four-option item
+- Context question count in run: 5
+- Sample respondents in run: 20
+- Seed: 789
+- Complete cases: true
+- Stratified by actual answer: true
+- Balance actual answers: false
+
+Held-out question:
+
+“Thinking about artificial intelligence (AI) today, do you think AI would do better, worse or about the same as people whose job it is to... Make a medical diagnosis”
+
+Options:
+
+- AI would do this better
+- AI would do this worse
+- AI would do this about the same
+- Not sure
+
+#### `w163_sm9`: social media and underrepresented groups
+
+Context: a nationally representative Pew Research Center American Trends Panel survey of U.S. adults, fielded in February 2025.
+
+Survey artifact summary:
+
+- Respondents in source survey: 5,020
+- Questions in survey artifact: 5
+- Held-out question: 1 four-option item
+- Context question count in run: 4
+- Sample respondents in run: 20
+- Seed: 789
+- Complete cases: true
+- Stratified by actual answer: true
+- Balance actual answers: false
+
+Held-out question:
+
+“How well do you think each of the following statements describes social media? Social media... Helps give a voice to underrepresented groups”
+
+Options:
+
+- Very well
+- Somewhat well
+- Not too well
+- Not at all well
+
+#### `dataverse_dnzt11_dnzt11_vignette_outcomes`: local-government service failure vignette
+
+Context: U.S. online respondent survey experiment about local-government service failures and government downsizing. Respondents read two vignettes: one about trash/recycling not being picked up after Department of Public Works downsizing, and one about termination of vacuum leaf collection service in Clark County. The arms varied downsizing information and whether a DPW employee or the DPW was identified as responsible.
+
+Important caveat: the recorded survey context says the downloaded replication package provides summarized condition labels, not the full vignette prose. That matters because the held-out item asks respondents to assign blame based on Vignette 1.
+
+Survey artifact summary:
+
+- Respondents in source survey: 1,199
+- Questions in survey artifact: 6
+- Held-out question: 1 seven-option agreement item
+- Context question count in run: 5
+- Sample respondents in run: 20
+- Seed: 789
+- Complete cases: true
+- Stratified by actual answer: true
+- Balance actual answers: false
+
+Held-out question:
+
+“Based on Vignette 1, city leaders (Mayor and City Council) are to blame for the trash and recycling bins not being picked up.”
+
+Options:
+
+- Strongly disagree
+- Disagree
+- Somewhat disagree
+- Neither agree nor disagree
+- Somewhat agree
+- Agree
+- Strongly agree
+
+### Data quality checks
+
+The imported artifacts are clean on the recorded checks:
+
+- All five surveys had `open_quarantine_issues: 0`.
+- All imported twin-result jobs had `issue_count: 0`.
+- Extracted result counts matched imported result counts in the recorded jobs.
+- Question options are recorded as human-readable labels rather than opaque numeric codes.
+- No malformed model-response issues were recorded in the provided import metadata.
+
+Weighting status for the benchmark calculations was not recorded in the provided artifacts. The Pew source surveys are described as nationally representative, but this benchmark should be interpreted as a twin-performance test on the sampled held-out cases, not as a weighted public-opinion estimate.
+
+## 3. Overall performance
+
+The practical reading is: **performance varies sharply by question type, and the binary climate-policy battery is the strongest evidence in this benchmark**.
+
+A single global score would be misleading because the benchmark mixes binary, four-option, five-option, and seven-option questions, and because the climate-policy job contributes far more rows than the other studies. The useful conclusions come from the per-survey and per-question results.
+
+| Survey / question family | Test size | Best practical read |
+|---|---:|---|
+| Climate policy favor/oppose, `w158_ccpolicy` | 600 cases per model | Strong for `openai:gpt-5.5`. It chose the real answer 83.8% of the time, above random guessing at 50% and above group-average guessing at 79.5%. |
+| Interpersonal skills importance, `w157_skillimp` | 20 cases per model | Promising but small. Gemini chose the real answer 70% of the time and GPT-5.5 65%, versus 20% random and 45% group-average. GPT-5.5 had safer confidence behavior. |
+| AI medical diagnosis, `w152_humanvai` | 20 cases per model | Moderately useful for exploratory direction. GPT-5.5 reached 60% accuracy versus 25% random and 30% group-average. Gemini reached 50% but was much more overconfident. |
+| Social media giving voice to underrepresented groups, `w163_sm9` | 20 cases per model | Modest but usable for rough direction. GPT-5.5 reached 60% and Gemini 55%, versus 25% random and 50% group-average. |
+| Local-government vignette blame, `dataverse_dnzt11...` | 20 cases per model | Not reliable for use without validation. Accuracy was 30% for GPT-5.5 and 40% for Gemini, but confidence quality was worse than group-average guessing, and full vignette prose was unavailable. |
+
+Across the five surveys, `openai:gpt-5.5` had slightly higher average accuracy than Gemini in the unweighted survey-level summary, but the more important difference is confidence behavior. GPT-5.5 more often assigned reasonable probability to the respondent’s actual answer. Gemini produced several severe misses where the actual answer received 0% or near-0% probability.
+
+The benchmark also shows why group-average guessing matters. On the climate-policy battery, many respondents favored several proposals. For some high-consensus items, simply guessing from the overall distribution was already hard to beat. The twin is most valuable where it improves beyond that—especially on more contested items such as taxing corporations based on carbon emissions and requiring power plants to eliminate carbon emissions by 2040.
+
+## 4. Where twins worked well
+
+### A. Binary climate-policy proposals: useful for low-stakes ranking and internal prioritization
+
+The strongest result is `openai:gpt-5.5` on the six Pew climate-policy favor/oppose items.
+
+Overall, GPT-5.5:
+
+- Picked the real answer **83.8%** of the time.
+- Assigned an average probability of **79.1%** to the respondent’s actual answer.
+- Beat random guessing by a wide margin.
+- Beat group-average guessing overall on confidence quality, meaning it used respondent-specific information rather than only reproducing the overall favor/oppose split.
+
+This is practically useful. If a practitioner wants to screen a set of similar binary climate or policy proposals, identify which proposals are likely to be broadly acceptable, or rank alternatives before deciding what to field, the GPT-5.5 twin output is credible enough for low-stakes internal use, with a quick sanity check.
+
+The evidence is strongest on the more contested proposals:
+
+- “Taxing corporations based on the amount of carbon emissions they produce”
+  - GPT-5.5 accuracy: **79%**
+  - Group-average accuracy: **70%**
+  - Interpretation: the twin added respondent-specific signal beyond a simple group-average guess.
+
+- “Requiring power plants to eliminate all carbon emissions by 2040”
+  - GPT-5.5 accuracy: **79%**
+  - Gemini accuracy: **80%**
+  - Group-average accuracy: **62%**
+  - Interpretation: this is one of the clearest cases where respondent context mattered. A practitioner could use this kind of twin output to explore segment differences or rank policy variants, though the wording artifact in the recorded question text should be cleaned before production use.
+
+GPT-5.5 also performed well on incentives and regulatory proposals:
+
+- Business tax credit for carbon capture and storage: **85%** accuracy for GPT-5.5.
+- Requiring oil and gas companies to seal methane gas leaks: **83%** accuracy for GPT-5.5.
+- Home energy-efficiency tax credit: **88%** accuracy for GPT-5.5.
+
+However, some of those items had high overall favor rates, so high accuracy partly reflects broad support. For example, on planting about a trillion trees, the group-average benchmark reached **91%** accuracy while GPT-5.5 reached **89%**. That still indicates the model captured the dominant answer, but it is weaker evidence of respondent-specific prediction.
+
+The practical conclusion for climate-policy use is:
+
+- Use GPT-5.5 output to rank binary proposals and detect broad favor/oppose direction.
+- Put more trust in results for contested items where the model beats group-average guessing.
+- Be careful using the twin to identify minority opposition, because the model often predicted “Favor” for actual “Oppose” respondents on high-consensus items.
+
+### B. Interpersonal skills importance: promising, but mainly for broad importance judgments
+
+The interpersonal-skills item had five ordered response options from “Extremely important” to “Not at all important.” With only 20 tested respondents, the sample is small, but the result is encouraging.
+
+Accuracy:
+
+- GPT-5.5: **65%**
+- Gemini: **70%**
+- Random guessing: **20%**
+- Group-average guessing: **45%**
+
+On top-choice accuracy alone, both models beat the baselines. But GPT-5.5 is the safer model to use because Gemini had severe confidence failures. Gemini assigned 0% probability to the actual answer in two cases:
+
+- Actual: “Not too important”; predicted: “Very important”
+- Actual: “Somewhat important”; predicted: “Extremely important”
+
+The error pattern is informative. The twins were better at recognizing the general high-importance consensus than at distinguishing exact intensity. They often confused “Extremely important” and “Very important,” and they struggled with less common lower-importance responses.
+
+For practice, this is useful if the decision is about broad salience—whether interpersonal skills are seen as important. It is not strong enough, by itself, to estimate exact shares across all five categories.
+
+### C. AI medical diagnosis: useful for exploratory direction, not precise category shares
+
+On the AI medical-diagnosis question, GPT-5.5 performed better than Gemini for practical purposes.
+
+Accuracy:
+
+- GPT-5.5: **60%**
+- Gemini: **50%**
+- Random guessing: **25%**
+- Group-average guessing: **30%**
+
+GPT-5.5’s average top confidence was about **57%**, close to its 60% accuracy. That is a healthier pattern than Gemini, whose average top confidence was about **78%** while its accuracy was only 50%.
+
+The model captured more than the group average, but the confusion pattern shows that exact categories are fragile. The models sometimes confused:
+
+- “AI would do this better” with “AI would do this worse”
+- “AI would do this about the same” with “AI would do this better”
+- “Not sure” with substantive better/worse answers
+
+For practitioners, the twin can help explore likely reactions to AI capability questions and flag that uncertainty is a meaningful response category. It should not be used alone to estimate the exact share saying AI is better, worse, about the same, or “Not sure.”
+
+### D. Social media giving a voice to underrepresented groups: modest signal, mostly about broad direction
+
+On the social-media item, the twins were modestly better than baselines.
+
+Accuracy:
+
+- GPT-5.5: **60%**
+- Gemini: **55%**
+- Random guessing: **25%**
+- Group-average guessing: **50%**
+
+Both models beat group-average guessing in confidence quality, but not by a large margin. GPT-5.5 again had more restrained confidence than Gemini.
+
+The most useful signal is likely broad direction. The models often distinguished generally positive from generally less positive views, but they confused intensity levels. For example, “Very well” and “Somewhat well” were often mixed, and “Not too well” could be confused with “Somewhat well.”
+
+A practitioner could use these twins to prototype broad response patterns to similar social-media perception questions, but should validate before making claims about the exact distribution across all four intensity levels.
+
+## 5. Where twins failed or need caution
+
+### A. The seven-point local-government vignette blame item is not ready for decision use
+
+The weakest result is the Dataverse vignette outcome:
+
+“Based on Vignette 1, city leaders (Mayor and City Council) are to blame for the trash and recycling bins not being picked up.”
+
+This item has seven ordered agreement options. It also depends on a vignette, but the recorded survey context says the available replication package provided summarized condition labels rather than full vignette prose.
+
+That combination caused problems.
+
+Accuracy:
+
+- GPT-5.5: **30%**
+- Gemini: **40%**
+- Random guessing: about **14%**
+- Group-average guessing: **30%**
+
+Gemini’s 40% top-choice accuracy looks somewhat better than the baselines, but its probability behavior was poor. It produced very confident wrong answers, including:
+
+- Actual: “Strongly agree”; predicted: “Strongly disagree”; probability assigned to actual answer: **0%**
+- Actual: “Neither agree nor disagree”; predicted: “Disagree”; probability assigned to actual answer: **0%**
+- Actual: “Strongly disagree”; predicted: “Somewhat agree”; probability assigned to actual answer: **1%**
+
+GPT-5.5 was less extreme but still failed to beat the group-average benchmark on confidence quality. It also made severe misses, such as assigning **2%** probability to “Agree” when the predicted answer was “Disagree.”
+
+The practical conclusion is straightforward: do not use these twin outputs to estimate blame attribution from this vignette. The model likely needed the full stimulus text, and the seven-point scale created many opportunities for adjacent and non-adjacent category errors.
+
+### B. Minority “Oppose” responses in the climate battery were often missed
+
+The climate-policy results are strong overall, but they hide an important failure mode: the models often predicted “Favor” for respondents who actually answered “Oppose,” especially on broadly popular proposals.
+
+Examples from GPT-5.5:
+
+- Tree planting:
+  - Actual “Oppose” cases: 9
+  - Predicted “Favor” for all 9 actual “Oppose” cases in the 100-case test
+  - Some misses were very confident, assigning only **1%** or **2%** probability to the actual “Oppose” answer.
+
+- Home energy-efficiency tax credit:
+  - Actual “Oppose” cases: 14
+  - Predicted “Favor” for 11 of those 14 actual “Oppose” cases
+  - Some very confident misses assigned only **2%** probability to the actual “Oppose” answer.
+
+- Requiring oil and gas companies to seal methane gas leaks:
+  - Actual “Oppose” cases: 13
+  - GPT-5.5 correctly predicted 8 and predicted “Favor” for 5
+  - One recorded very confident miss assigned **3%** probability to the actual “Oppose” answer.
+
+This matters if the user’s decision involves minority segments, persuasion targets, opposition risk, or backlash. The twin is better at detecting broad support than at reliably identifying every pocket of opposition.
+
+### C. Ordered response scales caused adjacent-category and intensity errors
+
+The five-point and four-point attitude questions show a recurring pattern: the twins often understood the broad direction but missed exact intensity.
+
+Examples:
+
+- Interpersonal skills:
+  - “Very important” was sometimes predicted as “Extremely important.”
+  - Lower-importance responses such as “Not too important” and “Not at all important” were rare and harder for the models.
+
+- Social media:
+  - “Very well” and “Somewhat well” were frequently confused.
+  - “Not too well” could be predicted as “Somewhat well.”
+
+- AI medical diagnosis:
+  - “Not sure” and “AI would do this about the same” were not always treated as stable middle or uncertainty categories.
+  - Some respondents saying AI would do better were predicted as saying worse, and vice versa.
+
+If the practical decision only needs a broad positive/negative or high/low read, these outputs may still be useful. If the decision depends on exact intensity, validation is worth the cost.
+
+### D. Gemini was often too confident when wrong
+
+Gemini’s top-choice accuracy was not uniformly bad, and on two small samples it had the highest accuracy. But its probability outputs are risky.
+
+Examples:
+
+- Interpersonal skills:
+  - Actual “Not too important”; predicted “Very important”; actual answer given **0%** probability.
+  - Actual “Somewhat important”; predicted “Extremely important”; actual answer given **0%** probability.
+
+- Local-government blame:
+  - Actual “Strongly agree”; predicted “Strongly disagree”; actual answer given **0%** probability.
+  - Actual “Neither agree nor disagree”; predicted “Disagree”; actual answer given **0%** probability.
+
+- AI medical diagnosis:
+  - Actual “AI would do this about the same”; predicted “AI would do this better”; actual answer given **2%** probability.
+
+For any workflow that ranks individuals, messages, options, or segments using probability scores, this is a serious failure mode. If Gemini is used at all, treat it as a sensitivity check against GPT-5.5 rather than as the primary source of calibrated probabilities.
+
+## 6. Practical use recommendations
+
+### Use GPT-5.5 for low-stakes screening of similar binary policy questions
+
+For new questions that closely resemble the `w158_ccpolicy` battery—binary favor/oppose items about public policy proposals—GPT-5.5 is the best-supported model in this benchmark.
+
+Appropriate uses include:
+
+- Early ranking of policy proposals before deciding which to field.
+- Internal message or proposal triage.
+- Identifying which binary alternatives are likely to be broadly favored or divisive.
+- Generating a short list of items for a real survey.
+
+The strongest evidence is for direction and ranking, not exact population shares. The benchmark did not record weighted estimation, and the group-average baseline is only available because these questions were already observed.
+
+For climate-policy-like questions, the practical takeaway is nuanced:
+
+- High-consensus proposals such as tree planting and home energy-efficiency tax credits are likely to look favorable, but the twin may under-detect opposition.
+- More contested proposals, such as taxing corporations based on emissions or requiring power plants to eliminate carbon emissions by 2040, are where respondent-specific information appears especially valuable.
+- If the decision depends on opponents, persuadable segments, or backlash risk, validate those groups rather than relying on the top-line twin output.
+
+### Use multi-option attitude outputs for broad direction, not exact category shares
+
+For questions like the interpersonal-skills, AI diagnosis, and social-media items, use the twin output to understand broad patterns:
+
+- Is the attitude generally positive or negative?
+- Is the item likely to produce high importance ratings?
+- Are respondents likely to split across “better,” “worse,” “same,” and “not sure”?
+- Which response categories seem unstable or easily confused?
+
+Do not treat the exact shares across four or five answer options as validated. The evidence comes from only 20 respondents per question, and the models often confused adjacent categories.
+
+A practical approach is to analyze both the full answer scale and a collapsed version, but only if that collapsed version matches the decision. For example:
+
+- “Very well” plus “Somewhat well” may be more decision-relevant than the exact split between the two.
+- “Extremely important” plus “Very important” may be more stable than the exact intensity distinction.
+- “Not sure” on AI should not automatically be merged with “about the same,” because the recorded errors suggest uncertainty is a distinct source of confusion.
+
+### Do not use the local-government vignette result for substantive inference without rerunning the study
+
+For `q13`, the twin evidence is too weak for decision use. The main reasons are:
+
+- The question depends on a vignette, but full vignette prose was not available in the recorded context.
+- The seven-point scale created many severe misses.
+- Group-average guessing beat or matched the twins in the most important confidence-quality comparisons.
+- Gemini produced very confident wrong answers across opposite ends of the agreement scale.
+
+If the goal is to understand blame attribution in local-government service failures, rerun the twin study only after providing the full vignette text and validating on more held-out cases. Until then, the current outputs can at most be used to flag that this is a difficult item for twins, not to estimate respondent opinions.
+
+### Use model disagreement and confidence failures as review triggers
+
+For this benchmark, GPT-5.5 is the default choice. Gemini is useful mainly as a warning system:
+
+- If GPT-5.5 and Gemini agree on a broad directional result, confidence in low-stakes use increases.
+- If Gemini is very confident and GPT-5.5 is uncertain or disagrees, inspect the item manually.
+- If either model assigns near-zero probability to plausible answer options, do not use the raw probabilities for cutoffs or targeting.
+
+This is especially important for:
+
+- Minority “Oppose” responses in the climate-policy battery.
+- Lower-frequency Likert responses such as “Not too important” or “Not at all important.”
+- Middle and uncertainty options such as “Neither agree nor disagree,” “about the same,” and “Not sure.”
+- Seven-point agreement scales.
+
+### Specific considerations surfaced by the benchmark
+
+The recorded outputs support several practical considerations for future survey design and decision use:
+
+- **Broad climate-policy support can mask opposition.** Even proposals that look easy to classify, such as tree planting or home energy-efficiency tax credits, had actual “Oppose” respondents whom the twin often missed. If opposition matters, measure it directly or oversample likely opponents.
+
+- **Contested climate policies benefit more from respondent-specific modeling.** Taxing corporations based on carbon emissions and requiring power plants to eliminate emissions by 2040 showed clearer gains over group-average guessing. Those are better candidates for twin-assisted segmentation or message testing.
+
+- **Importance intensity is fragile.** On interpersonal skills, the model often leaned toward “Extremely important” or “Very important.” Use the output to detect broad importance, not to claim exact intensity levels without validation.
+
+- **Uncertainty about AI is not noise.** The AI diagnosis question showed confusion involving “Not sure” and “about the same.” If the practical decision involves public confidence in AI, keep uncertainty categories visible rather than forcing a better/worse interpretation.
+
+- **Social-media benefit perceptions are easier in broad direction than exact strength.** The model could often capture whether the statement describes social media at least somewhat well, but “Very well” versus “Somewhat well” was less stable.
+
+- **Vignette wording is essential.** The local-government blame item demonstrates that summarized condition labels are not a substitute for full stimulus text when the outcome asks respondents to react to a specific vignette.
+
+## 7. Next study recommendations
+
+### Quick sanity checks for low- or medium-stakes use
+
+For a near-term application similar to the successful climate-policy battery:
+
+1. Use `openai:gpt-5.5` as the primary model.
+2. Include at least one known benchmark-style item where real responses are available, so the new run has an internal calibration check.
+3. Inspect errors or uncertainty specifically for minority options, not just overall accuracy.
+4. Compare GPT-5.5 with Gemini only as a sensitivity check; do not average Gemini probabilities without reviewing overconfident misses.
+5. If using multi-option scales, review both exact-category predictions and broader collapsed categories that match the decision.
+
+For a new binary policy battery, a small validation sample is most valuable if:
+
+- The decision is moderately costly.
+- The expected differences between options are small.
+- The user needs to identify minority opposition.
+- The output will be shared outside the organization.
+
+### Validation worth doing before high-stakes use
+
+For expensive, public, publishable, or policy-critical decisions, run a fuller validation before relying on these twins.
+
+The most useful additions would be:
+
+- More held-out respondents per question, especially for the four-, five-, and seven-option items currently tested on only 20 respondents.
+- More held-out questions within each question family, so performance is not inferred from a single item.
+- Subgroup checks for groups where minority answers are especially important.
+- Calibration checks focused on very confident wrong answers.
+- Aggregate-share comparisons, ideally with survey weights when the goal is public-opinion estimation.
+- Prompt and model comparisons recorded with the exact same survey context and codebook labels.
+
+### Recommended follow-up by question family
+
+For climate-policy favor/oppose questions:
+
+- Expand the held-out test to more binary policy items.
+- Check whether the model continues to beat group-average guessing on contested items.
+- Specifically evaluate actual “Oppose” respondents, since broad favorability can hide false confidence.
+- Record weighting and context-question details in the run artifacts.
+
+For interpersonal-skills and similar importance batteries:
+
+- Test more items from the same battery, not just interpersonal skills.
+- Decide in advance whether the decision needs exact five-category shares or only high-versus-low importance.
+- Inspect lower-frequency response options, because they produced the most concerning misses.
+
+For AI and technology-comparison questions:
+
+- Add more AI task domains, not only medical diagnosis.
+- Keep “Not sure” as a separate category in evaluation.
+- Review whether twins are systematically optimistic or pessimistic about AI capability before using them for message or risk assessment.
+
+For social-media perception questions:
+
+- Test more statements from the same survey family.
+- Evaluate broad positive/negative classification separately from exact intensity.
+- Look for subgroup differences if the decision concerns underrepresented groups specifically.
+
+For vignette and experimental-treatment questions:
+
+- Rerun only with full vignette prose included.
+- Increase the held-out sample substantially beyond 20 respondents.
+- Consider evaluating collapsed agree/disagree direction in addition to the full seven-point scale, while preserving the full scale for final validation.
+- Do not use the current `q13` result for substantive inference; treat it as a warning that this setup is under-specified for twin prediction.
+</script>
+  <script>
+    const button = document.getElementById("copy-markdown");
+    const status = document.getElementById("copy-status");
+    const markdown = document.getElementById("markdown-report").textContent.trim();
+    async function copyMarkdown() {
+      try {
+        await navigator.clipboard.writeText(markdown);
+        status.textContent = "Copied";
+      } catch (error) {
+        const textarea = document.createElement("textarea");
+        textarea.value = markdown;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+        status.textContent = "Copied";
+      }
+      window.setTimeout(() => { status.textContent = ""; }, 1800);
+    }
+    button.addEventListener("click", copyMarkdown);
+  </script>
+</body>
+</html>

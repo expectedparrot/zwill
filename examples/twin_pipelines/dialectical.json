@@ -1,0 +1,4 @@
+[
+  {"name": "reason", "template_path": "dialectical_reason.md"},
+  {"name": "predict", "template_path": "dialectical_predict.md"}
+]

@@ -1,0 +1,1762 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage[round,authoryear]{natbib}
+\usepackage{hyperref}
+\usepackage{microtype}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{fontspec}
+\newfontfamily\emojifont{Apple Color Emoji}[Renderer=Harfbuzz]
+\newcommand{\parrotemoji}{{\emojifont 🦜}}
+\newcommand{\given}{\,\vert\,}
+\newcommand{\twin}{\widehat P}
+\newcommand{\zwill}{\texttt{zwill}}
+\DeclareMathOperator*{\E}{\mathbb E}
+\DeclareMathOperator{\KL}{KL}
+\definecolor{codegray}{RGB}{246,247,249}
+\definecolor{codegreen}{RGB}{25,105,60}
+\definecolor{codeblue}{RGB}{30,76,145}
+\definecolor{codeorange}{RGB}{166,74,0}
+\lstdefinestyle{shell}{
+  language=bash,
+  basicstyle=\ttfamily\footnotesize,
+  backgroundcolor=\color{codegray},
+  frame=single,
+  rulecolor=\color{black!18},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  commentstyle=\color{codegreen},
+  keywordstyle=\color{codeblue}\bfseries,
+  stringstyle=\color{codeorange},
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.7em,
+  belowskip=0.7em
+}
+\lstdefinestyle{prompt}{
+  basicstyle=\ttfamily\scriptsize,
+  backgroundcolor=\color{codegray},
+  frame=single,
+  rulecolor=\color{black!18},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  xleftmargin=0.5em,
+  xrightmargin=0.5em
+}
+\lstdefinestyle{json}{
+  basicstyle=\ttfamily\scriptsize,
+  backgroundcolor=\color{codegray},
+  frame=single,
+  rulecolor=\color{black!18},
+  breaklines=true,
+  breakatwhitespace=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  upquote=true,
+  xleftmargin=0.5em,
+  xrightmargin=0.5em,
+  aboveskip=0.7em,
+  belowskip=0.7em
+}
+\input{generated/results_macros.tex}
+\input{generated/one_shot_macros.tex}
+\title{\protect\zwill: Reproducible Construction and Validation of Survey Digital Twins}
+\author{John J. Horton\\
+\normalsize MIT $\cdot$ NBER $\cdot$ E[\parrotemoji]}
+\date{\today\\[1em]
+\includegraphics[width=0.22\textwidth]{../../../docs/assets/zwill-package.png}}
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Language models make it easy to generate plausible survey respondents but do
+not make it easy to establish that those representations predict the right
+answers for the right people. Digital-twin evaluations can be distorted by
+target leakage, unequal information sets, changes in the scored sample,
+provider-specific execution code, silent parsing failures, or benchmarks that
+test only population prevalence. We introduce \zwill, an open-source
+package that makes the path from raw survey microdata to validated digital-twin
+evidence explicit and reproducible. \zwill{} preserves provenance, constructs and
+registers holdout experiments, renders auditable respondent prompts, imports
+model results, fits exact-information statistical baselines, checks leakage,
+computes uncertainty, and builds reports. Expected Parrot provides the portable
+multi-provider inference layer: \zwill{} exports serialized EDSL jobs, Expected
+Parrot executes them remotely and preserves raw Results and cost records, and
+\zwill{} reimports those artifacts for validation. We demonstrate the system on
+15 public microdata batteries and then extend the leave-one-question-out design
+to five independently sourced 2024 General Social Survey batteries. Across two holdout designs and a three-model
+robustness exercise, \TotalPredictions\ respondent-level forecasts all parse
+successfully. On 14 clean batteries, GPT-5.5 twins beat matched conditional
+XGBoost in all 14 under simultaneous holdout and in 13 under by-question
+holdout, with one inconclusive result. A separate same-model one-shot study
+shows that respondent context improves NLL on \OneShotTwinWins{} of 69 questions.
+In the GSS extension, twins beat exact-context XGBoost on 37 of 38 questions
+and the same-model no-persona forecast on 36 of 38.
+An external validation on 20 questions from a Kenyan agricultural field study
+again favors twins over exact-context XGBoost, while twins and same-model
+one-shot forecasts are statistically indistinguishable overall.
+These are finite-sample predictive benchmarks, not evidence that synthetic
+responses are interchangeable with human observations for downstream causal
+or descriptive inference. The empirical results illustrate the package's
+purpose: credible claims require an auditable
+chain of data, information-set, execution, baseline, and reporting contracts,
+not merely convincing synthetic answers.
+\end{abstract}
+
+\section{Introduction}
+Language models make it inexpensive to construct digital representations of
+survey respondents. They do not make it easy to know whether those
+representations work. A model can produce persuasive answers by reproducing
+population stereotypes, exploit information inadvertently revealed elsewhere
+in a questionnaire, or appear superior to a benchmark that received less
+information. These failures are difficult to detect from final predictions
+alone. Credible validation requires control over the entire path from raw
+microdata to prompts, model execution, matched baselines, audits, uncertainty
+estimates, and reports.
+
+We introduce \zwill, an open-source command-line package for constructing
+and validating survey digital twins. The package treats evaluation as an
+experimental-design and evidence-management problem rather than as a prompt
+demonstration. It records the respondents and questions under study, the answer
+held out from each twin, the exact context permitted for each prediction, the
+rendered prompt, the raw model result, and the cases ultimately scored. It then
+compares twins with baselines ranging from uniform prediction to a conditional
+XGBoost model trained on the same respondents and the exact information exposed
+in the corresponding prompts.
+
+This machinery is needed because seemingly small implementation choices can
+change the estimand. A statistical model trained on the full questionnaire is
+not a fair comparator for a twin shown eight answers. A target-specific
+follow-up can reveal a nominally held-out response. Complete-case filtering can
+give two methods different respondents. An empirical target marginal is a
+useful oracle but not an out-of-sample forecast. Dropping malformed model rows
+can make the reported evaluation sample depend on model behavior. \zwill{} turns
+these choices into explicit, inspectable artifacts and blocks its configured
+benchmark gate when the required matched baseline or prompt-leakage audit is
+unavailable. Passing that gate is evidence about the benchmark, not a license
+to substitute synthetic observations for humans in arbitrary analyses.
+
+\subsection{\zwill{} and Expected Parrot}
+Reliable digital-twin research requires both a scientific workflow and a
+reproducible execution layer. \zwill{} owns the former: ingestion, codebooks,
+provenance, holdout design, twin construction, approval, leakage policy,
+baseline matching, scoring, uncertainty, and reporting. Expected Parrot owns
+the latter. \zwill{} serializes the approved experiment as an EDSL job package;
+Expected Parrot executes that package remotely across model providers,
+preserves the raw Results object, and records model, usage, and cost metadata;
+\zwill{} then imports the immutable result package and applies the registered
+validation procedure.
+
+The separation is substantive rather than cosmetic. Provider-specific API
+loops can alter parameters, error handling, and retained outputs across models.
+A portable job/result boundary keeps experimental design out of execution code,
+makes multi-provider comparisons use the same scenarios, and leaves a durable
+record of what was purchased. In this paper, every paid inference operation is
+represented by a \zwill-generated Expected Parrot job package and invoked by a
+Makefile target. Every reported table and figure is regenerated from imported
+\zwill{} evidence bundles.
+
+The paper makes three contributions. First, it specifies a fair
+leave-one-question-out estimand for respondent-level digital twins and a ladder
+of baselines that separates general population knowledge from individual
+signal. Second, it provides an executable software architecture implementing
+the complete validation chain. Third, it demonstrates that architecture across
+public microdata batteries, including cases in which leakage audits or strong
+benchmarks qualify an apparently favorable result. The empirical application
+is therefore both evidence about digital twins and a worked test of the package.
+
+The primary estimand is predictive performance for a previously unseen
+question among respondents drawn from the same survey battery and sampling
+frame. It concerns individual predictive distributions, not merely recovery of
+aggregate marginals. A positive result therefore requires improvement over a
+conditional statistical baseline evaluated on the same scored cases. The
+experiment does not estimate causal effects, simulate treatment responses, or
+validate arbitrary counterfactual behavior.
+
+\subsection{Why leave-one-question-out validation?}
+A digital twin is useful only to the extent that it predicts information not
+used to construct it. Evaluating answers already supplied in the persona would
+measure recall, and comparing only aggregate shares would allow a model to
+succeed by reproducing a population stereotype. Prospective validation on
+entirely new surveys would be attractive, but then changes in wording,
+population, field period, and sampling frame are confounded with twin quality.
+Leave-one-question-out validation occupies the useful middle ground: the
+answer is genuinely hidden, the realized outcome is known, and respondents,
+instrument, and field conditions are held fixed.
+
+The design is the survey analogue of cross-validation. For question $j$, a
+construction function $g$ maps permitted respondent information
+$C_{ij}=\{x_i,y_{i,-j}\}$ to a probabilistic forecast,
+\[
+ \widehat p_{ij}=g(q_j,\mathcal A_j,C_{ij}),
+ \qquad y_{ij}\notin C_{ij},
+\]
+which is scored against the answer that was sequestered before construction.
+Repeating this operation across questions tests transfer rather than fitting a
+question-specific response model. The by-question design most closely matches
+the deployment question ``given everything already known about this person,
+how would they answer one new item?'' The simultaneous design is a stricter
+stress test in which a whole target set is absent. Neither design establishes
+external validity to new populations or causal counterfactuals, but both give
+an internally valid test of incremental respondent-level signal.
+
+\subsection{Validation target and epistemic scope}
+Hullman et al. distinguish heuristic ``validate-then-simulate'' exercises from
+statistically calibrated uses of model outputs \citep{hullman2026human}. Their
+critique applies directly to how our results should be read. A successful
+holdout establishes that a fixed construction predicts observed human answers
+on these respondent--item pairs. It does not establish that model-generated
+answers may replace human observations in a new study. Calling both activities
+``validation'' obscures a change in estimand.
+
+Following \citet{ludwig2025llm}, separate a prediction problem from a
+measurement-and-estimation problem. Our prediction estimand is the risk of a
+frozen predictor $f$ over the evaluated distribution of respondent--item
+inputs $X=(q,C)$:
+\[
+ R_{\mathcal T}(f)=\E_{(X,Y)\sim\mathcal T}
+       [\ell\{Y,f(X)\}],
+\]
+where $\mathcal T$ is, conservatively, the finite collection of batteries,
+targets, and sampled respondents analyzed here. The human answer $Y$ exists for
+every scored prediction. The matched XGBoost comparison asks whether one
+predictor has lower risk than another on exactly those cases.
+
+The holdout $Y\notin C$ prevents direct target leakage from the constructed
+persona, but it is not Ludwig et al.'s ``no training leakage'' condition. These
+are public survey items, and proprietary providers do not reveal training
+corpora. Question wording, reports, or response distributions may have entered
+pretraining. Consequently, we do not estimate performance over an unseen
+population of scenarios. A defensible scenario-level generalization would
+require defining that population and randomly sampling held-out scenarios, or
+using a model whose training boundary makes overlap testable. Our bootstrap
+intervals quantify respondent sampling uncertainty conditional on the selected
+questions and frozen pipeline; they do not solve training leakage or turn the
+69 targets into a random sample of all possible survey questions.
+
+Downstream substitution requires a different condition. Suppose a researcher
+uses twin output $\widehat Y$ to estimate a human parameter $\theta_0$ defined
+by
+\[
+ \E[g(Y,X;\theta_0)]=0.
+\]
+Low NLL, high accuracy, and good aggregate marginal fit do not imply
+\[
+ \E[g(\widehat Y,X;\theta)]
+   =\E[g(Y,X;\theta)]\quad\text{for all }\theta.
+\]
+For example, if $Y=\beta_0+\beta_1Z+\eta$ and
+$\varepsilon=\widehat Y-Y$, the plug-in slope error contains
+$\operatorname{Cov}(Z,\varepsilon)/\operatorname{Var}(Z)$. Small average
+prediction error can therefore coexist with materially biased subgroup or
+treatment-effect estimates. This paper evaluates a predictor; it neither tests
+moment preservation for an arbitrary downstream analysis nor supplies the
+human-validation-sample correction required for calibrated inference.
+
+\section{A latent-trait account of digital twins}
+Treat respondent $i$ as a conditional response distribution
+$P_i(y\given q)$, where $q$ is a survey stimulus and $y$ is a labeled option.
+A digital twin is the approximation induced by model $M$ from observed
+respondent context $c_i$:
+\[
+  \twin_i(y\given q,c_i)=M(y\given q,c_i).
+\]
+The object being validated is a conditional distribution, not a claim that a
+prompt reproduces the respondent's complete psychology. Over a target-question
+distribution $\mathcal Q$, ideal fidelity would minimize
+\[
+ D_i=\E_{q\sim\mathcal Q}\!
+ \left[\KL\{P_i(\cdot\given q)\,\|\,\twin_i(\cdot\given q,c_i)\}\right].
+\]
+Only one realized answer is observed for each respondent--question pair, so the
+study estimates proper-scoring-rule risk averaged over respondents and held-out
+questions rather than estimating $D_i$ separately for each person.
+
+A useful conceptual decomposition distinguishes an \emph{encoder} from a
+\emph{decoder}. Let $z_i$ denote latent traits relevant to survey behavior.
+The encoder $\widehat P_M(z\given c_i)$ infers those traits from demographics
+and observed answers. The shared decoder $\widehat P_M(y\given q,z)$ maps a
+trait configuration and new question to an answer distribution:
+\[
+ \twin_i(y\given q,c_i)=
+ \int \widehat P_M(y\given q,z)\widehat P_M(z\given c_i)\,dz.
+\]
+Same-battery answers can help the encoder locate a respondent in a low-
+dimensional attitude or behavioral space, while pretrained semantic knowledge
+helps the decoder relate that space to new wording and option labels. Failure
+can arise in either component: thin context leaves the encoder uncertain, and
+an unfamiliar or weakly related target can defeat decoder transfer.
+
+The same decomposition separates aggregate level from individual
+heterogeneity. If $\widehat p_{ij}$ is respondent $i$'s predicted option vector
+and $\overline p_j=n_j^{-1}\sum_i\widehat p_{ij}$, then
+\[
+ \widehat p_{ij}=\overline p_j+
+ (\widehat p_{ij}-\overline p_j).
+\]
+A method may estimate $\overline p_j$ well while assigning deviations to the
+wrong people. Aggregate marginal fit therefore validates the first component;
+held-out respondent-level NLL and Brier validate the complete prediction.
+
+\section{Related literature}
+Language-model simulations have been proposed as synthetic samples and
+economic agents \citep{argyle2023out,horton2023homo}. That work motivates the
+possibility that pretrained models encode population-level regularities, but a
+simulated sample is not automatically a twin of observed individuals. Recent
+large-scale twin datasets instead condition on extensive respondent records
+and evaluate held-out behaviors, emphasizing both predictive gains and the
+remaining gap from perfect respondent copies \citep{toubia2025twin}.
+
+This paper studies the limited-record setting: a small number of labeled
+answers and readable covariates must support zero-shot transfer to a new
+question. Work on survey simulation with limited human data likewise stresses
+that prompting, fine-tuning, and statistical rectification answer different
+parts of this problem \citep{krsteski2025valid}. Our contribution is an exact-
+information evaluation framework and the \zwill{} implementation that makes such
+comparisons reproducible across public microdata batteries. The LLM and
+statistical benchmark receive identical case-specific evidence, while the
+serialized Expected Parrot job/result boundary keeps model execution auditable
+and portable across providers.
+
+The paper is also related to direct one-shot forecasts of survey marginals and
+their use as priors for survey estimation
+\citep{horton2026marginalpredictors,horton2026surveypriors}. A marginal forecast
+asks what the population will say without representing particular respondents.
+A digital twin makes the stronger claim that respondent context predicts who
+will select each option. Marginal recovery is therefore an important downstream
+property here, but respondent-level proper scores remain the validation target.
+
+Most directly, \citet{hullman2026human} argue that resemblance on observed
+tasks is partial evidence of fidelity, not a statistical warrant for replacing
+humans on unobserved tasks. They contrast such heuristic validation with
+calibration methods that retain human labels and explicitly correct surrogate
+error. \citet{ludwig2025llm} formalize the distinction. For prediction, risk
+generalization requires a defensible scenario population and protection
+against training leakage. For downstream estimation, LLM measurements must
+preserve the moments identifying the target parameter or be combined with a
+human validation sample. Our contribution sits deliberately on the prediction
+side: it makes the finite benchmark and its information contract credible. It
+does not convert predictive fidelity into a general interchangeability claim.
+
+This distinction also clarifies what \zwill{} presently does and does not do.
+Its leakage audit detects target information in a constructed persona; it
+cannot inspect a proprietary model's pretraining corpus. Its bootstrap compares
+methods over observed respondents; it does not manufacture a probability
+sample of survey scenarios. Its exports could supply jointly labeled human and
+model records to a rectification or prediction-powered-inference procedure,
+but the current report does not implement such a downstream estimator. These
+are separate contracts that software should label rather than blur.
+
+\section{Data and cohort}
+We include every normalized public-microdata battery in the study corpus with
+at least two complete-case respondents.
+Two batteries are excluded before analysis: one has no complete cases and one
+has only a single complete case. The retained surveys span spirituality,
+local-news sources, social-media use, attitudes toward AI, gender comparisons,
+labor-market skills, climate policy, views of social media, Asian-American
+origin-group attitudes, remote work, wellbeing, mobility and fairness,
+Brazilian digital credit, municipal vignettes, and democratic norms.
+
+The normalized source files contain human-readable question wording, option
+labels, respondent weights, and respondent-level answer matrices. The
+converter treats code expansion as a validation boundary: source codes are
+mapped to labels before import, unmapped values become explicit missing values,
+and raw metadata and respondent files are registered as provenance artifacts.
+Pew profile codes for age, gender, education, race/ethnicity, party/ideology,
+income tier, region, and metropolitan status are expanded where available.
+Opaque covariate codes are omitted from prompts rather than presented as
+personality evidence.
+
+\begin{table}[ht]
+\centering
+\scriptsize
+\resizebox{\textwidth}{!}{\input{generated/cohort.tex}}
+\caption{Executed study cohort. Predictions equal sampled respondents times
+held-out questions for one construction arm and one model.}
+\label{tab:cohort}
+\end{table}
+
+The candidate funnel is determined before inference. Table~\ref{tab:exclusions}
+lists every normalized battery that failed the minimum complete-case rule; no
+battery was removed because of predictive performance.
+
+\begin{table}[ht]
+\centering
+\small
+\input{generated/exclusions.tex}
+\caption{Candidate normalized batteries excluded before plan approval and
+remote inference. Reasons are read from the \zwill{} study manifest generated by
+the ingestion pipeline.}
+\label{tab:exclusions}
+\end{table}
+
+\section{Executed design}
+\subsection{Sampling and held-out targets}
+Within each battery, we hold out up to five items spanning the source order.
+Because a multi-target plan removes every target from the shared context pool,
+we retain at least two non-target battery items. This yields three held-out
+targets for five-item batteries, four for six-item batteries, and five for
+larger batteries. We sample 200 complete-case respondents per survey using
+seed 20260730. Sampling and targets were stored in approved
+\texttt{twin-experiment} plans before job export. The resulting primary design
+contained 13,800 predictions:
+\[
+ \sum_s n_s \times J_s \times 1\text{ approach}\times1\text{ model}.
+\]
+We then executed a second, by-question design over the same 69 targets. Each
+target received its own approved plan and 200-prediction job. Only that target
+was hidden; up to eight other answers, including answers that were targets in
+the simultaneous design, could enter the prompt. This added another 13,800
+forecasts. The two designs therefore distinguish a fixed twin constructed
+without the whole target set from a more informed twin reconstructed for each
+question.
+
+\subsection{Digital-twin construction}
+For each respondent--target pair, the model receives:
+\begin{enumerate}[nosep]
+  \item the survey and held-out question wording;
+  \item the complete list of labeled held-out response options;
+  \item at most eight observed answers to non-held-out battery questions; and
+  \item readable respondent profile metadata when the source supplied it.
+\end{enumerate}
+The prompt asks the model to act as the described respondent and return only a
+JSON object containing one probability for every option plus a brief note.
+Probabilities are kept as soft forecasts; no sampled model ``answer'' is used
+for primary scoring. The construction uses \texttt{openai:gpt-5.5} with the
+provider defaults exported by EDSL; no temperature parameter was supplied.
+
+The prompt never contains the held-out answer, its observed sample or
+population marginal, respondent weights, target-specific downstream
+variables, or raw respondent identifiers as substantive evidence. The EDSL job
+package does retain the actual answer as hidden scenario metadata so
+\zwill{} can score it after inference; the rendered user prompt does not
+expose that field.
+
+Construction is performed anew for every respondent--target case rather than
+by creating an unconstrained conversational agent. \zwill{} first resolves the
+approved respondent sample and target-specific exclusion set. It then selects
+up to eight eligible observed answers in stable survey order, attaches only
+metadata fields that have readable labels, and renders a self-contained EDSL
+scenario. Conceptually, the user prompt has four blocks:
+\begin{quote}\small
+\texttt{Respondent profile: [readable covariates]}\\
+\texttt{Observed answers: [question text $\rightarrow$ labeled answer]}\\
+\texttt{Question to predict: [held-out wording and all options]}\\
+\texttt{Return: \{"probabilities": \{option: probability, ...\}, "note": ...\}}
+\end{quote}
+The output contract requires every declared option exactly once, numeric
+probabilities between zero and one, and a total of one. Import records both the
+rendered \texttt{observed\_answers} array and hidden actual answer. This stored
+array is important: validation does not attempt to reconstruct what the model
+might have seen from global survey settings; it gives XGBoost precisely that
+case-specific array.
+
+The LLM is therefore doing structured analogical prediction. It can connect
+the semantics of the new item and its options to a respondent's other stated
+positions, while the probability contract preserves uncertainty. No fine
+tuning, retrieval from other respondents, empirical target marginal, or
+question-specific demonstration is supplied. A new target can be forecast as
+soon as its wording and option labels are available because construction does
+not estimate parameters for that target.
+
+\subsection{What a prediction task looked like}
+The targets were ordinary closed-ended survey questions rather than abstract
+benchmark labels. Illustrative examples (lightly shortened here) are:
+\begin{itemize}[leftmargin=1.5em,itemsep=2pt,topsep=3pt]
+  \item \textbf{Social-media use:} ``Do you ever use Facebook?'' (Yes; No).
+  \item \textbf{Gender comparisons:} ``Are men and women basically similar or
+  different in their hobbies and personal interests?'' (Similar; Different).
+  \item \textbf{Origin-group attitudes:} ``What is your opinion of the U.S.?''
+  (Very favorable through Very unfavorable; five options).
+  \item \textbf{Municipal vignettes:} ``Based on Vignette 1, are city leaders
+  to blame for trash and recycling bins not being picked up?'' (Strongly
+  disagree through Strongly agree; seven options).
+  \item \textbf{Democratic norms:} ``How confident are you that all votes will
+  be counted accurately?'' (No confidence through Very much confidence; four
+  options).
+\end{itemize}
+The model jobs used the complete imported wording and labeled option lists.
+
+For a concrete climate-policy case, the held-out question asked whether the
+respondent favored planting roughly one trillion trees to absorb carbon
+emissions. The prompt described a 30--49 year-old woman with postgraduate
+education, moderate ideology, and a moderate/liberal Republican affiliation.
+It also reported that she favored requiring oil and gas companies to seal
+methane leaks and favored home-energy-efficiency tax credits. The prompt then
+listed the target options \emph{Favor} and \emph{Oppose} and required a JSON
+probability vector. GPT-5.5 returned 0.90 and 0.10, respectively; the held-out
+answer was Favor. This is one successful row, not a cherry-picked performance
+estimate: the reported metrics aggregate all 200 respondents and all
+predeclared targets in the battery.
+
+The example also makes the information structure tangible. The twin is not
+asked to answer from demographics alone. It combines a readable profile with
+the respondent's answers to neighboring, non-held-out items. In a six-item
+battery with four shared targets, only the two remaining items are eligible
+context; in larger batteries as many as eight are shown. At scoring time the
+same respondent's hidden target answer is joined back to the forecast.
+
+\subsection{Approval, execution, and preservation}
+Each survey was imported and committed before model work. We rendered a
+pre-run survey report, registered the construction approach, initialized and
+validated a plan, explicitly approved the plan, and compared approved and
+exported counts. The 15 simultaneous exports and 69 by-question exports each
+matched their approved counts exactly: 13,800 predictions per design. Expected
+Parrot executed the serialized EDSL packages
+and returned immutable Results packages. \zwill{} preserved each raw
+package and its hash before extracting probability rows. A later leakage
+correction added 200 predictions, bringing the executed total to
+\TotalPredictions.
+
+For model robustness, we predeclared five substantively varied batteries
+(gender comparisons, climate policy, origin-group attitudes, Brazilian
+digital credit, and democratic norms) containing 22 targets. We reran the
+by-question construction for all 200 respondents with Claude Sonnet 4.6 and
+Gemini 3.5 Flash, adding $22\times200\times2=8{,}800$ forecasts. Model-specific
+approach identifiers keep provider provenance in the job identity while
+leaving the prompt information policy unchanged. The matching GPT-5.5 rows
+were already present. All three models are evaluated on identical cases and
+against one shared exact-context XGBoost baseline.
+
+\section{A reproducible \zwill{} workflow}
+\label{sec:tutorial}
+This section presents the study as a worked \zwill{} tutorial. The code
+fragments are shortened versions of the executable Makefile recipes. A
+declarative study manifest supplies source-specific metadata, while \zwill{}
+performs batch conversion, manages survey and study state, and conducts
+validation. Expected Parrot's \texttt{ep} command executes exported model jobs.
+This separation is intentional: creating a survey or plan does not make
+a remote model call. All commands below run from an isolated paper work
+directory. After every state-changing stage, \texttt{zwill next --survey NAME}
+reports the current state and expected next command.
+
+\subsection{Initialize, preserve provenance, and import labeled data}
+A project begins with an explicit project and a declarative matrix specification.
+The specification names identifier and weight columns, maps raw option and
+profile codes to readable labels, declares missing codes, and identifies each
+item's source and data variables. Conversion completes before project state is
+changed.
+
+\begin{lstlisting}[style=shell]
+zwill init
+zwill project create microdata_twins_v2 --use
+\end{lstlisting}
+These commands create an isolated project; they do not run a model.
+
+\begin{lstlisting}[style=shell]
+zwill study init --path ingestion_manifest.json
+\end{lstlisting}
+This creates only a minimal, empty declaration---a schema version, an empty
+defaults object, and an empty survey list. It neither searches the filesystem
+nor guesses which files belong together.
+
+\begin{lstlisting}[style=shell]
+zwill study set-matrix-defaults \
+  --manifest ingestion_manifest.json \
+  --covariate-codebook config/covariate_codebook.json \
+  --data-variable-template 'item_{item}' \
+  --question-name-template '{battery}_{item}' \
+  --missing-code NA --missing-code Refused
+\end{lstlisting}
+This records visible shared policy in the manifest. Every default came from an
+argument; the command performs no inference about code meanings or naming.
+
+\begin{lstlisting}[style=shell]
+zwill study add-matrix --manifest ingestion_manifest.json \
+  --survey w154_diff1 --source-id W154_DIFF1 \
+  --metadata data/W154_DIFF1_metadata.json \
+  --respondents data/W154_DIFF1_respondents.csv
+\end{lstlisting}
+One invocation declares one source pair. Repeating it builds the 15-battery
+list and rejects duplicate survey identifiers. The resulting JSON is ordinary,
+reviewable configuration; for this example its essential structure is:
+\begin{lstlisting}[style=json]
+{
+  "matrix_defaults": {
+    "covariate_codebook": "config/covariate_codebook.json",
+    "metadata_overlay": {
+      "data_variable_template": "item_{item}",
+      "question_name_template": "{battery}_{item}",
+      "missing_codes": ["NA", "Refused"]
+    }
+  },
+  "surveys": [{
+    "survey": "w154_diff1", "source_id": "W154_DIFF1",
+    "matrix": {
+      "metadata": "data/W154_DIFF1_metadata.json",
+      "respondents": "data/W154_DIFF1_respondents.csv"
+    }
+  }]
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=shell]
+zwill study check --manifest ingestion_manifest.json
+\end{lstlisting}
+This read-only preflight resolves every declared path and prints, by battery,
+the source identifier, respondent count, question count, matrix columns, and
+required columns. It checks metadata, overlays, codebooks, duplicate ids, and
+column coverage without creating or changing a \zwill{} project.
+
+\begin{lstlisting}[style=shell]
+zwill study ingest --manifest ingestion_manifest.json \
+  --out "$PWD/imports" --apply
+\end{lstlisting}
+The study manifest supplies shared matrix defaults and one record per battery;
+individual records can override paths or metadata. It supports source and
+survey path templates, metadata overlays, readable item-name templates, and a
+shared covariate codebook. \zwill{} first converts \emph{every} matrix; only if
+all conversions succeed does it apply any survey. The adapter checks required
+columns and codebooks, normalizes numeric codes, labels answers and covariates,
+writes a conversion manifest, archives raw sources, and imports the three
+canonical JSONL streams. Unknown answer or profile codes, or invalid weights,
+produce \texttt{issues.jsonl} and stop the batch before partial application.
+The generated streams remain inspectable intermediate artifacts.
+
+\begin{lstlisting}[style=shell]
+zwill commit --survey w154_diff1
+\end{lstlisting}
+Commit freezes the labeled scoring truth after the clean conversion is reviewed.
+
+\begin{lstlisting}[style=shell]
+zwill survey report --survey w154_diff1 --format html \
+  --path reports/w154_diff1/survey-profile.html
+\end{lstlisting}
+The report exposes wording, options, distributions, and missingness before paid
+inference. The executable workflow runs \texttt{zwill next} after each stage.
+
+\subsection{Register the construction and predeclare the experiment}
+The construction specifies what information may create a twin. The following
+sequence registers complete-case sampling, at most eight context answers,
+readable profile metadata (included by default), and GPT-5.5. A shared study
+manifest then writes all 15 primary plans and their projected call counts.
+
+\begin{lstlisting}[style=shell]
+zwill twin-approach add --survey w154_diff1 \
+  --approach-id battery_context \
+  --name "Held-out battery context" \
+  --description "Predict targets from non-target answers and profile fields." \
+  --complete-cases --context-question-count 8 \
+  --model openai:gpt-5.5
+\end{lstlisting}
+The approach is a reusable information policy rather than a particular target.
+
+\begin{lstlisting}[style=shell]
+zwill study prepare --manifest study_manifest.json \
+  --mode simultaneous --out "$PWD/workflow" \
+  --results-dir "$PWD/results" --approved-by "Reviewer Name"
+\end{lstlisting}
+The manifest holds shared defaults plus each survey's source identifier,
+targets, stable plan identifier, and target-specific leakage exclusions.
+Preparation composes expansion, recorded approval, and export. It removes
+hand-written shell fan-out while retaining plans in \texttt{workflow/plans} and
+packages in \texttt{workflow/jobs}. Existing plans are never overwritten,
+preserving approvals and review notes on resumed builds.
+
+\begin{lstlisting}[style=shell]
+zwill twin-experiment validate \
+  --input-path plans/w154_diff1_validation_v1.json
+\end{lstlisting}
+The plan materializes targets, respondent sample, seed, metric, leakage policy,
+and expected prediction count. Validation does not approve spending or execute
+inference.
+
+The plural \texttt{--heldout-questions} argument matters. All three W154
+targets are removed from context together. Each respondent therefore has the
+same profile and observed non-target answers when predicting A, B, and C; only
+the requested target and its options change. Here D and E remain as context.
+This is a fixed-information, simultaneous multi-target holdout, not a
+round-robin in which B and C become visible while A is predicted. Its planned
+call count is $200\times3\times1\times1=600$.
+
+The by-question benchmark instead passes \texttt{--mode by-question} to
+\texttt{zwill study prepare}, creating three separate W154
+plans. When A is the sole target,
+B--E are eligible context; when B is the target, A and C--E are eligible. This
+requires new twin inference because the rendered personas differ from those in
+the simultaneous job.
+
+The plan JSON records targets, approach, sample size, seed, model, primary
+metric, approval state, and expected call count. Separating this object from
+the provider package allows scientific review before an executable job exists.
+
+\subsection{Review, export, and execute through Expected Parrot}
+Approval is the spending boundary. Export turns the approved design into an
+EDSL \texttt{Jobs.ep} package but still performs no inference. The external
+\texttt{ep run} command submits that package and preserves a raw
+\texttt{Results.ep} package.
+
+The \texttt{prepare} command records the reviewer on every expanded plan, then
+validates the approved designs, renders scenarios, verifies counts, and writes
+portable \texttt{Jobs.ep} packages plus one resumable
+\texttt{run-manifest.json}. Each run record contains its job path, expected
+result path, survey, plan, model, and exact \texttt{ep} command.
+
+\begin{lstlisting}[style=shell]
+ep run-manifest workflow/jobs/run-manifest.json \
+  --parallel 3 --execute
+\end{lstlisting}
+Only this command can perform remote calls, and \texttt{--execute} is the explicit
+spending gate. Without it the command only verifies cached results. It compares
+each result count with the manifest, skips complete packages, and preserves an
+incomplete package under a \texttt{partial} name before resuming it.
+
+The export manifest compares approved and exported counts; a discrepancy
+should stop execution and trigger reapproval. Thus an interrupted build resumes
+without purchasing completed predictions again.
+
+\subsection{Import results and audit the actual prompts}
+The importer joins responses to hidden scenario metadata, checks the
+probability contract, and stores parsed predictions. Before looking at scores,
+the run report exposes the template, rendered examples, response text,
+construction metadata, and parse issues.
+
+\begin{lstlisting}[style=shell]
+zwill study finish --manifest workflow/jobs/run-manifest.json \
+  --results-dir results --replace \
+  --audit-out "$PWD/reports/run-audits" \
+  --out "$PWD/reports/{survey}/validation-exact" \
+  --embedder edsl --embedding-model text-embedding-3-small \
+  --seed 20260730
+\end{lstlisting}
+Finishing composes import, prompt audit, and validation. It refuses to audit or
+score incomplete results. The importer verifies scenario metadata and the
+probability contract while retaining raw responses; the reports then expose
+rendered personas, hidden targets, parameters, responses, and parse issues.
+
+The audit must show the permitted profile and non-target answers, but not the
+target answer, target marginal, respondent weight, or target-revealing
+downstream fields. Successful parsing alone is not validity evidence: a
+perfectly structured prompt can still leak its answer.
+
+\subsection{Fit the fair baseline and build the evidence bundle}
+The validation stage inside \texttt{study finish} performs the decisive comparison. It audits
+context--target associations, fits the conditional baseline, computes paired
+bootstrap intervals, and renders machine-readable and visual diagnostics.
+
+This groups imported job ids by battery and invokes the exact same validation
+contract for each. It audits leakage, fits matched XGBoost, bootstraps paired
+score differences, and writes one evidence bundle per battery. A missing
+conditional baseline fails validation.
+
+\begin{lstlisting}[style=shell]
+zwill report build --survey w154_diff1 \
+  --jobs f2e86020755065ce \
+  --path reports/w154_diff1/final --seed 20260730
+\end{lstlisting}
+This gathers survey, prediction, audit, and validation artifacts into a linked
+final-report bundle.
+
+\begin{lstlisting}[style=shell]
+zwill report render --survey w154_diff1 \
+  --jobs f2e86020755065ce \
+  --path reports/w154_diff1/final --seed 20260730
+\end{lstlisting}
+Rendering turns that bundle into its human-readable HTML readout.
+
+The study validator requires its conditional baseline rather than allowing a
+weaker twin-versus-marginal report to appear complete. In this paper, baseline
+training and scoring are restricted to the same sampled
+respondent identifiers and the exact per-case \texttt{observed\_answers} list
+preserved by the twin importer. Thus the cap, missingness pattern, and any
+target-specific exclusion also match. Forcing the \texttt{edsl} embedder
+prevents silent fallback to a different representation.
+
+The validation directory contains the report, baseline predictions, leakage
+audit, bootstrap estimates, confidence-interval graphic, calibration graphic,
+and a manifest. Those artifacts, not hand-copied numbers, feed the paper's
+cross-survey summary, tables, and plot.
+
+\subsection{Add battery-local one-shots and named model comparisons}
+The marginal elicitation is deliberately partitioned by battery. Adding a new
+battery creates one new job rather than invalidating a monolithic job or
+repurchasing completed forecasts.
+
+\begin{lstlisting}[style=shell]
+zwill study one-shot-build --manifest study_manifest.json \
+  --out "$PWD/jobs/one-shot" --model openai:gpt-5.5
+\end{lstlisting}
+This writes one no-persona probability \texttt{Jobs.ep} package per battery and
+a run manifest containing the corresponding remote commands and result paths.
+Each question is asked once for its population distribution.
+
+\begin{lstlisting}[style=shell]
+zwill study one-shot-import \
+  --manifest jobs/one-shot/run-manifest.json \
+  --results-dir results/one-shot \
+  --path reports/one-shot/probability-jobs.json --replace
+\end{lstlisting}
+After the recorded jobs are executed by \texttt{ep run}, import produces a
+stable battery-to-job mapping. Passing that mapping to \texttt{study validate}
+scores the one-shot distribution on exactly the respondent--question cases used
+by the twins, without further model calls.
+
+The same study manifest declares the provider robustness exercise as a named
+comparison: its five-battery subset, models, approach identifiers, mode, and
+plan-id template are data rather than shell branches.
+
+\begin{lstlisting}[style=shell]
+zwill study expand --manifest study_manifest.json \
+  --comparison frontier_models \
+  --out "$PWD/plans/model-comparison"
+\end{lstlisting}
+The result is the full survey--question--model plan matrix. The same study-level
+approve, export, import, audit, and validate commands then operate on its
+manifest. Validation can include the primary run manifest so every provider is
+compared with the identical stored XGBoost arm and cases.
+
+\subsection{Normalize cross-survey evidence and realized costs}
+Paper-specific plotting code should not reopen version-dependent internal
+bundle files. \zwill{} first normalizes every validation bundle into stable,
+tidy study artifacts.
+
+\begin{lstlisting}[style=shell]
+zwill study summarize --manifest study_manifest.json \
+  --bundle-template 'zwill_work/reports/{survey}/validation-exact' \
+  --out "$PWD/study/simultaneous"
+\end{lstlisting}
+This writes \texttt{surveys.csv}, \texttt{questions.csv},
+\texttt{marginals.csv}, \texttt{options.csv}, \texttt{summary.json}, and
+\texttt{aggregates.json}. They
+contain explicit uniform, empirical-marginal, conditional-XGBoost, and one-shot
+comparisons, including paired intervals where available. NLL deltas consistently
+mean model loss minus benchmark loss, so negative values favor the twin.
+\texttt{aggregates.json} owns deterministic cross-question bootstrap summaries,
+NLL and Brier benchmark wins, clean-claim gate counts, calibration summaries,
+and marginal MAE and correlation. The paper does not recompute those statistics.
+
+\begin{lstlisting}[style=shell]
+zwill study plot --summary-dir "$PWD/study/by-question" \
+  --out "$PWD/study/plots" --model openai:gpt-5.5
+\end{lstlisting}
+This creates reusable dependency-free SVG diagnostics directly from the stable
+tables. The paper's remaining Python is presentation-specific: it combines
+designs, applies journal styling, and emits LaTeX, but does not reopen internal
+validation bundles or reconstruct \zwill{} scores.
+
+\begin{lstlisting}[style=shell]
+zwill study costs --manifest study_manifest.json \
+  --path "$PWD/study/costs.json"
+\end{lstlisting}
+Result-package globs are declared relative to the manifest. The command
+deduplicates matches and records realized call counts, costs, per-model totals,
+and a per-file audit trail; an empty match is an error rather than a silent zero.
+
+\subsection{Reproduce the complete paper}
+The commands above expose each reproducible boundary. The Makefile connects
+their manifests and stamp files; it does not encode battery-specific analysis
+or model matrices. It applies the chain to all 15 batteries and then generates
+the paper:
+
+\begin{lstlisting}[style=shell]
+cd papers/zwill_microdata_twins
+make reproduce ALLOW_REMOTE=1 APPROVED_BY="Reviewer Name"
+\end{lstlisting}
+
+Without \texttt{ALLOW\_REMOTE=1}, a missing result stops the build at
+inference. With cached result and validation packages, \texttt{make all} runs
+only deterministic summarization, plotting, and typesetting. This makes the
+common operation safe while retaining a genuine source-to-PDF replication
+target for an authorized operator.
+
+\section{Evaluation}
+\subsection{Outcomes}
+The primary metric is respondent-level negative log likelihood, with Brier
+score, probability assigned to the observed answer, calibration, and top-1
+accuracy as secondary diagnostics. For respondent $i$ with observed option
+$y_{ij}$, $K_j$ options, forecast vector $\widehat p_{ij}$, and one-hot outcome
+$e_{ij}$, the two proper scores are
+\[
+ \operatorname{NLL}_{ij}=-\log\widehat p_{ij,y_{ij}},
+ \qquad
+ \operatorname{Brier}_{ij}=\sum_{a=1}^{K_j}
+ (\widehat p_{ija}-e_{ija})^2.
+\]
+Lower values are better. Top-1 accuracy and mean probability assigned to the
+actual answer are useful diagnostics, but neither is a proper scoring rule;
+accuracy in particular discards forecast uncertainty.
+
+Calibration asks whether events assigned probability $p$ occur approximately
+$p$ of the time. \zwill{} reports expected calibration error over probability
+bins and exposes overconfident misses for prompt-level inspection. We treat
+calibration as a diagnostic rather than allowing it to override the paired NLL
+gate. The uniform reference assigns $1/K_j$ to every option. The empirical
+marginal reference assigns each respondent the target distribution observed in
+the scored sample; because that distribution requires target answers, it is an
+oracle reference rather than a deployable new-question method.
+
+At the aggregate level, averaging respondent forecasts gives
+$\widehat\pi_{ja}=n_j^{-1}\sum_i\widehat p_{ija}$. We compare it with the
+observed option share $\pi_{ja}$ using option-share MAE, Jensen--Shannon
+divergence, modal-option agreement, and rank correlation. These quantities test
+level and ordering. Respondent-level NLL and Brier test whether probability is
+assigned to the correct individuals. Finally, \zwill's joint-structure
+diagnostics compare predicted and observed cross-question association; this
+guards against twins that reproduce each marginal while washing out dependence
+between answers.
+
+\subsection{Conditional baseline}
+The comparison baseline is an exact-information-set XGBoost classifier. For
+each target, \zwill{} reads the \texttt{observed\_answers} stored with
+every imported twin prediction. Those question names define that respondent's
+permitted baseline context. XGBoost receives neither additional respondents
+nor additional answers. Consequently, the simultaneous design excludes the
+whole target set and respects the eight-answer cap, whereas the by-question
+design may use the other targets only because the corresponding twin prompt
+also used them. Target-specific exclusions and respondent-level missingness
+carry through automatically.
+
+More precisely, the baseline converts each training question into one row per
+respondent--candidate-option pair. The binary outcome is one when the candidate
+option equals that respondent's observed answer and zero otherwise. A row
+contains (i) the question-text vector, (ii) the candidate-option vector,
+(iii) one-hot respondent covariates, (iv) cosine-similarity features comparing
+the candidate with the average text representation of the respondent's other
+answers, and (v) the candidate's position in the option list. When predicting
+target $j$, training labels come only from questions present in the twin's
+permitted context. A training row for context question $k$ excludes $k$ itself
+from its respondent profile, as well as every answer not permitted for the
+target case. Thus $j$ cannot enter indirectly as a feature on another
+question's training row.
+
+Formally, let $C_{ij}$ be the exact set of context answers shown to respondent
+$i$'s twin when target $j$ is predicted, and let $e(\cdot)$ denote the fixed
+text embedding.  For a training context question $k\in C_{ij}$ and candidate
+option $a\in\mathcal A_k$, define
+\[
+ z_{ika}^{(j)}=
+ \left[
+ e(q_k),\ e(a),\ x_i,\
+ \cos\!\left(e(a),\frac{1}{|C_{ij}\setminus\{k\}|}
+       \sum_{\ell\in C_{ij}\setminus\{k\}}e(y_{i\ell})\right),\
+ \operatorname{pos}(a,k)
+ \right],
+ \qquad
+ r_{ika}=\mathbf 1\{y_{ik}=a\},
+ \]
+where $x_i$ is the one-hot respondent profile. The exclusion of $k$ from the
+profile prevents the training label from reappearing as an input; because
+$C_{ij}$ comes directly from the saved twin prompt, no unshown response can
+enter the baseline.
+
+XGBoost estimates an additive tree score
+\[
+ F_M(z)=\sum_{m=1}^{M}\eta f_m(z), \qquad f_m\in\mathcal T_6,
+\]
+by minimizing regularized binary log loss over the respondent--question--option
+rows,
+\[
+ \widehat F_j=\arg\min_F
+ \sum_i\sum_{k\in C_{ij}}\sum_{a\in\mathcal A_k}
+ \left[-r_{ika}\log\sigma(F(z_{ika}^{(j)}))
+ -(1-r_{ika})\log\{1-\sigma(F(z_{ika}^{(j)}))\}\right]
+ +\Omega(F).
+\]
+We use $M=300$ trees, maximum depth 6, learning rate $\eta=0.1$, row and
+column subsampling of 0.8, L2 regularization of 1, histogram tree construction,
+and log-loss evaluation. For target $j$, each option receives a score and the
+reported categorical forecast is
+\[
+ \widehat p_{ija}=
+ \frac{\exp\{\widehat F_j(z_{ija}^{(j)})\}}
+      {\sum_{b\in\mathcal A_j}\exp\{\widehat F_j(z_{ijb}^{(j)})\}}.
+\]
+
+This setup can score a genuinely new question because it does not require a
+question-specific coefficient or any labeled examples for that target. At
+prediction time, the new question and each of its options are embedded using
+the same transformation. The model scores each candidate from text features,
+respondent covariates, and similarity to the respondent's other-answer
+profile; candidate scores are normalized to sum to one. Transfer is possible
+because the tree learns cross-question regularities---for example, whether a
+candidate semantically resembles options previously selected by a respondent,
+or whether a covariate predicts response tendencies across items. The baseline
+job identifier includes a fingerprint of all respondent--target context lists,
+so the simultaneous and by-question predictions cannot overwrite one another.
+
+All fair baselines use OpenAI's \texttt{text-embedding-3-small}, routed through
+Expected Parrot, for question text, option text, and respondent other-answer
+profiles. A single semantic representation is held fixed across all 15
+batteries. The embedding model supplies features only;
+it is not trained on these surveys and does not receive the held-out answers.
+
+\subsection{Exploratory semantic-proximity analysis}
+We ask whether a target is easier when its wording is semantically closer to
+the questions actually shown in the twin's context. Using the same
+\texttt{text-embedding-3-small} representation, let $u_j$ denote the normalized
+embedding of target question $j$, and let $C_{ij}$ be the context question names
+stored with respondent $i$'s imported prediction. We define
+\[
+ s_{ij}=\frac{1}{|C_{ij}|}\sum_{k\in C_{ij}}u_j'u_k,
+ \qquad s_j=\frac{1}{n_j}\sum_i s_{ij}.
+\]
+This uses the context that was actually rendered, so missing answers, context
+caps, and target-specific exclusions are respected. We also compute the mean,
+over respondents, of the maximum target--context similarity as an alternative
+``nearest question'' measure.
+
+At the question level we estimate
+\[
+ Y_{jb}=\alpha_b+\beta s_{jb}+\varepsilon_{jb},
+\]
+where $alpha_b$ is a battery fixed effect. Outcomes are twin mean NLL,
+accuracy, and twin advantage over XGBoost, defined as
+$-(\mathrm{NLL}_{twin}-\mathrm{NLL}_{XGB})$ so that larger values mean a larger
+twin advantage. Confidence intervals resample the 20 batteries with replacement
+and refit the fixed-effect slope 10,000 times. This is exploratory: 69
+questions were available in the primary collection and 107 after the GSS
+extension; proximity is not randomly assigned, and the analysis
+cannot distinguish semantic similarity from unmeasured question difficulty.
+For visualization, we additionally fit a local-linear LOESS curve with a 0.75
+span to the within-battery residuals. Its pointwise 95\% band comes from 2,000
+of the same whole-battery bootstrap resamples. The linear coefficient remains
+the reported summary; the smoother is a diagnostic for nonlinearity and
+leverage rather than a second confirmatory specification.
+
+\begin{lstlisting}[style=shell]
+zwill study semantic-proximity \
+  --manifest jobs/by_question/run-manifest.json \
+  --manifest jobs/gss2024_eligible200/run-manifest.json \
+  --questions study/by-question/questions.csv \
+  --questions cross_survey/gss2024/questions.csv \
+  --out study/semantic-proximity --model openai:gpt-5.5 \
+  --embedder edsl --embedding-model text-embedding-3-small
+\end{lstlisting}
+The command writes the question-level design matrix, within-battery residuals,
+fixed-effect estimates, and battery-bootstrap intervals. The Makefile treats
+those artifacts as inputs to the publication plot.
+
+\subsection{Uncertainty and decision rule}
+Each bundle uses 1,000 paired bootstrap resamples over respondents and a 95\%
+confidence interval. We define
+\[
+ \Delta_{\mathrm{NLL}} =
+ \mathrm{NLL}_{\mathrm{twin}}-\mathrm{NLL}_{\mathrm{conditional}}.
+\]
+A survey passes only if the entire interval is below zero, fails if the entire
+interval is above zero, and is inconclusive otherwise. A positive result also
+requires a clean leakage audit. We do not use an accuracy improvement to
+override an inconclusive or adverse NLL result.
+
+\subsection{Prompt and leakage audits}
+Before performance interpretation, we generated a run report for every job
+containing the prompt template, rendered scenarios, observed context, raw model
+responses, model parameters, parse counts, and import issues. The statistical
+leakage audit screens context--target pairs using bias-corrected Cramér's V,
+flagging values above 0.7 with at least 30 co-answered respondents. A flagged
+pair blocks an unqualified positive claim even when predictive metrics look
+strong.
+
+\section{Results}
+\subsection{Execution integrity and cost}
+The model produced \TotalPredictions\ held-out probability predictions,
+including a 200-prediction corrective run, at an observed inference cost of
+\TotalCost. All \TotalPredictions\ model calls returned result rows and all probability
+objects parsed successfully; there were no malformed or silently dropped rows.
+The total includes 13,800 simultaneous forecasts, 13,800 newly purchased
+by-question forecasts, the 200-call Gallup correction, and 8,800 forecasts in
+the two-model robustness extension.
+
+\subsection{Survey-level validation}
+Figure~\ref{fig:nll-change} plots paired macro-average NLL differences relative
+to the conditional baseline and their 95\% bootstrap intervals. Negative
+values favor the twin. Circles show simultaneous holdout and triangles show
+by-question holdout. Hollow red points mark the Gallup remote-work battery,
+which is shown for transparency but excluded from clean-survey claims because
+of its leakage flag. All 15 batteries have exact-context conditional baselines
+under both designs. Table~\ref{tab:validation} gives the corresponding
+numeric values and audit status.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.92\textwidth]{../output/figures/nll_change.pdf}
+\caption{Change in negative log likelihood relative to XGBoost trained on the
+same respondents and exact prompt-level answer context. Points are survey-level
+macro averages and bars are paired 95\% bootstrap intervals. Values below zero
+favor GPT-5.5. Circles denote simultaneous target holdout; triangles denote
+one-target-at-a-time holdout. Hollow remote-work points have a leakage flag.}
+\label{fig:nll-change}
+\end{figure}
+
+\begin{table}[ht]
+\centering
+\scriptsize
+\resizebox{\textwidth}{!}{\input{generated/validation.tex}}
+\caption{Exact-information-set NLL comparisons under simultaneous (sim) and
+by-question (byq) holdout. ``Pass'' requires the complete 95\% interval to be
+below zero. The flag count is common to both designs.}
+\label{tab:validation}
+\end{table}
+
+Among 14 clean surveys, simultaneous-holdout twins pass the NLL gate in
+\SimNLLPass\, fail in \SimNLLFail\, and are inconclusive in
+\SimNLLInconclusive. Their intervals are entirely below zero in every clean
+battery, with deltas ranging from roughly $-1.01$ for origin-group attitudes to
+$-0.14$ for spirituality. Brier intervals also favor the twin in all 14.
+
+Under by-question holdout, \ByQNLLPass\ clean surveys pass, \ByQNLLFail\ fail,
+and \ByQNLLInconclusive\ is inconclusive. Municipal vignettes are the lone
+inconclusive case ($\Delta_{\mathrm{NLL}}=-0.005$, 95\% CI
+$[-0.094,0.089]$); the other 13 intervals clear zero favorably. Brier results
+give the same 13--0--1 pattern. Providing both methods with answers to the other
+targets therefore narrows the advantage in some batteries, but does not
+generally eliminate it.
+
+\subsection{Extension to the 2024 General Social Survey}
+We next applied the same one-target-at-a-time design to five batteries extracted
+from the official 2024 GSS Release 3a: confidence in institutions, socializing
+frequency, abortion circumstances, government responsibility, and national
+spending. The declarative extraction specification retains reviewed question
+wording, labeled response options, source-variable provenance, and readable
+ballot, form, and mode covariates. Each target uses 200 respondents drawn from
+the target battery's complete-case pool. The twin and conditional XGBoost both
+receive every other admissible answer in that battery, so this is the same
+exact-information comparison as the primary by-question design.
+
+The extension contains \GSSQuestions{} held-out questions and \GSSCalls{} model
+calls, including 38 same-model no-persona one-shot forecasts, at a recorded cost
+of \GSSCost. GPT-5.5 improves on conditional XGBoost by
+\GSSConditionalDelta{} NLL on average across questions (95\% battery-bootstrap
+interval $[\GSSConditionalLo,\GSSConditionalHi]$), winning 37 of 38 questions
+and all five battery-level comparisons. Relative to the one-shot GPT-5.5
+distribution, the average difference is \GSSOneShotDelta{}
+($[\GSSOneShotLo,\GSSOneShotHi]$), with wins on 36 of 38 questions and all five
+batteries. The option-level implied-marginal correlation is
+\GSSMarginalCorrelation{} and MAE is \GSSMarginalMAE.
+
+Figure~\ref{fig:gss-extension} and Table~\ref{tab:gss-extension} report the
+battery results. The abortion battery is displayed but excluded from the
+audit-clean headline count: twelve directional context--target pairs exceed the
+predeclared Cram\'er's V threshold because the closely related abortion
+circumstances are strongly associated. Prompt audits confirm that the held-out
+answer itself was absent. We nevertheless retain the conservative gate rather
+than treating substantive redundancy as automatically harmless.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.88\textwidth]{../output/figures/gss_extension.pdf}
+\caption{Leave-one-question-out validation in five 2024 GSS batteries. Points
+are battery macro-average GPT-5.5 NLL minus exact-context XGBoost NLL; bars are
+paired 95\% bootstrap intervals. The hollow abortion point is audit-flagged.}
+\label{fig:gss-extension}
+\end{figure}
+
+\begin{table}[ht]
+\centering
+\scriptsize
+\resizebox{\textwidth}{!}{\input{generated/gss_extension.tex}}
+\caption{GSS extension results against exact-context XGBoost and the same-model
+no-persona one-shot baseline. Negative differences favor respondent twins.}
+\label{tab:gss-extension}
+\end{table}
+
+\subsection{External validation in East African agricultural microdata}
+To probe performance outside prominent recurring survey series, we applied the
+same workflow to the KALRO baseline from the replication package for
+\emph{Digital Information Provision and Behavior Change: Lessons from Six
+Experiments in East Africa} (AEA Data and Code Repository/openICPSR
+E186241V1). This is a pre-treatment field-study sample of
+\KALRORespondents{} Kenyan respondents rather than a nationally prominent
+opinion survey. The declarative extraction retains three coherent binary
+batteries: awareness of four agricultural inputs, prior use of those four
+inputs, and prior use of twelve farming practices. Following the authors'
+cleaning logic, structurally skipped use items are coded as no use. Readable
+gender, age, county, and subcounty fields are retained as profile metadata.
+
+The extension is itself a worked \zwill{} example. First, a declarative CSV
+extraction specification maps source columns, labels, missing values, profile
+fields, and the structural-skip rule into three respondent matrices:
+
+\begin{lstlisting}[style=shell]
+zwill survey extract-csv \
+  --data sources/openicpsr_186241/raw/KALRO_baseline_raw.csv \
+  --spec ../config/openicpsr_186241_kalro_batteries.json \
+  --out sources/openicpsr_186241/extracted
+\end{lstlisting}
+This produces reviewable metadata JSON and respondent CSV files for each
+battery. Each matrix is then validated and applied to the KALRO project; the
+following is the awareness battery, with the same command repeated for input
+use and farming practices:
+
+\begin{lstlisting}[style=shell]
+zwill survey ingest-matrix --survey kalro_input_awareness \
+  --metadata sources/openicpsr_186241/extracted/kalro_input_awareness_metadata.json \
+  --respondents sources/openicpsr_186241/extracted/kalro_input_awareness_respondents.csv \
+  --out sources/openicpsr_186241/converted/kalro_input_awareness --apply
+\end{lstlisting}
+After inspection, \texttt{zwill commit --survey kalro\_input\_awareness}
+freezes the observed scoring truth (and likewise for the other two batteries).
+The study manifest names all 20 targets and shared design settings. One command
+then creates, records approval for, and exports the 20 leave-one-question-out
+plans while leaving every plan JSON available for inspection:
+
+\begin{lstlisting}[style=shell]
+zwill study prepare \
+  --manifest ../config/openicpsr_186241_kalro_study.json \
+  --mode by-question --out workflow/openicpsr_186241/full \
+  --plan-suffix validation_v1 \
+  --results-dir results/openicpsr_186241/full \
+  --approved-by "Reviewer Name"
+\end{lstlisting}
+Expected Parrot executes the resulting manifest with
+\texttt{ep run-manifest workflow/openicpsr\_186241/full/jobs/run-manifest.json --parallel 3
+--execute}; omitting \texttt{--execute} performs a free completeness check.
+The no-persona comparator is separately exportable, so it can be added or
+rerun without changing the respondent-level plans:
+
+\begin{lstlisting}[style=shell]
+zwill study one-shot-build \
+  --manifest ../config/openicpsr_186241_kalro_study.json \
+  --out jobs/openicpsr_186241/full_one_shot \
+  --model openai:gpt-5.5
+\end{lstlisting}
+After those three battery-level jobs run, one command imports them and writes a
+survey-to-job mapping rather than coupling their lifecycle to the twin run:
+
+\begin{lstlisting}[style=shell]
+zwill study one-shot-import \
+  --manifest jobs/openicpsr_186241/full_one_shot/run-manifest.json \
+  --results-dir results \
+  --path reports/openicpsr_186241/full_probability_jobs.json --replace
+\end{lstlisting}
+That mapping is passed into the final lifecycle command:
+
+\begin{lstlisting}[style=shell]
+zwill study finish \
+  --manifest workflow/openicpsr_186241/full/jobs/run-manifest.json \
+  --results-dir results/openicpsr_186241/full --replace \
+  --audit-out zwill_work/reports/openicpsr_186241/full_audits \
+  --out 'zwill_work/reports/openicpsr_186241/full_validation/{survey}' \
+  --probability-jobs reports/openicpsr_186241/full_probability_jobs.json \
+  --embedder edsl --embedding-model text-embedding-3-small --seed 20260730
+\end{lstlisting}
+This refuses incomplete results, imports forecasts, renders prompt audits, and
+fits the matched XGBoost and one-shot comparisons. Finally, stable study tables
+are produced without paper code reopening internal validation files:
+
+\begin{lstlisting}[style=shell]
+zwill study summarize \
+  --manifest ../config/openicpsr_186241_kalro_study.json \
+  --bundle-template 'zwill_work/reports/openicpsr_186241/full_validation/{survey}' \
+  --out zwill_work/reports/openicpsr_186241/full_summary
+\end{lstlisting}
+
+Each of the \KALROQuestions{} questions is held out in its own approved plan.
+For that target, both the twin and XGBoost receive the same 200 sampled
+respondents, the same profile fields, and every admissible non-target answer in
+the battery (capped at eight for the twelve-item battery). Thus neither method
+is trained or prompted with any target answer, and the twin is reconstructed
+for every held-out question. The run contains \KALROCalls{} calls including
+\KALROQuestions{} same-model one-shot forecasts, costs \KALROCost, has no
+malformed prediction rows, and produces zero leakage flags in all three
+batteries.
+
+Across questions, GPT-5.5 twins improve on exact-context conditional XGBoost by
+\KALROConditionalDelta{} NLL (95\% battery-bootstrap interval
+$[\KALROConditionalLo,\KALROConditionalHi]$), with lower NLL on
+\KALROConditionalWins{} of 20 questions and in all three battery aggregates.
+This comparison is favorable but should be read alongside the stronger
+same-model population forecast. Relative to one-shot GPT-5.5, the overall
+difference is \KALROOneShotDelta{}
+($[\KALROOneShotLo,\KALROOneShotHi]$): the interval crosses zero, so the two
+methods are statistically indistinguishable overall. The farming-practices
+battery favors twins, while the two four-item input batteries are effectively
+tied. Twins also remain worse than the oracle empirical marginal by
+\KALROMarginalDelta{} NLL. Their implied marginal distributions have
+option-level correlation \KALROMarginalCorrelation{} and MAE
+\KALROMarginalMAE. The result therefore strengthens external validity and the
+case against a simple benchmark-memorization account, but it is not a universal
+win over a strong population-level model.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.88\textwidth]{../output/figures/kalro_extension.pdf}
+\caption{Leave-one-question-out external validation in three KALRO batteries.
+Points are battery macro-average GPT-5.5 twin NLL minus the named benchmark;
+bars are paired 95\% bootstrap intervals. Negative differences favor twins.}
+\label{fig:kalro-extension}
+\end{figure}
+
+\begin{table}[ht]
+\centering
+\scriptsize
+\resizebox{\textwidth}{!}{\input{generated/kalro_extension.tex}}
+\caption{KALRO external-validation results against exact-context XGBoost and
+the same-model no-persona one-shot baseline. Negative differences favor
+respondent twins.}
+\label{tab:kalro-extension}
+\end{table}
+
+\subsection{Performance relative to uniform}
+Uniform prediction assigns $1/|\mathcal A_j|$ to every option and therefore
+uses neither population prevalence nor respondent information. It is a weak
+reference, but an informative diagnostic: failure to beat it means that a
+method's confidence is actively harmful relative to complete ignorance. We
+define question-level NLL skill as
+\[
+ S^{U}_{j}=1-\frac{\mathrm{NLL}_{j,\mathrm{twin}}}
+                       {\log |\mathcal A_j|}.
+\]
+Positive values favor the twin. In the by-question design, GPT-5.5 has lower
+NLL than uniform on \UniformQuestionsBetter\ of 69 targets and positive macro
+skill in 14 of 15 batteries. Averaging equally across questions, the NLL
+difference is \UniformNLLDelta\ (95\% question-cluster bootstrap interval
+$[\UniformNLLLo,\UniformNLLHi]$). The corresponding mean Brier difference is
+$-0.162$ (95\% CI $[-0.184,-0.140]$). Thus the result is not driven merely by
+comparison with a difficult learned benchmark: the forecasts also dominate a
+no-information probability vector on nearly every target.
+
+Uniform is not the decisive benchmark because survey options are rarely
+equally prevalent. A model can beat uniform by knowing only that one response
+is common. The conditional XGBoost comparison remains the respondent-level
+gate; uniform performance establishes basic forecast competence, not digital-
+twin validity.
+
+Figure~\ref{fig:benchmark-ladder} puts all three references on the same
+question-level scale. Each point is one held-out target and the short black bar
+is the median. Moving from uniform to the empirical marginal and then to
+conditional XGBoost progressively removes gains attributable to knowing option
+counts or population prevalence. The remaining negative distribution against
+XGBoost is therefore the relevant evidence for respondent-specific signal; its
+wider dispersion also makes clear why survey-level intervals and target-level
+diagnostics are both needed.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.78\textwidth]{../output/figures/benchmark_ladder.pdf}
+\caption{By-question GPT-5.5 NLL minus benchmark NLL for all 69 held-out
+targets. Negative values favor the twin. The benchmarks use, respectively, no
+information, the observed target distribution, and the same respondents and
+prompt-level context as the twin. Horizontal bars mark medians.}
+\label{fig:benchmark-ladder}
+\end{figure}
+
+\subsection{Semantic proximity and question difficulty}
+Across the combined 107-question collection, targets closer on average to their
+observed context questions tend to be easier for the twins within the same
+battery, although the expanded interval now narrowly includes zero. The coefficient of similarity in the NLL
+regression is \SemanticNLLCoef{} (battery-bootstrap 95\% interval
+$[\SemanticNLLLo,\SemanticNLLHi]$). On the more interpretable 0.1-similarity
+scale, this is approximately a 0.100 reduction in mean NLL. Accuracy moves in
+the same direction: its coefficient is 0.670 (95\% interval $[0.065,1.299]$),
+or roughly 6.7 percentage points per 0.1 similarity.
+
+The stronger test is whether closeness especially helps the language-model
+twin rather than making the prediction problem easier for both methods. Here
+the evidence is weak. The coefficient for twin advantage over exact-context
+XGBoost is \SemanticAdvCoef{}, with a wide interval
+$[\SemanticAdvLo,\SemanticAdvHi]$ that includes zero. The maximum-similarity
+measure is also inconclusive for both absolute NLL and relative advantage.
+Because XGBoost itself uses the same semantic embedding family, this pattern is
+coherent: related context appears informative, but this sample does not show
+that the twin extracts disproportionately more value from semantic closeness.
+
+Figure~\ref{fig:semantic-proximity} displays the within-battery variation behind
+the estimates. The left panel shows the suggestive ``closer is easier''
+claim; the right panel shows why it should not be restated as a comparative
+mechanism claim. The LOESS curves do not reveal a stable threshold that would
+overturn the linear summary, and their wide bands---especially near the sparse
+extremes---make the limited support visible. Outliers have considerable leverage
+with three to five targets per battery, and no causal interpretation is
+warranted.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.96\textwidth]{../output/figures/semantic_proximity.pdf}
+\caption{Question-level semantic proximity and predictive performance after
+removing battery means. Proximity is the mean cosine similarity between the
+held-out question and the context questions actually shown across respondent
+prompts. Lines are the corresponding battery-fixed-effect slopes. Higher twin
+advantage means lower twin NLL relative to XGBoost. Colored curves are
+local-linear LOESS fits with pointwise 95\% whole-battery bootstrap bands.}
+\label{fig:semantic-proximity}
+\end{figure}
+
+\subsection{Aggregate marginal recovery}
+Individual forecasts also imply a marginal distribution. For option $a$ of
+question $j$, we average the 200 respondent forecasts,
+\[
+ \widehat\pi_{ja}=\frac{1}{n_j}\sum_i\widehat p_{ija},
+ \qquad
+ \pi_{ja}=\frac{1}{n_j}\sum_i\mathbf 1\{y_{ij}=a\}.
+\]
+Across 295 question--option cells in the 69 by-question targets, the correlation
+between $\widehat\pi_{ja}$ and $\pi_{ja}$ is \MarginalCorrelation\ and the mean
+absolute option-share error is \MarginalMAE. The modal option agrees on
+\MarginalTopAgreement\ of questions; mean question-level Jensen--Shannon
+divergence is 0.012. Figure~\ref{fig:marginal-fit} shows that fit directly.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.62\textwidth]{../output/figures/marginal_fit.pdf}
+\caption{Observed option shares and shares implied by averaging GPT-5.5's 200
+by-question respondent forecasts. Each point is one labeled option on one of
+69 held-out questions; the dashed line is equality.}
+\label{fig:marginal-fit}
+\end{figure}
+
+Aggregate recovery and individual prediction answer different questions. The
+strong marginal fit shows that averaging the twins yields plausible survey
+distributions, but it cannot by itself show that probability mass is assigned
+to the correct people. The NLL comparison to exact-context XGBoost supplies
+that harder evidence.
+
+Figure~\ref{fig:calibration-comparison} reports a complementary probability
+diagnostic. Each line joins the average by-question expected calibration error
+of GPT-5.5 and conditional XGBoost within a battery. Calibration is not a
+substitute for a proper scoring-rule comparison: a method can be calibrated yet
+uninformative. It does reveal whether an NLL advantage is accompanied by
+systematically unreliable confidence. The mixed within-battery ordering here
+argues against reducing the main result to a universal calibration advantage.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.86\textwidth]{../output/figures/calibration_comparison.pdf}
+\caption{Mean expected calibration error across by-question runs within each
+survey battery. Lower values are better. Lines pair GPT-5.5 twins and the
+exact-information conditional XGBoost benchmark evaluated on the same 200
+respondents.}
+\label{fig:calibration-comparison}
+\end{figure}
+
+\subsection{Same-model one-shot marginal benchmark}
+The uniform and empirical-marginal references bracket two extremes: no
+knowledge and direct access to the realized target distribution. We add a
+deployable intermediate comparison by asking GPT-5.5 once per target for the
+population response distribution using only the question wording and legal
+options. The model receives no respondent profile, no observed answers, and no
+empirical target frequencies. If its one-shot distribution is $q_j(a)$, its
+score on the same 200 respondents used for by-question validation is
+\[
+ \mathrm{NLL}_{j,\mathrm{one\mbox{-}shot}}
+   =-\frac{1}{n_j}\sum_i \log q_j(y_{ij}),
+ \qquad
+ \Delta^{OS}_j=\mathrm{NLL}_{j,\mathrm{twin}}
+                   -\mathrm{NLL}_{j,\mathrm{one\mbox{-}shot}}.
+\]
+Negative $\Delta^{OS}_j$ isolates the value of respondent-specific context
+while holding the language model and target wording fixed.
+
+The workflow intentionally exports one probability job per battery, rather
+than one monolithic cross-study job. Each package contains that battery's
+three to five target questions. A newly ingested battery therefore adds one
+new export, result, import receipt, and report without rerunning any completed
+battery. The Make pattern obtains the target list from the study manifest and
+executes the following \zwill--Expected Parrot sequence for each battery:
+
+\begin{lstlisting}[style=shell]
+zwill edsl build --survey $survey --target probability-job \
+  --questions "$questions" --model openai:gpt-5.5 \
+  --path jobs/one-shot/$survey/one_shot_jobs.ep
+\end{lstlisting}
+
+\begin{lstlisting}[style=shell]
+ep run --jobs jobs/one-shot/$survey/one_shot_jobs.ep --background
+\end{lstlisting}
+
+\begin{lstlisting}[style=shell]
+zwill prob-results import --survey $survey \
+  --input-path results/one-shot/$survey/one_shot_results.ep --replace
+\end{lstlisting}
+
+\begin{lstlisting}[style=shell]
+zwill prob-results report --survey $survey --job-id $job_id \
+  --format json --path reports/one-shot/$survey/marginals.json
+\end{lstlisting}
+
+The run added \OneShotCalls\ forecasts across all 15 batteries at an observed
+cost of \OneShotCost; all rows imported without issue. Mean question-level
+option-share MAE is \OneShotMAE\ for the one-shot distributions and
+\OneShotTwinMAE\ for distributions obtained by averaging the 200 corresponding
+twins. Figure~\ref{fig:one-shot-marginals} plots both against observed shares.
+The twins' aggregate advantage is modest, which is expected: respondent
+context is primarily intended to allocate probability to the right people,
+not simply to recover population prevalence.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.72\textwidth]{../output/figures/one_shot_marginal_fit.pdf}
+\caption{Observed option shares versus the GPT-5.5 one-shot distribution and
+the average of 200 GPT-5.5 respondent-specific forecasts. Both series cover
+the same 295 options from 69 held-out questions.}
+\label{fig:one-shot-marginals}
+\end{figure}
+
+At the individual level, twins have lower NLL on \OneShotTwinWins\ of 69
+questions. The equally weighted mean difference is \OneShotNLLDelta. The
+battery-level differences in Figure~\ref{fig:one-shot-lift} favor twins in
+\OneShotBatteryWins\ of 15 batteries. Municipal vignettes are the exception:
+the no-persona forecast has lower mean NLL there, consistent with that
+battery's inconclusive twin--XGBoost result. Thus GPT-5.5's general knowledge
+of survey marginals explains some predictive performance, but not the full
+benefit usually obtained when the same model receives a respondent's observed
+answers and profile.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.86\textwidth]{../output/figures/one_shot_nll_lift.pdf}
+\caption{Battery-level mean NLL for GPT-5.5 twins minus the same model's
+no-persona one-shot distribution, evaluated on the identical by-question
+respondent samples. Negative values favor respondent-specific context.}
+\label{fig:one-shot-lift}
+\end{figure}
+
+\begin{table}[ht]
+\centering
+\scriptsize
+\input{generated/one_shot_table.tex}
+\caption{One-shot and twin-implied aggregate error, plus individual-level NLL
+lift, by independently executable battery. MAE averages equally over questions
+within battery; $\Delta$ NLL is twin minus one-shot.}
+\label{tab:one-shot}
+\end{table}
+
+\subsection{Robustness across language models}
+Table~\ref{tab:model-comparison} reports the predeclared five-battery subset.
+All three models beat uniform and the empirical-marginal oracle on average,
+and all three clear the XGBoost NLL interval in every selected battery.
+GPT-5.5 has the lowest mean survey-level NLL in all five batteries and the
+largest average skill, although these model-to-model differences were not the
+primary paired gate. Gemini 3.5 Flash and Claude Sonnet 4.6 are close to each
+other on mean NLL, with neither uniformly dominating at the question level.
+
+\begin{table}[ht]
+\centering
+\small
+\input{generated/model_comparison.tex}
+\caption{Matched by-question model comparison over five batteries and 22
+targets. Skill is $1-\mathrm{NLL}_{model}/\mathrm{NLL}_{reference}$, averaged
+over survey-level macros. ``XGB passes'' counts batteries whose entire paired
+95\% interval for model minus XGBoost NLL is below zero.}
+\label{tab:model-comparison}
+\end{table}
+
+The cross-provider replication matters because digital-twin performance could
+otherwise be an idiosyncrasy of one model's instruction following or
+probability calibration. The common positive result suggests that the
+construction carries transferable signal, while GPT-5.5's consistent edge
+also shows that model choice remains consequential.
+
+Figure~\ref{fig:model-comparison} shows the underlying battery-level values
+rather than only their cross-battery averages. All four points within a row use
+the identical targets and respondents. This view exposes both the common
+advantage over XGBoost and the amount of between-battery variation that the
+pooled table necessarily compresses.
+
+\begin{figure}[ht]
+\centering
+\includegraphics[width=0.88\textwidth]{../output/figures/model_comparison.pdf}
+\caption{Matched mean NLL for three language-model twins and conditional
+XGBoost on the five-battery robustness subset. Lower values are better. Each
+battery contains the same 200 respondents and the same by-question information
+sets for every method.}
+\label{fig:model-comparison}
+\end{figure}
+
+\subsection{Audit findings and corrective run}
+The implementation keys every baseline feature to the exact observed-answer
+list stored for the twin case and fingerprints that information policy in the
+baseline job identifier. This makes both respondent membership and available
+answers mechanically auditable for every comparison.
+
+The Gallup remote-work audit found a near-duplicate pair: the February 1
+work-from-home capacity target and a current-job capacity context item had
+Cramér's V of 0.939 among 1,878 respondents. We stopped interpretation of that
+target, registered a new construction approach with an explicit target-specific
+exclusion, approved and executed a 200-prediction corrective plan, and inspected
+the rendered prompts. Those prompts contained seven substantive context
+answers and omitted the flagged current-job item. The generic association
+audit nevertheless continued to flag the pair because it scans the survey's
+eligible question pairs rather than only the rendered prompt. To remain
+conservative, we exclude the target---and the remote-work battery's apparent
+aggregate pass---from the clean-survey headline. Fourteen primary survey
+bundles otherwise had zero leakage flags.
+
+\section{What the evidence supports}
+The study supports a positive but bounded predictive conclusion. Conditional
+on the selected public batteries, target questions, 200-respondent samples,
+model versions, and prompt construction, GPT-5.5 battery-context twins assign
+better probabilities than the implemented XGBoost transfer baseline in all 14
+clean simultaneous-holdout batteries and 13 of 14 by-question batteries. The
+agreement between NLL and Brier gates makes that comparison less dependent on
+one scoring rule. It does not expand the population to which the comparison
+applies.
+
+This is not evidence that twins dominate every supervised alternative. The
+baseline deliberately honors the twin's small information budget and must
+transfer across questions without target labels. A production system with
+labeled examples for the new target estimates a different and easier task.
+Nor do held-out survey answers validate arbitrary counterfactuals. The evidence
+supports respondent-level interpolation within related batteries and motivates
+replication across models and constructions, not unqualified deployment.
+
+The finite-sample predictive comparison itself is not heuristic: it has a
+defined loss, matched cases, a frozen information policy, and uncertainty over
+the evaluated respondents. It provides statistically disciplined evidence that
+one predictor performs better than another on the declared tasks. In Hullman et
+al.'s taxonomy, the heuristic step would be to use that result as proof of
+human--twin interchangeability on unobserved tasks \citep{hullman2026human}.
+Our controls rule out several mundane reasons a benchmark can look successful,
+including prompt-level target leakage, unequal information, unmatched cases,
+malformed-row selection, and weak baselines. Eliminating those failures still
+does not establish no pretraining leakage, risk generalization to new scenarios,
+or preservation of the moments needed for a downstream estimand.
+
+The appropriate deployment implication is therefore prospective and
+calibrated. If twins are used to prioritize questions, stress-test an
+instrument, or allocate scarce human measurement, the benchmark provides
+evidence that their rankings contain signal, while final claims should still be
+checked on human outcomes. If twins are used to estimate a mean, subgroup gap,
+regression coefficient, or causal effect, the model predictions should be
+treated as auxiliary measurements. A jointly labeled human validation sample
+can estimate a rectifier, for example through prediction-powered inference,
+rather than assuming model errors average away. Better NLL can improve the
+precision available from such an approach; it is not itself the identification
+argument \citep{ludwig2025llm}.
+
+\section{Limitations}
+First, the 15-battery primary study, five-battery GSS extension, and
+three-battery KALRO external validation use GPT-5.5; cross-provider robustness is
+measured on a predeclared five-battery subset rather than the full corpus. The
+study still uses one construction strategy and one fixed seed per design and
+does not estimate variation across seeds, temperatures, or prompt pipelines.
+Second, 200 respondents provide
+useful pilot evidence but limited power for small effects and rare response
+options. The per-question complete-case sample may also differ across targets,
+although every twin--baseline comparison uses identical cases. Third, all
+baselines use one fixed semantic embedding model; results may differ with other
+representations or XGBoost hyperparameters. Fourth,
+questions within a battery often share wording and topic. This is a realistic
+within-instrument prediction task, but easier than predicting an unrelated
+future question. Fifth, complete-case filtering changes the evaluated
+population, and survey weights were not used as prompt evidence. Sixth,
+statistical leakage screening cannot prove the absence of every semantic
+shortcut; prompt inspection remains essential.
+
+Seventh, our use of ``leakage'' is narrower than no training leakage. We verify
+that held-out answers and target-revealing fields do not enter the prompt, but
+cannot determine whether public questionnaire text, reports, or distributions
+appeared in proprietary pretraining corpora. Holding a response out at
+inference time is not a temporal or corpus holdout. Results therefore describe
+performance on the evaluated finite tasks, not unbiased risk over unseen survey
+scenarios.
+
+Eighth, target questions and batteries are not probability samples from a
+defined universe of behavioral scenarios. Respondent-bootstrap intervals are
+conditional on these items, and the cross-question summaries are descriptive
+of the 69 primary targets, 38 GSS extension targets, and 20 KALRO targets.
+Generalization over questions would require a declared
+scenario population and random sampling or an equivalent design. Finally, we
+do not evaluate bias for any downstream mean, subgroup contrast, regression,
+or treatment effect. Aggregate marginal agreement does not guarantee
+conditional moment preservation. Any inferential use of twin-generated
+outcomes requires its own human validation sample, estimand-specific error
+analysis, and calibration procedure.
+
+\section{Reproducibility}
+The paper directory contains declarative ingestion specifications, the survey
+cohort configuration, 15 simultaneous and 127 by-question approved plans, 44 additional
+model-comparison plans, exported EDSL jobs, raw Results packages,
+import records, run-audit pages, leakage files, conditional-baseline
+predictions, bootstrap JSON and SVG artifacts, consolidated report bundles,
+stable \texttt{zwill study summarize} CSV/JSON exports---including the
+independently sourced KALRO extension---with canonical
+aggregate statistics and claim gates, package-generated SVG diagnostics,
+realized-cost rollups, and presentation scripts that generate Tables~\ref{tab:cohort},
+\ref{tab:validation}, \ref{tab:kalro-extension}, and
+\ref{tab:model-comparison} plus their figures. The
+main cross-survey facts are also stored as CSV and JSON. Rebuilding refuses to
+overwrite the completed \texttt{workdir} unless
+the operator explicitly passes \texttt{--fresh}.
+
+\appendix
+\section{Executed twin prompt template}
+The following is the template exposed by the \zwill{} run-audit artifact for the
+by-question jobs. Bracketed double braces are populated from the approved EDSL
+scenario. The executed jobs recorded no separate system prompt. The actual
+answer is retained as hidden scenario metadata for later scoring, but it is not
+one of the template variables and is absent from the rendered user prompt.
+
+\begin{lstlisting}[style=prompt]
+You are acting as a digital twin for one survey respondent.
+
+Survey name:
+{{ survey_name }}
+
+Survey context:
+{{ survey_context }}
+
+Respondent id:
+{{ respondent_id }}
+
+Non-survey agent construction material:
+{{ agent_material_text }}
+
+Supplemental twin material:
+{{ twin_material_text }}
+
+Observed answers from this respondent:
+{{ observed_answers_text }}
+
+Held-out question name:
+{{ heldout_question_name }}
+
+Held-out question text:
+{{ heldout_question_text }}
+
+Held-out response options:
+{{ heldout_options_text }}
+
+Use the non-survey agent construction material, supplemental twin
+material, and observed answers to infer this respondent's probability
+distribution over the held-out response options.
+
+Return only valid JSON. Do not include markdown fences, prose, or comments.
+
+The JSON must have exactly this shape:
+{
+  "probabilities": [0.17, 0.83],
+  "notes": "Brief explanation of the respondent-level probability estimates."
+}
+
+The probabilities array must contain one number for each held-out option,
+in the same order as the options. Each probability must be between 0 and 1.
+The probabilities should sum to 1.
+\end{lstlisting}
+
+Although the template includes a respondent identifier for joining artifacts,
+the identifier is an opaque study-specific key rather than substantive
+personality evidence. In the executed examples, non-survey and supplemental
+material explicitly state when nothing was supplied. The predictive evidence
+is therefore concentrated in readable profile metadata and the structured
+\texttt{observed\_answers\_text} block. Every run-audit page preserves rendered
+examples and raw responses, permitting direct verification that target answers,
+weights, and target marginals were absent.
+
+\section{Reliability and construction questions for future tests}
+The executed study deliberately holds construction fixed. The conceptual
+framework nevertheless suggests several preregistered extensions. Encoder
+ablations can compare answers-only, metadata-only, shuffled-answer, and other-
+respondent contexts. Decoder robustness can vary topic distance, wording,
+option order, language, and model family. Prompt stability, predictive entropy,
+and respondent-level dispersion are candidate reliability signals, but they
+should be evaluated on held-out batteries rather than trusted because they are
+intuitively appealing. Elaborate persona prose is likewise a hypothesis, not a
+free improvement: any compression of the raw answer record may discard the
+very local structure that supports prediction. Each extension can be expressed
+as a registered \zwill{} approach and approved plan, then compared using the same
+leakage audit and exact-information baseline gate.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}

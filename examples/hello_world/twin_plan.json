@@ -1,0 +1,14 @@
+{
+  "plan_id": "hello_twin_plan",
+  "survey": "hello_twin_plan",
+  "heldout_question": "likes_blue",
+  "defaults": {
+    "respondent": ["r001", "r002", "r003", "r004", "r005"],
+    "context_questions": "favorite_color",
+    "complete_cases": true
+  },
+  "arms": [
+    {"approach_id": "survey_answers_only"},
+    {"approach_id": "survey_answers_plus_prior"}
+  ]
+}

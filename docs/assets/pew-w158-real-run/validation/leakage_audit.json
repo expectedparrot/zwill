@@ -1,0 +1,65 @@
+{
+  "warn_threshold": 0.7,
+  "min_pair_rows": 30,
+  "pair_count": 5,
+  "flagged_count": 0,
+  "rows": [
+    {
+      "target_question": "carbon_tax",
+      "target_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+      "context_question": "zero_carbon_power",
+      "context_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? CCPOLICY_d_W158. Requiring power plants to eliminate all carbon emissions by 2040",
+      "cramers_v": 0.5778881849921034,
+      "respondents": 100,
+      "target_distinct_answers": 2,
+      "context_distinct_answers": 2,
+      "warning": ""
+    },
+    {
+      "target_question": "carbon_tax",
+      "target_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+      "context_question": "methane_leaks",
+      "context_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Requiring oil and gas companies to seal methane gas leaks from oil wells",
+      "cramers_v": 0.47601396902569837,
+      "respondents": 100,
+      "target_distinct_answers": 2,
+      "context_distinct_answers": 2,
+      "warning": ""
+    },
+    {
+      "target_question": "carbon_tax",
+      "target_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+      "context_question": "carbon_capture_credit",
+      "context_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate Providing a tax credit to encourage businesses to develop technology which captures and stores carbon emissions so they do not enter the atmosphere",
+      "cramers_v": 0.4682021715811959,
+      "respondents": 100,
+      "target_distinct_answers": 2,
+      "context_distinct_answers": 2,
+      "warning": ""
+    },
+    {
+      "target_question": "carbon_tax",
+      "target_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+      "context_question": "home_efficiency_credit",
+      "context_question_text": "Do you favor or oppose below proposals to reduce effects of global climate change? Providing a tax credit to Americans who improve their home energy efficiency, such as by installing heat pumps or adding insulation",
+      "cramers_v": 0.4472998488100739,
+      "respondents": 100,
+      "target_distinct_answers": 2,
+      "context_distinct_answers": 2,
+      "warning": ""
+    },
+    {
+      "target_question": "carbon_tax",
+      "target_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Taxing corporations based on the amount of carbon emissions they produce",
+      "context_question": "tree_planting",
+      "context_question_text": "Do you favor or oppose the following proposals to reduce the effects of global climate change? Planting about a trillion trees around the world to absorb carbon emissions in the atmosphere",
+      "cramers_v": 0.11819465633132988,
+      "respondents": 100,
+      "target_distinct_answers": 2,
+      "context_distinct_answers": 2,
+      "warning": ""
+    }
+  ],
+  "omitted_count": 0,
+  "note": "Bias-corrected (Bergsma) Cramer's V between each target and every other question on observed answers. High values mark context that may let a twin copy the target instead of modelling the respondent. The correction prevents high-cardinality (e.g. free-text) context from firing spuriously; check the distinct-answer counts when interpreting."
+}
