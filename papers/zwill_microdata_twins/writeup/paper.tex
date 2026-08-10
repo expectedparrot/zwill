@@ -1207,11 +1207,16 @@ zwill study prepare \
   --results-dir results/openicpsr_186241/full \
   --approved-by "Reviewer Name"
 \end{lstlisting}
-Expected Parrot executes the resulting manifest with
-\texttt{ep run-manifest workflow/openicpsr\_186241/full/jobs/run-manifest.json --parallel 3
---execute}; omitting \texttt{--execute} performs a free completeness check.
-The no-persona comparator is separately exportable, so it can be added or
-rerun without changing the respondent-level plans:
+Expected Parrot executes the resulting manifest independently:
+
+\begin{lstlisting}[style=shell]
+ep run-manifest \
+  workflow/openicpsr_186241/full/jobs/run-manifest.json \
+  --parallel 3 --execute
+\end{lstlisting}
+Omitting \texttt{--execute} performs a free completeness check. The no-persona
+comparator is separately exportable, so it can be added or rerun without
+changing the respondent-level plans:
 
 \begin{lstlisting}[style=shell]
 zwill study one-shot-build \
@@ -1228,6 +1233,7 @@ zwill study one-shot-import \
   --results-dir results \
   --path reports/openicpsr_186241/full_probability_jobs.json --replace
 \end{lstlisting}
+\newpage
 That mapping is passed into the final lifecycle command:
 
 \begin{lstlisting}[style=shell]
@@ -1296,6 +1302,7 @@ respondent twins.}
 \label{tab:kalro-extension}
 \end{table}
 
+\clearpage
 \subsection{Performance relative to uniform}
 Uniform prediction assigns $1/|\mathcal A_j|$ to every option and therefore
 uses neither population prevalence nor respondent information. It is a weak
